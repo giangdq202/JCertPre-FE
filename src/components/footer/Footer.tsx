@@ -1,6 +1,6 @@
 import React from "react";
 import { FaTwitter, FaDiscord, FaInstagram, FaYoutube } from "react-icons/fa";
-import logo from "../../assets/logo.png";
+import logo from "../../assets/logo.png"// Đảm bảo đường dẫn đúng đến logo
 
 export default function Footer() {
   return (

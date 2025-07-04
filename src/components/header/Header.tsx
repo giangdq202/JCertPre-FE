@@ -1,22 +1,26 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { FaAngleDown, FaAngleUp, FaSearch } from "react-icons/fa";
-import logo from "../../assets/logo.png";
+import logo from "../../assets/logo.png"; // Ensure the path to the logo is correct
 
 const Header = () => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const dropdownRef = useRef(null);
+  const dropdownRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+    const handleClickOutside = (event : MouseEvent) => {
+      if (
+        dropdownRef.current &&
+        event.target &&
+        !dropdownRef.current.contains(event.target as HTMLElement)
+      ) {
         setIsDropdownOpen(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
-
+  
   return (
     <header className="bg-[#062530] text-white font-['Noto_Serif_JP'] relative z-50">
       <div className="max-w-[1280px] mx-auto px-4 py-3 flex flex-wrap items-center justify-between">
