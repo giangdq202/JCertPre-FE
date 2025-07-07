@@ -1,14 +1,14 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { FaAngleDown, FaAngleUp, FaSearch } from "react-icons/fa";
-import logo from "../../assets/logo.png"; // Ensure the path to the logo is correct
+import logo from "../../assets/logo.png";
 
 const Header = () => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    const handleClickOutside = (event : MouseEvent) => {
+    const handleClickOutside = (event: MouseEvent) => {
       if (
         dropdownRef.current &&
         event.target &&
@@ -20,131 +20,135 @@ const Header = () => {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
-  
-  return (
-    <header className="bg-[#062530] text-white font-['Noto_Serif_JP'] relative z-50">
-      <div className="max-w-[1280px] mx-auto px-4 py-3 flex flex-wrap items-center justify-between">
-        {/* Left: Khám phá + Search */}
-        <div className="flex items-center gap-4 sm:gap-6 ml-2 sm:ml-4">
-          <div className="relative" ref={dropdownRef}>
-            <button
-              onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-              className={`flex items-center gap-1 text-sm font-semibold px-2 py-1 transition ${
-                isDropdownOpen ? "border-b-2 border-red-500" : ""
-              }`}
-            >
-              Khám phá{" "}
-              {isDropdownOpen ? (
-                <FaAngleUp size={12} />
-              ) : (
-                <FaAngleDown size={12} />
-              )}
-            </button>
-          </div>
 
-          <div className="relative hidden sm:block">
+  return (
+    <header className="bg-gradient-to-r from-red-100 via-white to-red-100/80 backdrop-blur-md fixed top-0 left-0 right-0 z-50 shadow-md border-b border-gray-200 font-['Noto_Serif_JP'] transition-all duration-300">
+      <div className="w-full py-3 px-4 flex items-center justify-between">
+        <div
+          className="flex items-center gap-4 justify-start flex-grow-0"
+          ref={dropdownRef}
+        >
+          <Link to="/" className="flex items-center gap-2">
+            <img
+              src={logo}
+              alt="JCertPre logo"
+              className="h-14 w-14 rounded-full object-cover border border-red-300"
+            />
+            <span className="text-lg font-bold text-red-600 tracking-tight hidden sm:inline">
+              JCertPre
+            </span>
+          </Link>
+
+          <button
+            onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+            className={`flex items-center gap-1 text-sm font-semibold px-3 py-1.5 rounded-full transition border font-['Merriweather'] tracking-wide uppercase
+    ${
+      isDropdownOpen
+        ? "bg-red-100 text-red-700 border-red-300"
+        : "text-gray-700 border-gray-300 hover:border-red-400 hover:bg-red-50 hover:text-red-600"
+    }`}
+          >
+            Khám phá{" "}
+            {isDropdownOpen ? (
+              <FaAngleUp size={12} />
+            ) : (
+              <FaAngleDown size={12} />
+            )}
+          </button>
+
+          <div className="relative hidden sm:block font-['Merriweather']">
             <input
               type="text"
               placeholder="Tìm kiếm..."
-              className="px-3 py-1.5 pl-8 rounded-md text-sm text-black focus:outline-none focus:ring-2 focus:ring-blue-200"
+              className="pl-9 pr-3 py-2 rounded-full text-sm border border-red-200 focus:outline-none focus:ring-2 focus:ring-red-300 bg-white text-gray-700 shadow-md placeholder-gray-400 transition duration-200"
             />
-            <FaSearch className="absolute left-2 top-2 text-gray-500 text-sm" />
+            <FaSearch className="absolute left-3 top-2.5 text-red-400 text-sm" />
           </div>
         </div>
 
-        {/* Center: Logo */}
-        <div className="flex items-center gap-2">
-          <img
-            src={logo}
-            alt="JCertPre logo"
-            className="h-10 w-10 rounded-full object-cover"
-          />
-          <span className="text-lg font-semibold">JCertPre</span>
-        </div>
+        <nav className="flex justify-center flex-grow gap-6 text-sm font-semibold font-['Merriweather'] whitespace-nowrap">
+          {[
+            ["Trang chủ", "/"],
+            ["Khoá học", "/courses"],
+            ["Lớp học trực tuyến", "/live-classes"],
+            ["Thi thử", "/mocktest"],
+            ["Về chúng tôi", "/about"],
+            ["Hỗ trợ", "/support"],
+          ].map(([label, path], idx) => (
+            <Link
+              key={idx}
+              to={path}
+              className="text-gray-700 uppercase transition duration-200 relative hover:text-red-600"
+            >
+              <span className="relative z-10">{label}</span>
+              <span className="absolute left-0 bottom-0 w-full h-[2px] bg-red-400 scale-x-0 hover:scale-x-100 transition-transform duration-300 origin-left rounded-full" />
+            </Link>
+          ))}
+        </nav>
 
-        {/* Right: Links */}
-        <nav className="flex items-center gap-6 text-sm font-semibold mr-2 sm:mr-4 mt-2 sm:mt-0">
-          <Link
-            to="/about"
-            className="text-white hover:underline hover:decoration-white"
-          >
-            Về chúng tôi
-          </Link>
+        <div className="flex items-center gap-3 justify-end flex-grow-0 ml-2">
           <Link
             to="/register"
-            className="bg-red-500 text-white px-4 py-2 rounded-md transition border-2 border-transparent hover:border-white"
+            className="bg-gradient-to-r from-red-500 to-red-600 text-white px-5 py-1.5 rounded-full transition hover:from-red-600 hover:to-red-700 text-sm shadow-md font-['Merriweather'] font-semibold"
           >
-            Đăng ký
+            Đăng Ký
           </Link>
           <Link
             to="/login"
-            className="text-white hover:underline hover:decoration-white"
+            className="text-gray-700 px-5 py-1.5 rounded-full transition hover:bg-white hover:text-red-600 border border-gray-300 text-sm shadow-sm font-['Merriweather'] font-semibold"
           >
-            Đăng nhập
+            Đăng Nhập
           </Link>
-        </nav>
+        </div>
       </div>
 
-      {/* Full Width Dropdown */}
       {isDropdownOpen && (
-        <div className="absolute top-full left-0 right-0 w-screen bg-white text-black z-40 py-10 shadow-xl">
-          <div className="max-w-[1280px] mx-auto px-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-10">
-            {/* Column 1 */}
+        <div className="absolute top-full left-0 right-0 w-screen bg-white py-10 border-t border-red-100 shadow-2xl z-40 animate-slide-down">
+          <div className="max-w-[1280px] mx-auto px-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-10 text-sm text-gray-800">
             <div>
-              <h3 className="font-bold text-sm mb-2">Khoá học</h3>
-              <Link to="/course/n1" className="block py-1 hover:text-red-500">
-                N1: Thành thạo ngữ pháp, đọc hiểu nâng cao JLPT
-              </Link>
-              <Link to="/course/n2" className="block py-1 hover:text-red-500">
-                N2: Tăng tốc luyện đề trung cấp
-              </Link>
-              <Link to="/course/n3" className="block py-1 hover:text-red-500">
-                N3: Củng cố nền tảng thi JLPT
-              </Link>
-              <Link to="/course/n4" className="block py-1 hover:text-red-500">
-                N4: Học cơ bản ngữ pháp, từ vựng
-              </Link>
-              <Link to="/course/n5" className="block py-1 hover:text-red-500">
-                N5: Nhập môn tiếng Nhật
-              </Link>
+              <h3 className="font-bold text-red-600 mb-2">Khoá học</h3>
+              {["n1", "n2", "n3", "n4", "n5"].map((level, i) => (
+                <Link
+                  key={i}
+                  to={`/course/${level}`}
+                  className="block py-1 hover:text-red-500 transition"
+                >
+                  {`N${i + 1}: ${
+                    [
+                      "Thành thạo ngữ pháp, đọc hiểu nâng cao",
+                      "Tăng tốc luyện đề trung cấp",
+                      "Củng cố nền tảng thi JLPT",
+                      "Học cơ bản ngữ pháp, từ vựng",
+                      "Nhập môn tiếng Nhật",
+                    ][i]
+                  }`}
+                </Link>
+              ))}
             </div>
-            {/* Column 2 */}
+
             <div>
-              <h3 className="font-bold text-sm mb-2">Livestream</h3>
-              <Link
-                to="/livestream/n1"
-                className="block py-1 hover:text-red-500"
-              >
-                N1: Giải đề thực chiến
-              </Link>
-              <Link
-                to="/livestream/n2"
-                className="block py-1 hover:text-red-500"
-              >
-                N2: Luyện nghe đọc hiểu
-              </Link>
-              <Link
-                to="/livestream/n3"
-                className="block py-1 hover:text-red-500"
-              >
-                N3: Trọng điểm ngữ pháp
-              </Link>
-              <Link
-                to="/livestream/n4"
-                className="block py-1 hover:text-red-500"
-              >
-                N4: Kiến thức nền tảng
-              </Link>
-              <Link
-                to="/livestream/n5"
-                className="block py-1 hover:text-red-500"
-              >
-                N5: Luyện từ vựng
-              </Link>
+              <h3 className="font-bold text-red-600 mb-2">Livestream</h3>
+              {["n1", "n2", "n3", "n4", "n5"].map((level, i) => (
+                <Link
+                  key={i}
+                  to={`/livestream/${level}`}
+                  className="block py-1 hover:text-red-500 transition"
+                >
+                  {`N${i + 1}: ${
+                    [
+                      "Giải đề thực chiến",
+                      "Luyện nghe đọc hiểu",
+                      "Trọng điểm ngữ pháp",
+                      "Kiến thức nền tảng",
+                      "Luyện từ vựng",
+                    ][i]
+                  }`}
+                </Link>
+              ))}
             </div>
-            {/* Column 3 */}
+
             <div>
-              <h3 className="font-bold text-sm mb-2">Tài nguyên khác</h3>
+              <h3 className="font-bold text-red-600 mb-2">Tài nguyên</h3>
               <Link to="/grammar" className="block py-1 hover:text-red-500">
                 Ngữ pháp JLPT
               </Link>
