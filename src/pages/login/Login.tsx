@@ -4,18 +4,35 @@ import googleLogo from "../../assets/Google__G__logo.svg.png";
 import loginImage from "../../assets/login.png";
 import { Link } from "react-router-dom";
 import backgroundLogin from "../../assets/background_login.jpg";
+import { useAuth } from "../../auth/AuthContext"; // Assuming you have an AuthContext for managing authentication state
 
 const Login: React.FC = () => {
   const [email, setEmail] = useState<string>("");
   const [password, setPassword] = useState<string>("");
   const [rememberMe, setRememberMe] = useState<boolean>(false);
   const [showPassword, setShowPassword] = useState<boolean>(false);
+  const { handleLogin } = useAuth(); // lấy hàm login từ context
+const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const handleLogin = (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    console.log({ email, password, rememberMe });
-    // API login logic
-  };
+const handleLoginSubmit = async (e: FormEvent<HTMLFormElement>) => {
+  e.preventDefault();
+  setErrorMessage(null); // reset lỗi cũ nếu có
+
+  try {
+    await handleLogin(email, password);
+    // Nếu thành công, sẽ tự redirect từ trong context
+  } catch (error: any) {
+    console.error("Login failed:", error);
+    setErrorMessage("Email hoặc mật khẩu không đúng."); // hoặc lấy từ `error.response.data.message` nếu backend có trả về
+  }
+};
+
+
+  // const handleLogin = (e: FormEvent<HTMLFormElement>) => {
+  //   e.preventDefault();
+  //   console.log({ email, password, rememberMe });
+  //   // API login logic
+  // };
 
   const handleGoogleLogin = () => {
     console.log("Đăng nhập bằng Google");
@@ -54,7 +71,12 @@ const Login: React.FC = () => {
             Đăng nhập
           </h1>
 
-          <form className="space-y-5" onSubmit={handleLogin}>
+          <form className="space-y-5" onSubmit={handleLoginSubmit}>
+            {errorMessage && (
+              <div className="text-red-500 text-sm mb-4">
+                {errorMessage}
+              </div>
+            )}
             <div className="relative group">
               <input
                 id="email"

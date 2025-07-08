@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import paths from "../routes/path";
 // import { decode } from "../consts/utils"; // Giữ lại decode cho mục đích đọc claims nếu cần
 import { TokenData } from "../types/common.types"; // TokenData sẽ được dùng cho userInfo
-
+import {jwtDecode} from "jwt-decode"; // Thư viện để giải mã JWT token
 // Định nghĩa lại UserInfoResponse để phù hợp hơn với đối tượng 'user' từ backend
 // và sẽ sử dụng cho userInfo trong AuthContext.
 // Đảm bảo UserInfoResponse đã được định nghĩa trong common.types.ts hoặc authService.ts
@@ -67,9 +67,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             setJwtToken(refreshResponse.accessToken);
             localStorage.setItem("accessToken", refreshResponse.accessToken);
             localStorage.setItem("refreshToken", refreshResponse.refreshToken);
-            
-            // *** CẬP NHẬT: Lưu userInfo từ phản hồi của API ***
-            setUserInfo(refreshResponse.user); 
+            let role = "user"; // Giá trị mặc định
+            try {
+            const decoded: any = jwtDecode(refreshResponse.accessToken);
+            role = decoded.role || decoded.roles || "user"; // Điều chỉnh tùy theo tên trường trong token
+            } catch (error) {
+            console.error("Error decoding token:", error);
+            }
+            const userWithRole = { ...refreshResponse.user, role };
+            setUserInfo(userWithRole); 
+            setIsAuthenticated(true);
+            if(role === "STUDENT") {
+                navigate("/");
+            }
+            if(role === "ACADEMIC_MANAGER") {
+                navigate(paths.staff_home);
+            }
             
             setIsAuthenticated(true);
         } catch (error) {
@@ -84,16 +97,39 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const handleLogin = async (email: string, password: string) => {
         try {
             const responseData = await login({ email, password }); // responseData là AuthSuccessResponse
-            
+            let role = "user";
+            try {
+            const decoded: any = jwtDecode(responseData.accessToken);
+            console.log("Decoded token:", decoded); // Debug payload
+            role =
+                decoded["http://schemas.microsoft.com/ws/2008/06/identity/claims/role"] ||
+                decoded.role ||
+                decoded.roles ||
+                "user";
+            } catch (error) {
+            console.error("Error decoding token:", error);
+            }
+             // Gán role vào user object
             setJwtToken(responseData.accessToken);
             localStorage.setItem("accessToken", responseData.accessToken);
             localStorage.setItem("refreshToken", responseData.refreshToken);
             
             // *** CẬP NHẬT: Lưu userInfo từ phản hồi của API ***
-            setUserInfo(responseData.user); 
-            
+            // Gán role vào user object trước khi lưu vào state
+            const userWithRole = { ...responseData.user, role };
+            setUserInfo(userWithRole); 
             setIsAuthenticated(true);
-            navigate(paths.home);
+            switch (role) {
+                case "STUDENT":
+                    navigate("/");
+                    break;
+                case "ACADEMIC_MANAGER":
+                    navigate(paths.staff_home);
+                    break;
+                default:
+                    navigate("/"); // Mặc định chuyển đến trang chủ
+                    break;
+            }
         } catch (error) {
             console.error("Login error:", error);
             throw error;

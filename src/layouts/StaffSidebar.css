@@ -1,0 +1,10 @@
+
+.staff-sidebar-menu .ant-menu-item {
+  margin-bottom: 20px !important;
+  font-size: 18px !important; /* to hơn */
+  padding: 14px 24px !important; /* to vùng click */
+}
+
+.staff-sidebar-menu .ant-menu-item-icon {
+  font-size: 22px !important; /* icon to hơn */
+}

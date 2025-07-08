@@ -21,3 +21,12 @@ export interface TokenData {
   // avatarUrl?: string | null;
   // id?: string; // id của user, giống nameidentifier
 }
+
+
+export interface RegisterPayload {
+  email: string;
+  password: string;
+  fullName: string;
+  phone?: string | null; 
+  avatarUrl?: string | null; 
+}
