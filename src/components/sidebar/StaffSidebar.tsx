@@ -13,13 +13,13 @@ import { useNavigate, useLocation } from "react-router-dom";
 //import "../../components/layout/StaffSidebar.css"; // Import your custom CSS for styling
 
 const staffMenu = [
-  { label: "User Inquiry", icon: <UserOutlined />, key: "/staff/inquiries" },
-  { label: "Study Plan", icon: <SnippetsOutlined />, key: "/staff/study-plan" },
-  { label: "Course Management", icon: <BookOutlined />, key: "/staff/courses" },
+  { label: "Yêu cầu tư vấn", icon: <UserOutlined />, key: "/staff/inquiries" },
+  { label: "Kế hoạch học tập", icon: <SnippetsOutlined />, key: "/staff/study-plan" },
+  { label: "Quản lý khóa học", icon: <BookOutlined />, key: "/course-management" },
   
-  { label: "User Report", icon: <BarChartOutlined />, key: "/staff/reports" },
-  { label: "Tag Management", icon: <TagsOutlined />, key: "/staff/tags" },
-  { label: "Question Management", icon: <QuestionCircleOutlined />, key: "/staff/questions" },
+  { label: "Quản lý khiếu nại", icon: <BarChartOutlined />, key: "/staff/reports" },
+  { label: "Cấu trúc đề thi", icon: <TagsOutlined />, key: "/staff/tags" },
+  { label: "Ngân hàng câu hỏi", icon: <QuestionCircleOutlined />, key: "/staff/questions" },
 ];
 
 const StaffSidebar: React.FC = () => {

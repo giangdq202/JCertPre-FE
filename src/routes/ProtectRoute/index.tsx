@@ -6,6 +6,9 @@ import Login from "../../pages/login/Login";
 import Register from "../../pages/register/Register";
 import Home from "../../pages/home/Home";
 import  StaffHomePage  from "../../pages/home/StaffHomePage";
+import StaffCourseManagementPage from "../../pages/staff/StaffCourseManagementPage";
+import CourseDetailPage from "../../pages/staff/CourseDetailPage";
+import CreateCoursePage from "../../pages/staff/CreateCoursePage";
 const AppRoutes = () => {
   return (
     <Routes>
@@ -19,6 +22,11 @@ const AppRoutes = () => {
       <Route path="/register" element={<Register />} />
       <Route path="/login" element={<Login />} />
       <Route path="/staff_homepage" element={<StaffHomePage />} />
+      <Route path="/course-management" element={<StaffCourseManagementPage />} />
+      <Route path="/course-detail/:courseId" element={<CourseDetailPage />} />
+      <Route path="/course-management/create-course" element={<CreateCoursePage />} />
+      {/* Thêm các route khác ở đây */}
+      {/* Route chuyển hướng */}
     </Routes>
   );
 };

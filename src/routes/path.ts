@@ -6,8 +6,9 @@ const paths = {
   callback: "/auth/callback",
   register: "/register",
   logout: "/logout",
-
-  
+  course_management: "/course-management",
+  course_detail: "/course-detail/:courseId",
+  create_course: "/course-management/create",
 };
 
 export default paths;
