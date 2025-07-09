@@ -2,21 +2,13 @@ import { createContext, ReactNode, useContext, useEffect, useState } from "react
 import { refreshToken, login, logout } from "../services/authService";
 import { useNavigate } from "react-router-dom";
 import paths from "../routes/path";
-// import { decode } from "../consts/utils"; // Giữ lại decode cho mục đích đọc claims nếu cần
-import { TokenData } from "../types/common.types"; // TokenData sẽ được dùng cho userInfo
-import {jwtDecode} from "jwt-decode"; // Thư viện để giải mã JWT token
-// Định nghĩa lại UserInfoResponse để phù hợp hơn với đối tượng 'user' từ backend
-// và sẽ sử dụng cho userInfo trong AuthContext.
-// Đảm bảo UserInfoResponse đã được định nghĩa trong common.types.ts hoặc authService.ts
-// và được export để có thể import vào đây.
 interface UserInfoResponse {
     id: string;
     fullName: string;
     email: string;
     phone: string | null;
-    // Thêm các trường khác nếu có trong AppUserDto hoặc đối tượng 'user' trả về từ API
     avatarUrl?: string | null; // Có trong RegisterModel, có thể có trong AppUserDto
-    role?: string; // Nếu role được trả về trực tiếp trong user object
+    role: string; // Nếu role được trả về trực tiếp trong user object
 }
 
 
@@ -40,101 +32,90 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const [isLoading, setIsLoading] = useState(true);
     const navigate = useNavigate();
 
-    useEffect(() => {
-        try {
-            const token = localStorage.getItem('refreshToken');
-            if (token) {
-                //handleRefreshToken(token);
-            } else {
-                setIsLoading(false);
-            }
-        } catch (err) {
-            console.log(err);
-        }
-    }, []);
-
-    // const handleRefreshToken = async (oldRefreshToken: string) => {
-    //     try {
-    //         const oldAccessToken = localStorage.getItem('accessToken');
-    //         if (!oldAccessToken) {
-    //             setIsLoading(false);
-    //             navigate('/login');
-    //             return;
-    //         }
-
-    //         const refreshResponse = await refreshToken(oldAccessToken, oldRefreshToken); 
-            
-    //         setJwtToken(refreshResponse.accessToken);
-    //         localStorage.setItem("accessToken", refreshResponse.accessToken);
-    //         localStorage.setItem("refreshToken", refreshResponse.refreshToken);
-    //         let role = "user"; // Giá trị mặc định
-    //         try {
-    //         const decoded: any = jwtDecode(refreshResponse.accessToken);
-    //         role = decoded.role || decoded.roles || "user"; // Điều chỉnh tùy theo tên trường trong token
-    //         } catch (error) {
-    //         console.error("Error decoding token:", error);
-    //         }
-    //         const userWithRole = { ...refreshResponse.user, role };
-    //         setUserInfo(userWithRole); 
-    //         setIsAuthenticated(true);
-    //         if(role === "STUDENT") {
-    //             navigate("/");
-    //         }
-    //         if(role === "ACADEMIC_MANAGER") {
-    //             navigate(paths.staff_home);
-    //         }
-            
-    //         setIsAuthenticated(true);
-    //     } catch (error) {
-    //         console.error("Refresh token error:", error);
-    //         navigate("/login");
-    //         setIsAuthenticated(false);
-    //     } finally {
-    //         setIsLoading(false);
-    //     }
-    // };
-
-    const handleLogin = async (email: string, password: string) => {
-        try {
-            const responseData = await login({ email, password }); // responseData là AuthSuccessResponse
-            let role = "user";
+        useEffect(() => {
             try {
-            const decoded: any = jwtDecode(responseData.accessToken);
-            console.log("Decoded token:", decoded); // Debug payload
-            role =
-                decoded["http://schemas.microsoft.com/ws/2008/06/identity/claims/role"] ||
-                decoded.role ||
-                decoded.roles ||
-                "user";
-            } catch (error) {
-            console.error("Error decoding token:", error);
+                const token = localStorage.getItem('refreshToken');
+                if (token) {
+                    handleRefreshToken(token);
+                } else {
+                    setIsLoading(false);
+                    navigate('/login');
+                }
+            } catch (err) {
+                console.log(err);
             }
-             // Gán role vào user object
-            setJwtToken(responseData.accessToken);
-            localStorage.setItem("accessToken", responseData.accessToken);
-            localStorage.setItem("refreshToken", responseData.refreshToken);
-            
-            // *** CẬP NHẬT: Lưu userInfo từ phản hồi của API ***
-            // Gán role vào user object trước khi lưu vào state
-            const userWithRole = { ...responseData.user, role };
-            setUserInfo(userWithRole); 
+        }, []);
+        const handleRefreshToken = async (refreshTokenValue: string) => {
+        try {
+            const oldAccessToken = localStorage.getItem('accessToken');
+            if (!oldAccessToken) {
+                setIsLoading(false);
+                navigate('/login');
+                return;
+            }
+        const response = await refreshToken(oldAccessToken, refreshTokenValue);
+        if (response?.accessToken) {
+            setJwtToken(response.accessToken);
+            localStorage.setItem("accessToken", response.accessToken);
+            localStorage.setItem("refreshToken", response.refreshToken);
+
+            // Lấy thông tin user từ phản hồi API, role đã có trong user
+            await setUserInfo(response.user);
             setIsAuthenticated(true);
-            switch (role) {
-                case "STUDENT":
-                    navigate("/");
-                    break;
-                case "ACADEMIC_MANAGER":
-                    navigate(paths.staff_home);
-                    break;
-                default:
-                    navigate("/"); // Mặc định chuyển đến trang chủ
-                    break;
+
+            // Điều hướng dựa trên role từ userInfo
+            switch (response.user.role) {
+            case "STUDENT":
+                navigate("/");
+                break;
+            case "ACADEMIC_MANAGER":
+                navigate(paths.staff_home);
+                break;
+            default:
+                navigate("/");
+                break;
             }
+        } else {
+            navigate("/login");
+            setIsAuthenticated(false);
+        }
         } catch (error) {
-            console.error("Login error:", error);
-            throw error;
+        console.error("Refresh token error:", error);
+        navigate("/login");
+        setIsAuthenticated(false);
         } finally {
-            setIsLoading(false);
+        setIsLoading(false);
+        }
+    };
+
+        const handleLogin = async (email: string, password: string) => {
+        try {
+        const responseData = await login({ email, password });
+        setJwtToken(responseData.accessToken);
+        localStorage.setItem("accessToken", responseData.accessToken);
+        localStorage.setItem("refreshToken", responseData.refreshToken);
+
+        // Lấy thông tin user từ phản hồi API, role đã có trong user
+        setUserInfo(responseData.user);
+        setIsAuthenticated(true);
+
+        // Điều hướng dựa trên role từ userInfo
+        switch (responseData.user.role) {
+            case "STUDENT":
+            navigate("/homepage");
+            break;
+            case "ACADEMIC_MANAGER":
+            navigate(paths.staff_home);
+            break;
+            default:
+            navigate("/");
+            break;
+        }
+        } catch (error) {
+        console.error("Login error:", error);
+        throw error;
+        } finally {
+        setIsLoading(false);
         }
     };
 

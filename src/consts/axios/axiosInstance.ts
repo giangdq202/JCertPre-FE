@@ -1,29 +1,15 @@
-// src/utils/axios/axiosInstance.ts (hoặc consts/axios/axiosInstance.ts)
 
 import axios from 'axios';
-import { BASE_URL, REFRESH_TOKEN } from "../apiUrl/baseUrl.ts"; // Import REFRESH_TOKEN
-import { refreshToken } from "../../services/authService.ts"; // Import hàm refreshToken đã được cập nhật
-
-// Biến tạm để lưu trữ hàm logout từ AuthContext.
-// Đây là một cách để "tiêm" hàm logout vào interceptor mà không tạo ra dependency cycle.
+import { BASE_URL, REFRESH_TOKEN } from "../apiUrl/baseUrl.ts";
+import { refreshToken } from "../../services/authService.ts";
 let onLogoutCallback: (() => void) | null = null;
-
-/**
- * Đăng ký một hàm callback để được gọi khi phiên làm mới token thất bại
- * và người dùng cần được đăng xuất.
- * Thường được gọi từ AuthContext.
- * @param callback Hàm logout từ AuthContext.
- */
 export const setOnLogoutCallback = (callback: () => void) => {
     onLogoutCallback = callback;
 };
 
-// Tạo một instance của Axios với base URL
 const axiosInstance = axios.create({
     baseURL: BASE_URL
 });
-
-// Interceptor cho request: Thêm Access Token vào header Authorization
 axiosInstance.interceptors.request.use(
     (config) => {
         const accessToken = localStorage.getItem('accessToken');
@@ -47,12 +33,6 @@ axiosInstance.interceptors.response.use(
     (response) => response, // Nếu response thành công, trả về nguyên trạng
     async (error) => {
         const originalConfig = error.config; // Lưu cấu hình của request gốc
-
-        // Điều kiện để thử làm mới token:
-        // 1. Phản hồi có lỗi và status là 401 (Unauthorized)
-        // 2. Yêu cầu này chưa được đánh dấu là đã thử lại (_retry)
-        // 3. Endpoint của yêu cầu gốc KHÔNG PHẢI là endpoint làm mới token
-        //    (Điều này rất quan trọng để tránh vòng lặp vô tận nếu chính API refresh token bị 401)
         const isAuthRefreshEndpoint = originalConfig.url?.includes(REFRESH_TOKEN); // Kiểm tra URL có chứa REFRESH_TOKEN không
 
         if (error.response && error.response.status === 401 && !originalConfig._retry && !isAuthRefreshEndpoint) {
@@ -75,9 +55,6 @@ axiosInstance.interceptors.response.use(
                         // Cập nhật localStorage với token mới
                         localStorage.setItem('accessToken', newAccessToken);
                         localStorage.setItem('refreshToken', newRefreshToken);
-                        
-                        // Cập nhật header Authorization cho request gốc với access token mới
-                        // Đảm bảo headers tồn tại
                         if (!originalConfig.headers) {
                             originalConfig.headers = {};
                         }
@@ -110,18 +87,12 @@ axiosInstance.interceptors.response.use(
                 return Promise.reject(error); // Trả về lỗi gốc
             }
         }
-        
-        // Trường hợp lỗi là 401 nhưng từ chính endpoint refresh token,
-        // hoặc lỗi không phải 401, hoặc đã thử lại.
-        // Trong trường hợp này, không cố gắng làm mới nữa, chỉ trả về lỗi.
         if (error.response && error.response.status === 401 && isAuthRefreshEndpoint) {
             console.error('Refresh token endpoint itself returned 401. Session is truly expired. Logging out.');
             if (onLogoutCallback) {
                 onLogoutCallback(); // Kích hoạt đăng xuất toàn cục
             }
         }
-
-        // Trả về lỗi cho các trường hợp khác
         return Promise.reject(error);
     }
 );

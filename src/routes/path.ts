@@ -9,6 +9,7 @@ const paths = {
   course_management: "/course-management",
   course_detail: "/course-detail/:courseId",
   create_course: "/course-management/create",
+  student_profile: "/student/profile",
 };
 
 export default paths;

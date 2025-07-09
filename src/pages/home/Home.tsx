@@ -6,6 +6,7 @@ import slide1 from "../../assets/slide1.png";
 import slide2 from "../../assets/slide2.png";
 import slide3 from "../../assets/slide3.png";
 import backgroundImage from "../../assets/background.png";
+import backgroundImage2 from "../../assets/green_backgroud.jpg";
 import card1 from "../../assets/card1.png";
 import card2 from "../../assets/card2.png";
 import card3 from "../../assets/card3.png";

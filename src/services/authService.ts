@@ -12,6 +12,7 @@ interface UserInfoResponse {
   fullName: string;
   email: string;
   phone: string | null;
+  role : string; // Nếu role được trả về trực tiếp trong user object
 }
 
 interface AuthSuccessResponse  {

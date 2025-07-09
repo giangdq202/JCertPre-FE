@@ -1,11 +1,17 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Link } from "react-router-dom";
-import { FaAngleDown, FaAngleUp, FaSearch } from "react-icons/fa";
+import { Link, useNavigate } from "react-router-dom";
+import { FaAngleDown, FaAngleUp, FaSearch, FaUserCircle } from "react-icons/fa";
 import logo from "../../assets/logo.png";
+import { useAuth } from "../../auth/AuthContext";
+import paths from "../../routes/path";
 
-const Header = () => {
+const Header: React.FC = () => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement | null>(null);
+  const profileDropdownRef = useRef<HTMLDivElement | null>(null);
+  const { isAuthenticated, userInfo, handleLogout } = useAuth();
+  const navigate = useNavigate();
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -16,10 +22,27 @@ const Header = () => {
       ) {
         setIsDropdownOpen(false);
       }
+      if (
+        profileDropdownRef.current &&
+        event.target &&
+        !profileDropdownRef.current.contains(event.target as HTMLElement)
+      ) {
+        setIsProfileDropdownOpen(false);
+      }
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  const handleProfileClick = () => {
+    setIsProfileDropdownOpen(!isProfileDropdownOpen);
+  };
+
+  const handleLogoutClick = () => {
+    handleLogout();
+    setIsProfileDropdownOpen(false);
+    navigate(paths.login, { replace: true });
+  };
 
   return (
     <header className="bg-gradient-to-r from-red-100 via-white to-red-100/80 backdrop-blur-md fixed top-0 left-0 right-0 z-50 shadow-md border-b border-gray-200 font-['Noto_Serif_JP'] transition-all duration-300">
@@ -42,11 +65,11 @@ const Header = () => {
           <button
             onClick={() => setIsDropdownOpen(!isDropdownOpen)}
             className={`flex items-center gap-1 text-sm font-semibold px-3 py-1.5 rounded-full transition border font-['Merriweather'] tracking-wide uppercase
-    ${
-      isDropdownOpen
-        ? "bg-red-100 text-red-700 border-red-300"
-        : "text-gray-700 border-gray-300 hover:border-red-400 hover:bg-red-50 hover:text-red-600"
-    }`}
+            ${
+              isDropdownOpen
+                ? "bg-red-100 text-red-700 border-red-300"
+                : "text-gray-700 border-gray-300 hover:border-red-400 hover:bg-red-50 hover:text-red-600"
+            }`}
           >
             Khám phá{" "}
             {isDropdownOpen ? (
@@ -87,18 +110,54 @@ const Header = () => {
         </nav>
 
         <div className="flex items-center gap-3 justify-end flex-grow-0 ml-2">
-          <Link
-            to="/register"
-            className="bg-gradient-to-r from-red-500 to-red-600 text-white px-5 py-1.5 rounded-full transition hover:from-red-600 hover:to-red-700 text-sm shadow-md font-['Merriweather'] font-semibold"
-          >
-            Đăng Ký
-          </Link>
-          <Link
-            to="/login"
-            className="text-gray-700 px-5 py-1.5 rounded-full transition hover:bg-white hover:text-red-600 border border-gray-300 text-sm shadow-sm font-['Merriweather'] font-semibold"
-          >
-            Đăng Nhập
-          </Link>
+          {isAuthenticated ? (
+            <div className="relative" ref={profileDropdownRef}>
+              <button
+                onClick={handleProfileClick}
+                className="flex items-center gap-2 text-sm font-semibold px-3 py-1.5 rounded-full transition border border-gray-300 hover:bg-red-50 hover:text-red-600 font-['Merriweather']"
+              >
+                <FaUserCircle size={20} className="text-gray-700" />
+                <span>{userInfo?.fullName || "User"}</span>
+                {isProfileDropdownOpen ? (
+                  <FaAngleUp size={12} />
+                ) : (
+                  <FaAngleDown size={12} />
+                )}
+              </button>
+              {isProfileDropdownOpen && (
+                <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 shadow-lg rounded-md py-2 z-50">
+                  <Link
+                    to="/student/profile"
+                    className="block px-4 py-2 text-sm text-gray-700 hover:bg-red-50 hover:text-red-600"
+                    onClick={() => setIsProfileDropdownOpen(false)}
+                  >
+                    View Profile
+                  </Link>
+                  <button
+                    onClick={handleLogoutClick}
+                    className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-red-50 hover:text-red-600"
+                  >
+                    Log Out
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <>
+              <Link
+                to="/register"
+                className="bg-gradient-to-r from-red-500 to-red-600 text-white px-5 py-1.5 rounded-full transition hover:from-red-600 hover:to-red-700 text-sm shadow-md font-['Merriweather'] font-semibold"
+              >
+                Đăng Ký
+              </Link>
+              <Link
+                to="/login"
+                className="text-gray-700 px-5 py-1.5 rounded-full transition hover:bg-white hover:text-red-600 border border-gray-300 text-sm shadow-sm font-['Merriweather'] font-semibold"
+              >
+                Đăng Nhập
+              </Link>
+            </>
+          )}
         </div>
       </div>
 
