@@ -1,6 +1,6 @@
 const paths = {
   //Authen pages
-  home: "/homepage",
+  home: "/",
   staff_home:"/staff_homepage",
   login: "/login",
   callback: "/auth/callback",
@@ -10,6 +10,7 @@ const paths = {
   course_detail: "/course-detail/:courseId",
   create_course: "/course-management/create",
   student_profile: "/student/profile",
+  student_home: "/student/home",
 };
 
 export default paths;

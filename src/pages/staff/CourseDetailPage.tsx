@@ -27,6 +27,7 @@ import {
 import { useParams, useNavigate } from "react-router-dom";
 import StaffSidebar from "../../components/sidebar/StaffSidebar";
 import StaffHeader from "../../components/header/StaffHeader";
+import ThumbnailUploader from "../../components/forms/ThumbnailUploader"; // Import your thumbnail uploader component
 import {
   getCourseById,
   updateCourse,
@@ -281,7 +282,7 @@ const CourseDetailPage: React.FC = () => {
                   label="Thumbnail URL"
                   rules={[{ type: "url", message: "Please enter a valid URL!" }]}
                 >
-                  <Input />
+                   <ThumbnailUploader form={form} initialImageUrl={course?.thumbnailUrl} />
                 </Form.Item>
 
                 {/* Luôn hiển thị nút Save Changes và Cancel */}

@@ -246,7 +246,7 @@ const StaffCourseManagementPage: React.FC = () => {
               <Button
                 type="primary"
                 icon={<PlusOutlined />}
-                onClick={() => navigate("/course-management/create-course")}
+                onClick={() => navigate("/course-management/create")}
                 className="bg-pink-600 hover:bg-pink-700 border-pink-600 hover:border-pink-700"
               >
                 Create New Course

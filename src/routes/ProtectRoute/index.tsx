@@ -5,7 +5,7 @@ import Layout from "../../layouts/Layout";
 import Login from "../../pages/login/Login";
 import Register from "../../pages/register/Register";
 import Home from "../../pages/home/Home";
-import  StaffHomePage  from "../../pages/home/StaffHomePage";
+import  StaffHomePage  from "../../pages/staff/StaffHomePage";
 import StaffCourseManagementPage from "../../pages/staff/StaffCourseManagementPage";
 import CourseDetailPage from "../../pages/staff/CourseDetailPage";
 import CreateCoursePage from "../../pages/staff/CreateCoursePage";
@@ -43,13 +43,13 @@ interface ProtectedRouteProps {
 const AppRoutes: React.FC<ProtectedRouteProps> = ({ children, allowedRoles }) => {
   const { userInfo, isAuthenticated } = useAuth();
 
-  if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
-  }
+  // if (!isAuthenticated) {
+  //   return <Navigate to="/login" replace />;
+  // }
 
   if (!userInfo || !userInfo.role || !allowedRoles.includes(userInfo.role)) {
     // Điều hướng dựa trên role
-    return <Navigate to={userInfo?.role === "ACADEMIC_MANAGER" ? paths.staff_home : "/"} replace />;
+    return <Navigate to={userInfo?.role === "ACADEMIC_MANAGER" ? paths.staff_home : paths.student_home} replace />;
   }
 
   return <>{children}</>;

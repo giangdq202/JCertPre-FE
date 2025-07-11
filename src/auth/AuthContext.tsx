@@ -39,7 +39,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                     handleRefreshToken(token);
                 } else {
                     setIsLoading(false);
-                    navigate('/login');
+                    navigate('/');
                 }
             } catch (err) {
                 console.log(err);
@@ -50,7 +50,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             const oldAccessToken = localStorage.getItem('accessToken');
             if (!oldAccessToken) {
                 setIsLoading(false);
-                navigate('/login');
+                navigate('/');
                 return;
             }
         const response = await refreshToken(oldAccessToken, refreshTokenValue);
@@ -63,25 +63,25 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             await setUserInfo(response.user);
             setIsAuthenticated(true);
 
-            // Điều hướng dựa trên role từ userInfo
-            switch (response.user.role) {
-            case "STUDENT":
-                navigate("/");
-                break;
-            case "ACADEMIC_MANAGER":
-                navigate(paths.staff_home);
-                break;
-            default:
-                navigate("/");
-                break;
-            }
+            //Điều hướng dựa trên role từ userInfo
+            // switch (response.user.role) {
+            // case "STUDENT":
+            //     navigate(paths.student_home);
+            //     break;
+            // case "ACADEMIC_MANAGER":
+            //     navigate(paths.staff_home);
+            //     break;
+            // default:
+            //     navigate("/");
+            //     break;
+            // }
         } else {
-            navigate("/login");
+            navigate("/");
             setIsAuthenticated(false);
         }
         } catch (error) {
         console.error("Refresh token error:", error);
-        navigate("/login");
+        navigate("/");
         setIsAuthenticated(false);
         } finally {
         setIsLoading(false);
@@ -102,7 +102,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         // Điều hướng dựa trên role từ userInfo
         switch (responseData.user.role) {
             case "STUDENT":
-            navigate("/homepage");
+            navigate(paths.student_home);
             break;
             case "ACADEMIC_MANAGER":
             navigate(paths.staff_home);
@@ -125,7 +125,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setJwtToken(null);
         setUserInfo(undefined);
         setIsAuthenticated(false);
-        navigate("/login");
+        navigate(paths.home); // Điều hướng về trang chủ sau khi đăng xuất
     };
 
     return (

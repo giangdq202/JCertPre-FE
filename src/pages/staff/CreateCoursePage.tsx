@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Form, Input, InputNumber, Select, Button, Spin, message, Card, Space } from "antd";
 import { SaveOutlined, RollbackOutlined } from "@ant-design/icons";
 import { useNavigate } from "react-router-dom";
+import ThumbnailUploader from "../../components/forms/ThumbnailUploader"; // Import your thumbnail uploader component
 import StaffSidebar from "../../components/sidebar/StaffSidebar";
 import StaffHeader from "../../components/header/StaffHeader";
 import {
@@ -10,6 +11,7 @@ import {
   CourseLevel,
   CourseType,
 } from "../../services/courseService"; // Đảm bảo đường dẫn đúng
+import paths from "../../routes/path";
 
 const { Option } = Select;
 const { TextArea } = Input;
@@ -26,7 +28,7 @@ const CreateCoursePage: React.FC = () => {
       const newCourse = await createCourse(values);
       message.success(`Course "${newCourse.title}" created successfully!`);
       form.resetFields(); // Reset form sau khi tạo thành công
-      navigate(`/staff/courses/${newCourse.courseId}`); // Điều hướng đến trang chi tiết khóa học vừa tạo
+      navigate(`/course-detail/${newCourse.courseId}`); // Điều hướng đến trang chi tiết khóa học vừa tạo
     } catch (error) {
       message.error("Failed to create course. Please check your input.");
       console.error("Error creating course:", error);
@@ -125,11 +127,11 @@ const CreateCoursePage: React.FC = () => {
               </Form.Item>
 
               <Form.Item
-                name="thumbnailUrl"
-                label="Thumbnail URL (Optional)"
-                rules={[{ type: "url", message: "Please enter a valid URL for the thumbnail!" }]}
+                name="thumbnail"
+                label="Thumbnail"
+                rules={[{ type: "url", message: "Please enter the thumbnail!" }]}
               >
-                <Input placeholder="e.g., https://cdn.jcertpre.com/thumbnails/n5-course-thumb.jpg" />
+                <ThumbnailUploader form={form} />
               </Form.Item>
 
               <Form.Item>
@@ -137,7 +139,7 @@ const CreateCoursePage: React.FC = () => {
                   <Button type="primary" htmlType="submit" loading={submitting} icon={<SaveOutlined />} className="bg-pink-600 hover:bg-pink-700 border-pink-600 hover:border-pink-700">
                     Create Course
                   </Button>
-                  <Button onClick={() => navigate("/staff/courses")} icon={<RollbackOutlined />}>
+                  <Button onClick={() => navigate(paths.course_management)} icon={<RollbackOutlined />}>
                     Cancel
                   </Button>
                 </Space>

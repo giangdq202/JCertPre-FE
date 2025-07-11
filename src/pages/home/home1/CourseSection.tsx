@@ -83,7 +83,7 @@ const CourseSection: React.FC = () => {
       aria-label="Popular courses"
     >
       <h2 className="text-xl md:text-3xl font-extrabold text-gray-900 mb-12 tracking-wide text-center">
-        Các khoá học dành cho bạn
+        Các khoá học nổi bật
       </h2>
 
       <div className="relative">
