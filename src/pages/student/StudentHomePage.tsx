@@ -1,10 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import StudentSideBar from '../../components/sidebar/StudentSideBar'; // Assuming you have a sidebar component for students
 import { Link, useNavigate } from "react-router-dom";
+import { getStudentProfile, createStudentProfile, StudentProfileDto } from '../../services/studentProfileService'; 
 import { FaUserCircle, FaAngleDown, FaAngleUp } from "react-icons/fa";
+import { getCourses } from '../../services/courseService'; // Assuming you have a service to fetch courses
+import StudentProfileModal from '../../components/modals/StudentProfileModal'; // Assuming you have a modal component for creating student profile
 import { useAuth } from "../../auth/AuthContext";
 import logo from "../../assets/logo.png";
 import paths from "../../routes/path";
+import axios from "axios";
 
 const CoursesPage = () => <div className="p-6">Nội dung trang Khóa học</div>;
 const ExamSimulationsPage = () => <div className="p-6">Nội dung trang Mô phỏng kỳ thi</div>;
@@ -21,13 +25,52 @@ const StudentHomePage = () => {
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
   const profileDropdownRef = useRef<HTMLDivElement | null>(null); 
   const { userInfo, handleLogout } = useAuth(); const navigate = useNavigate(); 
-  useEffect(() => { 
-    const handleClickOutside = (event: MouseEvent) => { 
-      if ( profileDropdownRef.current && event.target && !profileDropdownRef.current.contains(event.target as HTMLElement) ) {
-         setIsProfileDropdownOpen(false); } }; 
-         document.addEventListener("mousedown", handleClickOutside);
-          return () => document.removeEventListener("mousedown", handleClickOutside); }, []);
 
+  const [studentProfile, setStudentProfile] = useState<StudentProfileDto | null>(null);
+    const [showProfileModal, setShowProfileModal] = useState(false);
+    const [isLoadingProfile, setIsLoadingProfile] = useState(true);
+  useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (profileDropdownRef.current && event.target && !profileDropdownRef.current.contains(event.target as HTMLElement)) {
+                setIsProfileDropdownOpen(false);
+            }
+        };
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
+
+    // Hàm xử lý khi hồ sơ được tạo thành công từ modal
+    const handleProfileCreated = (profile: StudentProfileDto) => {
+        setStudentProfile(profile);
+        setShowProfileModal(false);
+        // Có thể thêm thông báo thành công ở đây nếu cần
+    };
+  useEffect(() => {
+        const fetchProfile = async () => {
+            if (!userInfo?.id) {
+                setIsLoadingProfile(false);
+                return;
+            }
+
+            try {
+                // Gọi API lấy hồ sơ
+                const profile = await getStudentProfile(userInfo.id);
+                setStudentProfile(profile);
+            } catch (error) {
+                // Kiểm tra nếu lỗi là 404 (Profile Not Found)
+                if (axios.isAxiosError(error) && error.response?.status === 404) {
+                    // Nếu chưa có hồ sơ, hiển thị Modal
+                    setShowProfileModal(true);
+                } else {
+                    console.error("Error fetching student profile:", error);
+                }
+            } finally {
+                setIsLoadingProfile(false);
+            }
+        };
+
+        fetchProfile();
+    }, [userInfo?.id]);
   const handleProfileClick = () => {
     setIsProfileDropdownOpen(!isProfileDropdownOpen);
   };
@@ -408,6 +451,15 @@ const StudentHomePage = () => {
           </div>
         </main>
       </div>
+      {/* Student Profile Modal */}
+            {userInfo?.id && (
+                <StudentProfileModal
+                    isOpen={showProfileModal}
+                    onClose={() => setShowProfileModal(false)}
+                    userId={userInfo.id}
+                    onProfileCreated={handleProfileCreated}
+                />
+            )}
     </div>
   );
 };

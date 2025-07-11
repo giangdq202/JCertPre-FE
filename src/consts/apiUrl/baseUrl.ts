@@ -35,3 +35,6 @@ export const CLOUDINARY_UPLOAD_DOCUMENT_URL = `${CLOUDINARY_BASE_URL}/upload-doc
 export const CLOUDINARY_DELETE_IMAGE_URL = `${CLOUDINARY_BASE_URL}/delete-image`;
 export const CLOUDINARY_DELETE_VIDEO_URL = `${CLOUDINARY_BASE_URL}/delete-video`;
 export const CLOUDINARY_DELETE_DOCUMENT_URL = `${CLOUDINARY_BASE_URL}/delete-document`;
+
+export const CREATE_STUDENT_PROFILE_URL = `${BASE_URL}/student-profile/create`;
+export const BASE_STUDENT_PROFILE_URL = `${BASE_URL}/student-profile`;
