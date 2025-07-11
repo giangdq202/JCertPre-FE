@@ -11,6 +11,7 @@ const paths = {
   create_course: "/course-management/create",
   student_profile: "/student/profile",
   student_home: "/student/home",
+  student_course_detail: "/student/course-detail/:id",
 };
 
 export default paths;

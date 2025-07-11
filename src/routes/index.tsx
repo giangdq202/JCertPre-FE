@@ -13,6 +13,7 @@ import CreateCoursePage from "../pages/staff/CreateCoursePage";
 import ProfilePage from "../pages/student/ProfilePage";
 // import GoogleAuthCallback from "../components/Auth/GoogleAuthCallback";
 import paths from "./path";
+import StudentCourseDetailPage from "../pages/student/StudentCourseDetailPage";
 
 const AppRoutes: React.FC = () => {
   console.log("AppRoutes: Rendering routes");
@@ -33,6 +34,14 @@ const AppRoutes: React.FC = () => {
           element={
             <ProtectedRoute allowedRoles={["STUDENT"]}>
               <StudentHomePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path={paths.student_course_detail}
+          element={
+            <ProtectedRoute allowedRoles={["STUDENT"]}>
+              <StudentCourseDetailPage />
             </ProtectedRoute>
           }
         />

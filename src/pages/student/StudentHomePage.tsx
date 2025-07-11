@@ -344,45 +344,59 @@ const StudentHomePage = () => {
 
           {/* Recommended Courses Section (Khóa học dành cho bạn) */}
           <div className="mb-6">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-xl font-bold text-gray-800">Khóa học dành cho bạn</h3>
-              <a href="#" className="text-green-600 hover:underline">Xem tất cả gợi ý</a>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {[
-                {
-                  image: 'https://res.cloudinary.com/jcertpre-090725/image/upload/v1752225127/images/hqdefault_tcmisu.jpg',
-                  title: 'Luyện thi JLPT N3',
-                  description: 'Khóa học nâng cao dành cho học viên muốn chinh phục N2.',
-                  level: 'N2',
-                },
-                {
-                  image: 'https://res.cloudinary.com/jcertpre-090725/image/upload/v1752224957/images/download_ojnvc7.jpg',
-                  title: 'Khóa học N4 nâng cao',
-                  description: 'Khóa học N4 nâng cao',
-                  level: 'N4',
-                },
-                {
-                  image: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSb9jHXStwRc8YgUIZ3mS5eGWYS36d66whnYw&s',
-                  title: 'Khóa học N5 cho người mới bắt đầu',
-                  description: 'Khóa học N5 này dành cho new bie',
-                  level: 'N5',
-                },
-              ].map((course, index) => (
-                <div key={index} className="bg-white rounded-xl shadow-lg overflow-hidden">
-                  <img src={course.image} alt={course.title} className="w-full h-48 object-cover" />
-                  <div className="p-5">
+    <div className="flex justify-between items-center mb-4">
+        <h3 className="text-xl font-bold text-gray-800">Khóa học dành cho bạn</h3>
+        <a href="#" className="text-green-600 hover:underline">Xem tất cả gợi ý</a>
+    </div>
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {[
+            {
+                id: 'jlpt-n3', // Thêm ID cho khóa học
+                image: 'https://res.cloudinary.com/jcertpre-090725/image/upload/v1752225127/images/hqdefault_tcmisu.jpg',
+                title: 'Luyện thi JLPT N3',
+                description: 'Khóa học nâng cao dành cho học viên muốn chinh phục N2.',
+                level: 'N2',
+            },
+            {
+                id: 'n4-nang-cao', // Thêm ID cho khóa học
+                image: 'https://res.cloudinary.com/jcertpre-090725/image/upload/v1752224957/images/download_ojnvc7.jpg',
+                title: 'Khóa học N4 nâng cao',
+                description: 'Khóa học N4 nâng cao',
+                level: 'N4',
+            },
+            {
+                id: 'n5-nguoi-moi-bat-dau', // Thêm ID cho khóa học
+                image: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSb9jHXStwRc8YgUIZ3mS5eGWYS36d66whnYw&s',
+                title: 'Khóa học N5 cho người mới bắt đầu',
+                description: 'Khóa học N5 này dành cho new bie',
+                level: 'N5',
+            },
+        ].map((course, index) => (
+            // Sử dụng Link để điều hướng. Đường dẫn mẫu: /student/course/jlpt-n3
+            <Link 
+                to={`/student/course-detail/${course.id}`} 
+                key={index} 
+                className="block bg-white rounded-xl shadow-lg overflow-hidden transition-transform duration-200 hover:scale-[1.02] hover:shadow-xl"
+            >
+                <img src={course.image} alt={course.title} className="w-full h-48 object-cover" />
+                <div className="p-5">
                     <h4 className="text-lg font-semibold text-gray-800 mb-2">{course.title}</h4>
                     <p className="text-gray-600 text-sm mb-2">{course.description}</p>
                     <p className="text-gray-500 text-xs mb-4">Trình độ: {course.level}</p>
-                    <button className="w-full bg-green-500 text-white py-2 px-4 rounded-lg hover:bg-green-600 transition-colors duration-200">
-                      Khám phá
+                    {/* Nút "Khám phá" có thể nằm trong Link hoặc sử dụng useNavigate */}
+                    <button 
+                        className="w-full bg-green-500 text-white py-2 px-4 rounded-lg hover:bg-green-600 transition-colors duration-200"
+                        // Nếu button nằm trong Link, nó cũng sẽ điều hướng. 
+                        // Nếu bạn muốn button có chức năng riêng, bạn cần ngăn chặn sự kiện nổi bọt (stopPropagation)
+                        // Nhưng trong trường hợp này, việc click vào button cũng là để chuyển trang, nên không cần xử lý thêm.
+                    >
+                        Khám phá
                     </button>
-                  </div>
                 </div>
-              ))}
-            </div>
-          </div>
+            </Link>
+        ))}
+    </div>
+</div>
 
           {/* Personalized Study Recommendations & Announcements */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
