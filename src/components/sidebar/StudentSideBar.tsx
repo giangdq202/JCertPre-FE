@@ -23,16 +23,23 @@ const menuItems = [
     icon: <FaChalkboardTeacher size={20} />,
     path: "/student/courses",
   },
+
   {
-    name: "Mô phỏng kỳ thi",
+    name: "Lịch trình học tập",
+    icon: <MdOutlineSchedule size={20} />,
+    path: "/student/schedule",
+  },
+  {
+    name: "Thi thử JLPT",
     icon: <PiExamBold size={20} />,
     path: "/student/exam-simulations",
   },
   {
-    name: "Kế hoạch học tập",
+    name: "Học từ vựng",
     icon: <LuClipboardList size={20} />,
-    path: "/student/study-plan",
+    path: "/student/vocabulary",
   },
+
   {
     name: "Theo dõi tiến độ",
     icon: <GiGraduateCap size={20} />,
@@ -43,11 +50,7 @@ const menuItems = [
     icon: <HiOutlineChatBubbleLeftRight size={20} />,
     path: "/student/messages",
   },
-  {
-    name: "Lịch trình",
-    icon: <MdOutlineSchedule size={20} />,
-    path: "/student/schedule",
-  },
+
   {
     name: "Cài đặt",
     icon: <MdOutlineSettings size={20} />,

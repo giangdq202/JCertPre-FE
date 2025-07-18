@@ -13,6 +13,8 @@ const paths = {
   student_home: "/student/home",
   student_course: "/student/courses",
   student_course_detail: "/student/course-detail/:id",
+  student_exam: "/student/exam-simulations",
+  student_schedule: "/student/schedule",
 };
 
 export default paths;

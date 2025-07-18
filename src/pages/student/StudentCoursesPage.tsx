@@ -241,18 +241,6 @@ const StudentCoursesPage: React.FC = () => {
             <option value="Hybrid">Hybrid</option>
           </select>
 
-          <select
-            value={selectedStatus}
-            onChange={(e) => setSelectedStatus(e.target.value)}
-            className="border rounded-lg px-3 py-2 text-sm bg-white shadow-sm focus:ring-2 focus:ring-green-400"
-          >
-            <option value="">Tất cả trạng thái</option>
-            <option value="Draft">Nháp</option>
-            <option value="Published">Đang xuất bản</option>
-            <option value="Archived">Lưu trữ</option>
-            <option value="Suspended">Tạm ngưng</option>
-          </select>
-
           <button
             onClick={handleResetFilter}
             className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition text-sm font-medium"
@@ -268,28 +256,25 @@ const StudentCoursesPage: React.FC = () => {
               Khóa học của tôi
             </h1>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {paginatedMy.length > 0 ? (
-                paginatedMy.map((course) => (
-                  <CourseCard
-                    key={course.id}
-                    id={course.id}
-                    thumbnail={course.thumbnail}
-                    title={course.title}
-                    level={course.level}
-                    progress={course.progress}
-                    description={course.description}
-                    price={course.price}
-                    courseType={course.courseType}
-                    buttonText="Tiếp tục học"
-                    onClick={() => navigate(`/courses/${course.id}`)}
-                  />
-                ))
-              ) : (
-                <p className="text-gray-500">
-                  Không có khóa học nào phù hợp bộ lọc.
-                </p>
-              )}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {filteredMyCourses.map((course) => (
+                <CourseCard
+                  key={course.id}
+                  id={course.id}
+                  thumbnail={course.thumbnail}
+                  title={course.title}
+                  description={course.description}
+                  level={course.level}
+                  price={course.price}
+                  progress={course.progress}
+                  courseType={course.courseType}
+                  onClick={() =>
+                    course.progress !== undefined
+                      ? navigate(`/student/lesson/${course.id}`)
+                      : navigate(`/student/course-detail/${course.id}`)
+                  }
+                />
+              ))}
             </div>
 
             {/* Pagination My Courses */}

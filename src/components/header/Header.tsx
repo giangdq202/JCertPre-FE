@@ -131,13 +131,13 @@ const Header: React.FC = () => {
                     className="block px-4 py-2 text-sm text-gray-700 hover:bg-red-50 hover:text-red-600"
                     onClick={() => setIsProfileDropdownOpen(false)}
                   >
-                    View Profile
+                    Xem hồ sơ
                   </Link>
                   <button
                     onClick={handleLogoutClick}
                     className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-red-50 hover:text-red-600"
                   >
-                    Log Out
+                    Đăng xuất
                   </button>
                 </div>
               )}
