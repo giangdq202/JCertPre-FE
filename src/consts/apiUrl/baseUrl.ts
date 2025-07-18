@@ -1,5 +1,6 @@
-export const BASE_URL = "https://localhost:7014/api";
+// export const BASE_URL = "https://localhost:7014/api";
 
+export const BASE_URL = "https://be.zd-dev.xyz/api";
 
 export const LOGIN_URL = `${BASE_URL}/auth/login`;
 
@@ -21,14 +22,19 @@ export const UPDATE_COURSE_URL = (courseId: string) =>
 export const UPDATE_COURSE_STATUS_URL = (courseId: string) =>
   `${BASE_URL}/course/${courseId}/status`;
 
-export const ADD_INSTRUCTOR_TO_COURSE_URL = (courseId: string, instructorId: string) =>
-  `${BASE_URL}/course/${courseId}/instructors/${instructorId}`;
+export const ADD_INSTRUCTOR_TO_COURSE_URL = (
+  courseId: string,
+  instructorId: string
+) => `${BASE_URL}/course/${courseId}/instructors/${instructorId}`;
 
-export const REMOVE_INSTRUCTOR_FROM_COURSE_URL = (courseId: string, instructorId: string) =>
-  `${BASE_URL}/course/${courseId}/instructors/${instructorId}`;
+export const REMOVE_INSTRUCTOR_FROM_COURSE_URL = (
+  courseId: string,
+  instructorId: string
+) => `${BASE_URL}/course/${courseId}/instructors/${instructorId}`;
 
+const CLOUDINARY_BASE_URL = "https://be.zd-dev.xyz/api/cloudinary-test";
 
-const CLOUDINARY_BASE_URL = "https://localhost:7014/api/cloudinary-test"; // URL gốc của controller
+// const CLOUDINARY_BASE_URL = "https://localhost:7014/api/cloudinary-test"; // URL gốc của controller
 export const CLOUDINARY_UPLOAD_IMAGE_URL = `${CLOUDINARY_BASE_URL}/upload-image`;
 export const CLOUDINARY_UPLOAD_VIDEO_URL = `${CLOUDINARY_BASE_URL}/upload-video`;
 export const CLOUDINARY_UPLOAD_DOCUMENT_URL = `${CLOUDINARY_BASE_URL}/upload-document`;

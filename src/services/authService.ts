@@ -1,10 +1,10 @@
 import axiosInstance from "../consts/axios/axiosInstance";
 
 import {
-  LOGIN_URL, 
+  LOGIN_URL,
   LOGOUT_URL,
-  REGISTER_URL, 
-  REFRESH_TOKEN
+  REGISTER_URL,
+  REFRESH_TOKEN,
 } from "../consts/apiUrl/baseUrl";
 
 interface UserInfoResponse {
@@ -12,10 +12,10 @@ interface UserInfoResponse {
   fullName: string;
   email: string;
   phone: string | null;
-  role : string; // Nếu role được trả về trực tiếp trong user object
+  roleName: string; // Nếu role được trả về trực tiếp trong user object
 }
 
-interface AuthSuccessResponse  {
+interface AuthSuccessResponse {
   accessToken: string;
   refreshToken: string;
   user: UserInfoResponse;
@@ -25,11 +25,11 @@ interface RegisterPayload {
   email: string;
   password: string;
   fullName: string;
-  phone?: string | null; 
-  avatarUrl?: string | null; 
+  phone?: string | null;
+  avatarUrl?: string | null;
 }
 interface LoginPayload {
-  email: string; 
+  email: string;
   password: string;
 }
 interface LogoutPayload {
@@ -43,28 +43,33 @@ interface RefreshTokenPayload {
 }
 export const register = async (registerData: RegisterPayload) => {
   try {
-    const response = await axiosInstance.post<AuthSuccessResponse>(REGISTER_URL, registerData);
-    
+    const response = await axiosInstance.post<AuthSuccessResponse>(
+      REGISTER_URL,
+      registerData
+    );
+
     // Lưu trữ token sau khi đăng ký thành công (giống như đăng nhập)
     localStorage.setItem("accessToken", response.data.accessToken);
     localStorage.setItem("refreshToken", response.data.refreshToken);
     return response.data;
   } catch (error) {
     console.error("Register API error:", error);
-    throw error; 
+    throw error;
   }
 };
-
 
 export const login = async (loginData: LoginPayload) => {
   try {
     // Gán kiểu LoginSuccessResponse cho phản hồi để TypeScript hiểu cấu trúc data
-    const response = await axiosInstance.post<AuthSuccessResponse >(LOGIN_URL, loginData);
+    const response = await axiosInstance.post<AuthSuccessResponse>(
+      LOGIN_URL,
+      loginData
+    );
     localStorage.setItem("accessToken", response.data.accessToken);
     localStorage.setItem("refreshToken", response.data.refreshToken);
-    
+
     // Trả về toàn bộ data từ response (bao gồm accessToken, refreshToken, và user info)
-    return response.data; 
+    return response.data;
   } catch (error) {
     console.error("Login API error:", error);
     // Ném lỗi để AuthProvider hoặc component gọi có thể bắt và xử lý cụ thể
@@ -91,7 +96,6 @@ export const logout = async () => {
     }
   } catch (error) {
     console.error("Logout API error:", error);
-    
   } finally {
     // Luôn xóa token khỏi localStorage dù backend có lỗi hay không
     localStorage.removeItem("accessToken");
@@ -99,19 +103,24 @@ export const logout = async () => {
   }
 };
 
-export const refreshToken = async (accessToken: string, oldRefreshToken: string) => {
+export const refreshToken = async (
+  accessToken: string,
+  oldRefreshToken: string
+) => {
   try {
     const payload: RefreshTokenPayload = {
       accessToken: accessToken,
       refreshToken: oldRefreshToken,
     };
-    
+
     // Gán kiểu AuthSuccessResponse cho phản hồi
-    const res = await axiosInstance.post<AuthSuccessResponse>(REFRESH_TOKEN, payload);
+    const res = await axiosInstance.post<AuthSuccessResponse>(
+      REFRESH_TOKEN,
+      payload
+    );
     return res.data; // Trả về res.data trực tiếp, chứa accessToken, refreshToken, user
   } catch (error) {
     console.error("Refresh token service error:", error);
     throw error; // Ném lỗi để interceptor có thể bắt và xử lý
   }
 };
-

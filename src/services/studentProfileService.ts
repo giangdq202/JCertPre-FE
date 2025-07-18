@@ -1,13 +1,14 @@
-import axiosInstance from '../consts/axios/axiosInstance';
+import axiosInstance from "../consts/axios/axiosInstance";
 import {
   BASE_STUDENT_PROFILE_URL,
   CREATE_STUDENT_PROFILE_URL,
-} from '../consts/apiUrl/baseUrl';
+} from "../consts/apiUrl/baseUrl";
 export interface StudentProfileDto {
   userId: string; // Guid trong C# được biểu diễn bằng string trong TypeScript
   currentLevel: string;
   learningGoals: string;
 }
+import axios from "axios";
 
 // Interface cho các tham số đầu vào khi tạo hồ sơ, sử dụng cho các tham số [FromQuery]
 export interface CreateStudentProfileParams {
@@ -24,16 +25,21 @@ export interface CreateStudentProfileParams {
  */
 export const getStudentProfile = async (
   userId: string
-): Promise<StudentProfileDto> => {
+): Promise<StudentProfileDto | null> => {
   try {
-    // Gửi yêu cầu GET đến endpoint /api/studentprofile/{userId}
     const response = await axiosInstance.get<StudentProfileDto>(
       `${BASE_STUDENT_PROFILE_URL}/${userId}`
     );
     return response.data;
-  } catch (error) {
+  } catch (error: any) {
+    if (axios.isAxiosError(error) && error.response?.status === 404) {
+      // Không log lỗi 404 nữa, chỉ trả null
+      return null;
+    }
+
+    // Những lỗi khác vẫn log để biết có vấn đề thật sự
     console.error(`GetStudentProfile API error for userId ${userId}:`, error);
-    throw error; // Ném lỗi để component gọi có thể xử lý
+    throw error;
   }
 };
 

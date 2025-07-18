@@ -4,8 +4,9 @@ import ProtectedRoute from "../routes/ProtectRoute";
 import Layout from "../layouts/Layout";
 import Login from "../pages/login/Login";
 import Register from "../pages/register/Register";
-import Home from "../pages/home/Home"; // Landing page
+import Home from "../pages/home/Home";
 import StudentHomePage from "../pages/student/StudentHomePage";
+import StudentCoursesPage from "../pages/student/StudentCoursesPage";
 import StaffHomePage from "../pages/staff/StaffHomePage";
 import StaffCourseManagementPage from "../pages/staff/StaffCourseManagementPage";
 import CourseDetailPage from "../pages/staff/CourseDetailPage";
@@ -21,9 +22,9 @@ const AppRoutes: React.FC = () => {
     <div className="w-full">
       <Routes>
         {/* Route công khai */}
-        <Route element={<Layout />}>   
-          <Route path={paths.home}
-          element={<Home />}/></Route>
+        <Route element={<Layout />}>
+          <Route path={paths.home} element={<Home />} />
+        </Route>
         <Route path={paths.login} element={<Login />} />
         <Route path={paths.register} element={<Register />} />
         {/* <Route path={paths.callback} element={<GoogleAuthCallback />} /> */}
@@ -34,6 +35,14 @@ const AppRoutes: React.FC = () => {
           element={
             <ProtectedRoute allowedRoles={["STUDENT"]}>
               <StudentHomePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path={paths.student_course}
+          element={
+            <ProtectedRoute allowedRoles={["STUDENT"]}>
+              <StudentCoursesPage />
             </ProtectedRoute>
           }
         />

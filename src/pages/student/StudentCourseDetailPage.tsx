@@ -208,7 +208,7 @@ const StudentCourseDetailPage = () => {
                                         <p><strong>Họ và tên:</strong> {userInfo?.fullName || "N/A"}</p>
                                         <p><strong>Email:</strong> {userInfo?.email || "N/A"}</p>
                                         <p><strong>Số điện thoại:</strong> {userInfo?.phone || "N/A"}</p>
-                                        <p><strong>Vai trò:</strong> {userInfo?.role || "N/A"}</p>
+                                        <p><strong>Vai trò:</strong> {userInfo?.roleName || "N/A"}</p>
                                     </div>
                                     <div className="border-t border-gray-200 my-2"></div>
                                     <button

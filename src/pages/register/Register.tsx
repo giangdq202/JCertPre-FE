@@ -6,8 +6,9 @@ import Lottie from "lottie-react";
 import sakuraAnimation from "../../animations/sakura.json";
 import { Link, useNavigate } from "react-router-dom";
 import { register } from "../../services/authService";
-import { RegisterPayload } from "../../types/common.types"; // Giả sử bạn đã định nghĩa kiểu này trong types/authTypes.ts
-import { toast } from "react-toastify"; // Giả sử bạn dùng react-toastify để hiển thị thông báo
+import { RegisterPayload } from "../../types/common.types";
+import { toast } from "react-toastify";
+import { uploadImage } from "../../services/cloudSerivce";
 
 interface FormData {
   fullname: string;
@@ -47,7 +48,6 @@ const Register: React.FC = () => {
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    // Kiểm tra mật khẩu và xác nhận mật khẩu
     if (formData.password !== formData.confirmPassword) {
       toast.error("Mật khẩu và xác nhận mật khẩu không khớp!");
       return;
@@ -56,21 +56,27 @@ const Register: React.FC = () => {
     setLoading(true);
 
     try {
-      // Chuẩn bị dữ liệu đăng ký
+      let avatarUrl = null;
+
+      // Nếu có ảnh, upload lên trước
+      if (avatar) {
+        const uploadResult = await uploadImage(avatar);
+        avatarUrl = uploadResult.imageUrl;
+      }
+
+      // Gửi payload đăng ký
       const registerPayload: RegisterPayload = {
         email: formData.email,
         password: formData.password,
         fullName: formData.fullname,
-        phone: formData.phone || null,
-        avatarUrl: avatar ? URL.createObjectURL(avatar) : null, // Nếu bạn cần gửi URL tạm thời, thay bằng logic upload ảnh nếu backend yêu cầu
+        phone: formData.phone,
+        avatarUrl: avatarUrl || "",
       };
 
-      // Gọi hàm register
       await register(registerPayload);
 
-      // Thông báo thành công và chuyển hướng
       toast.success("Đăng ký thành công!");
-      navigate("/login"); // Hoặc chuyển hướng đến trang khác, ví dụ: trang chính
+      navigate("/login");
     } catch (error) {
       toast.error("Đăng ký thất bại. Vui lòng thử lại!");
       console.error("Register error:", error);
@@ -94,7 +100,7 @@ const Register: React.FC = () => {
         style={{ backgroundImage: `url(${registerBg})` }}
       />
 
-      <div className="absolute inset-0 z-30 pointer-events-none overflow-hidden">
+      <div className="absolute inset-0 z-30 pointer-events-none overflow-hidden hidden md:block">
         <div className="absolute right-0 top-0 w-1/2 h-full transform scale-x-[-1] scale-[1.2]">
           <Lottie animationData={sakuraAnimation} loop autoplay />
         </div>
@@ -103,7 +109,7 @@ const Register: React.FC = () => {
       <div className="w-full md:w-1/2 flex items-center justify-center bg-white px-6 py-12 relative z-20">
         <div className="w-full max-w-sm">
           <div className="mb-1">
-            <h1 className="text-3xl font-bold text-gray-800 text-left">
+            <h1 className="text-3xl font-bold text-gray-800 text-left mb-3">
               Tạo tài khoản
             </h1>
           </div>
@@ -156,18 +162,25 @@ const Register: React.FC = () => {
                     type={isShown ? "text" : "password"}
                     name={name}
                     value={formData[name as keyof FormData]}
-                    onChange={(e) => handleInputChange(e, name as keyof FormData)}
+                    onChange={(e) =>
+                      handleInputChange(e, name as keyof FormData)
+                    }
                     placeholder={label}
                     required
                     className="peer w-full px-4 py-3 bg-transparent border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-400 placeholder-transparent transition-all duration-200"
                   />
                   <label
-                    className="absolute left-3 top-3 text-sm text-gray-500 pointer-events-none transition-all duration-200 ease-in-out 
-                        peer-placeholder-shown:top-3 peer-placeholder-shown:text-base peer-placeholder-shown:text-gray-400 
-                        peer-focus:top-[-10px] peer-focus:text-sm peer-focus:text-red-500 bg-white px-1"
+                    className={`absolute left-3 text-sm pointer-events-none transition-all duration-200 ease-in-out bg-white px-1
+    ${
+      formData[name as keyof FormData]
+        ? "top-[-10px] text-sm text-red-500"
+        : "top-3 text-base text-gray-400 peer-focus:top-[-10px] peer-focus:text-sm peer-focus:text-red-500"
+    }
+  `}
                   >
                     {label}
                   </label>
+
                   <span
                     className="absolute right-3 top-3 text-gray-500 cursor-pointer"
                     onClick={() => toggle(!isShown)}
