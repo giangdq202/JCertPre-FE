@@ -14,9 +14,11 @@ import StaffCourseManagementPage from "../pages/staff/StaffCourseManagementPage"
 import CourseDetailPage from "../pages/staff/CourseDetailPage";
 import CreateCoursePage from "../pages/staff/CreateCoursePage";
 import ProfilePage from "../pages/student/ProfilePage";
+import StaffSub from "../pages/staff/SubContentManagementPage"; // Assuming this is the correct import for your sub-content management page
 // import GoogleAuthCallback from "../components/Auth/GoogleAuthCallback";
 import paths from "./path";
 import StudentCourseDetailPage from "../pages/student/StudentCourseDetailPage";
+import StudentLearnCoursePage from "../pages/student/StudentLearnCoursePage";
 
 const AppRoutes: React.FC = () => {
   console.log("AppRoutes: Rendering routes");
@@ -53,6 +55,14 @@ const AppRoutes: React.FC = () => {
           element={
             <ProtectedRoute allowedRoles={["STUDENT"]}>
               <StudentCourseDetailPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path={paths.learn_course}
+          element={
+            <ProtectedRoute allowedRoles={["STUDENT"]}>
+              <StudentLearnCoursePage />
             </ProtectedRoute>
           }
         />
@@ -112,7 +122,14 @@ const AppRoutes: React.FC = () => {
             </ProtectedRoute>
           }
         />
-
+        <Route
+          path={paths.staff_sub_content_management}
+          element={
+            <ProtectedRoute allowedRoles={["ACADEMIC_MANAGER"]}>
+              <StaffSub />
+            </ProtectedRoute>
+          }
+        />
         {/* Route 404 */}
         {/* <Route path="*" element={<Navigate to="/" replace />} /> */}
       </Routes>

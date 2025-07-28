@@ -1,81 +1,84 @@
 import React, { useState, useEffect, useRef } from "react";
-import StudentSideBar from "../../components/sidebar/StudentSideBar"; // Assuming you have a sidebar component for students
+import StudentSideBar from "../../components/sidebar/StudentSideBar";
 import { Link, useNavigate } from "react-router-dom";
 import {
   getStudentProfile,
-  // createStudentProfile,
   StudentProfileDto,
 } from "../../services/studentProfileService";
-import { FaUserCircle, FaAngleDown, FaAngleUp } from "react-icons/fa";
-import { getCourses } from "../../services/courseService"; // Assuming you have a service to fetch courses
-import StudentProfileModal from "../../components/modals/StudentProfileModal"; // Assuming you have a modal component for creating student profile
-import { useAuth } from "../../auth/AuthContext";
-import logo from "../../assets/logo.png";
-import paths from "../../routes/path";
-import axios from "axios";
-import { FaBookOpen, FaPenNib, FaArrowRight } from "react-icons/fa";
 import {
-  FiSearch,
-  FiBell,
-  FiSettings,
-  FiChevronDown,
-  FiChevronUp,
-} from "react-icons/fi";
+  getCourses,
+  CourseListDto,
+  CourseStatus,
+  CourseLevel,
+  getCourseById,
+} from "../../services/courseService";
+import {
+  getMyEnrollments,
+  EnrollmentDetailDto,
+} from "../../services/enrollmentService";
+import StudentProfileModal from "../../components/modals/StudentProfileModal";
+import { useAuth } from "../../auth/AuthContext";
+import paths from "../../routes/path";
+import { FaBookOpen, FaPenNib, FaArrowRight } from "react-icons/fa";
 import { HiOutlineClock } from "react-icons/hi2";
 import Lottie from "lottie-react";
 import studyAnimation from "../../animations/study.json";
 import StudentHeader from "../../components/header/StudentHeader";
 
-const CoursesPage = () => <div className="p-6">Nội dung trang Khóa học</div>;
+// Placeholder components (kept for routing purposes)
+const CoursesPage = () => <div className="p-6 text-gray-700">Nội dung trang Khóa học</div>;
 const ExamSimulationsPage = () => (
-  <div className="p-6">Nội dung trang Mô phỏng kỳ thi</div>
+  <div className="p-6 text-gray-700">Nội dung trang Mô phỏng kỳ thi</div>
 );
 const StudyPlanPage = () => (
-  <div className="p-6">Nội dung trang Kế hoạch học tập</div>
+  <div className="p-6 text-gray-700">Nội dung trang Kế hoạch học tập</div>
 );
 const ProgressPage = () => (
-  <div className="p-6">Nội dung trang Theo dõi tiến độ</div>
+  <div className="p-6 text-gray-700">Nội dung trang Theo dõi tiến độ</div>
 );
-const MessagesPage = () => <div className="p-6">Nội dung trang Tin nhắn</div>;
-const SchedulePage = () => <div className="p-6">Nội dung trang Lịch trình</div>;
-const SettingsPage = () => <div className="p-6">Nội dung trang Cài đặt</div>;
+const MessagesPage = () => <div className="p-6 text-gray-700">Nội dung trang Tin nhắn</div>;
+const SchedulePage = () => <div className="p-6 text-gray-700">Nội dung trang Lịch trình</div>;
+const SettingsPage = () => <div className="p-6 text-gray-700">Nội dung trang Cài đặt</div>;
 const ProfilePage = () => (
-  <div className="p-6">Nội dung trang Hồ sơ người dùng</div>
+  <div className="p-6 text-gray-700">Nội dung trang Hồ sơ người dùng</div>
 );
+
+// Helper function to map string level to numeric CourseLevel enum
+const getNumericLevel = (levelString: string): CourseLevel | undefined => {
+  const levelMap: { [key: string]: CourseLevel } = {
+    "N5": CourseLevel.N5,
+    "N4": CourseLevel.N4,
+    "N3": CourseLevel.N3,
+    "N2": CourseLevel.N2,
+    "N1": CourseLevel.N1,
+  };
+  return levelMap[levelString];
+};
 
 // StudentHomePage Component
 const StudentHomePage = () => {
-  const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
-  const profileDropdownRef = useRef<HTMLDivElement | null>(null);
-  const { userInfo, handleLogout } = useAuth();
+  const { userInfo } = useAuth(); // Kept for user info
   const navigate = useNavigate();
-  const notificationCount = 2;
 
   const [studentProfile, setStudentProfile] =
     useState<StudentProfileDto | null>(null);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        profileDropdownRef.current &&
-        event.target &&
-        !profileDropdownRef.current.contains(event.target as HTMLElement)
-      ) {
-        setIsProfileDropdownOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+  const [recommendedCourses, setRecommendedCourses] = useState<CourseListDto[]>([]);
+  const [isLoadingRecommendedCourses, setIsLoadingRecommendedCourses] = useState(true);
+  const [enrolledCourses, setEnrolledCourses] = useState<EnrollmentDetailDto[]>([]);
+  const [isLoadingEnrolledCourses, setIsLoadingEnrolledCourses] = useState(true);
+  const [enrolledThumbnails, setEnrolledThumbnails] = useState<{ [courseId: string]: string }>({});
+  const [enrolledCoursesLoaded, setEnrolledCoursesLoaded] = useState(false);
 
   // Hàm xử lý khi hồ sơ được tạo thành công từ modal
   const handleProfileCreated = (profile: StudentProfileDto) => {
     setStudentProfile(profile);
     setShowProfileModal(false);
-    // toast.success("Tạo hồ sơ thành công!");
+    alert("Tạo hồ sơ thành công!"); // Using alert instead of Ant Design message
   };
 
+  // Fetch student profile
   useEffect(() => {
     const fetchProfile = async () => {
       if (!userInfo?.id) {
@@ -89,12 +92,11 @@ const StudentHomePage = () => {
         if (profile) {
           setStudentProfile(profile);
         } else {
-          // Không có hồ sơ (404), show modal
-          setShowProfileModal(true);
+          setShowProfileModal(true); // No profile found, show modal
         }
       } catch (error) {
-        // Những lỗi khác ngoài 404
         console.error("Error fetching student profile:", error);
+        alert("Failed to fetch student profile."); // Using alert
       } finally {
         setIsLoadingProfile(false);
       }
@@ -103,43 +105,120 @@ const StudentHomePage = () => {
     fetchProfile();
   }, [userInfo?.id]);
 
-  const handleProfileClick = () => {
-    setIsProfileDropdownOpen(!isProfileDropdownOpen);
-  };
+  // Fetch enrolled courses after profile loads
+  useEffect(() => {
+    const fetchEnrolledCourses = async () => {
+      setIsLoadingEnrolledCourses(true);
+      try {
+        const enrollments = await getMyEnrollments();
+        setEnrolledCourses(enrollments);
+        setEnrolledCoursesLoaded(true);
+      } catch (error) {
+        console.error("Error fetching enrolled courses:", error);
+        alert("Failed to fetch enrolled courses.");
+        setEnrolledCoursesLoaded(true); // Mark as loaded even if error
+      } finally {
+        setIsLoadingEnrolledCourses(false);
+      }
+    };
+    if (!isLoadingProfile) {
+      fetchEnrolledCourses();
+    }
+  }, [isLoadingProfile]);
 
-  const handleLogoutClick = () => {
-    handleLogout();
-    setIsProfileDropdownOpen(false);
-    navigate(paths.login, { replace: true });
-  };
+  // Fetch recommended courses based on student profile and enrolled courses
+  useEffect(() => {
+    const fetchRecommendedCourses = async () => {
+      setIsLoadingRecommendedCourses(true);
+
+      try {
+        // Get all published courses
+        const queryParams = {
+          pageNumber: 1,
+          pageSize: 20, // Get more courses to filter from
+          status: CourseStatus.Published,
+        };
+
+        const response = await getCourses(queryParams);
+        
+        // Filter out courses that the student is already enrolled in
+        const enrolledCourseIds = enrolledCourses.map(enrollment => enrollment.courseId);
+        const filteredCourses = response.items.filter(course => 
+          !enrolledCourseIds.includes(course.courseId)
+        );
+        
+        // Limit to 5 recommended courses
+        setRecommendedCourses(filteredCourses.slice(0, 5));
+      } catch (error) {
+        console.error("Error fetching recommended courses:", error);
+        alert("Failed to fetch recommended courses."); // Using alert
+      } finally {
+        setIsLoadingRecommendedCourses(false);
+      }
+    };
+
+    // Only fetch recommended courses after both profile and enrolled courses are loaded
+    if (!isLoadingProfile && enrolledCoursesLoaded) {
+      fetchRecommendedCourses();
+    }
+  }, [isLoadingProfile, studentProfile, enrolledCoursesLoaded, enrolledCourses]); // Added enrolledCoursesLoaded dependency
+
+  // Fetch thumbnails for enrolled courses
+  useEffect(() => {
+    const fetchThumbnails = async () => {
+      const newThumbnails: { [courseId: string]: string } = {};
+      await Promise.all(
+        enrolledCourses.map(async (enrollment) => {
+          try {
+            const course = await getCourseById(enrollment.courseId);
+            newThumbnails[enrollment.courseId] = course.thumbnailUrl || "";
+          } catch (e) {
+            newThumbnails[enrollment.courseId] = "";
+          }
+        })
+      );
+      setEnrolledThumbnails(newThumbnails);
+    };
+    if (enrolledCourses.length > 0) {
+      fetchThumbnails();
+    } else {
+      setEnrolledThumbnails({});
+    }
+  }, [enrolledCourses]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-gray-100 to-gray-200 font-inter flex flex-col lg:flex-row">
       {/* Sidebar Component */}
-      <StudentSideBar /> {/* Using the local Sidebar component */}
+      <StudentSideBar />
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col overflow-hidden">
         <StudentHeader />
         {/* Main Content */}
         <main className="flex-1 p-6 overflow-y-auto">
+          {/* Welcome Banner Section */}
           <div className="relative mb-6 bg-white rounded-2xl shadow-xl overflow-hidden">
-            {/* Nội dung text & nút - chừa khoảng bên phải cho animation */}
+            {/* Text content & buttons - leave space on the right for animation */}
             <div className="px-6 py-8 sm:px-8 lg:px-10 pr-28 sm:pr-40 lg:pr-56">
               <h2 className="text-2xl font-bold text-gray-800 mb-2 leading-snug">
                 Chào mừng trở lại,{" "}
-                <span className="text-green-600">{userInfo?.fullName}</span>!
+                <span className="text-green-600">{userInfo?.fullName || "Học viên"}</span>!
               </h2>
               <p className="text-gray-600 text-base mb-6">
                 Hãy tiếp tục hành trình chinh phục chứng chỉ{" "}
-                <span className="font-medium text-gray-800">JLPT N3</span> của
-                bạn.
+                <span className="font-medium text-gray-800">
+                  {studentProfile?.currentLevel ? `JLPT ${studentProfile.currentLevel}` : "Nhật ngữ"}
+                </span>{" "}
+                của bạn.
               </p>
 
               <div className="flex flex-col sm:flex-row gap-4">
-                <button className="bg-gradient-to-r from-green-500 to-green-600 text-white py-2.5 px-6 rounded-xl shadow-md hover:brightness-105 hover:scale-[1.02] active:scale-95 transition-all duration-150 flex items-center justify-center text-sm font-medium">
-                  <FaBookOpen className="mr-2 text-base" />
-                  Đăng ký khóa học mới
-                </button>
+               <Link
+                    to="/student/courses" // <--- Thêm thuộc tính 'to' với đường dẫn mong muốn
+                    className="bg-gradient-to-r from-green-500 to-green-600 text-white py-2.5 px-6 rounded-xl shadow-md hover:brightness-105 hover:scale-[1.02] active:scale-95 transition-all duration-150 flex items-center justify-center text-sm font-medium"
+                >
+                    <FaBookOpen className="mr-2 text-base" />
+                    Đăng ký khóa học mới
+                </Link>
                 <button className="bg-white text-green-700 border border-green-500 py-2.5 px-6 rounded-xl shadow-md hover:bg-green-50 hover:scale-[1.02] active:scale-95 transition-all duration-150 flex items-center justify-center text-sm font-medium">
                   <FaPenNib className="mr-2 text-base" />
                   Làm bài kiểm tra thực hành
@@ -147,7 +226,7 @@ const StudentHomePage = () => {
               </div>
             </div>
 
-            {/* Animation ở góc phải */}
+            {/* Animation in the right corner */}
             <Lottie
               animationData={studyAnimation}
               loop
@@ -156,6 +235,7 @@ const StudentHomePage = () => {
             />
           </div>
 
+          {/* Grid for Study Progress, Upcoming Exams, and To-Do List */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
             {/* Study Progress Card */}
             <div className="bg-white p-6 rounded-2xl shadow-xl">
@@ -163,12 +243,12 @@ const StudentHomePage = () => {
                 <h3 className="text-xl font-semibold text-gray-800 tracking-tight">
                   Tiến độ học tập
                 </h3>
-                <a
-                  href="#"
+                <Link
+                  to={paths.student_home} // Updated path
                   className="text-sm text-green-600 hover:text-green-700 hover:underline font-medium transition"
                 >
                   Xem chi tiết
-                </a>
+                </Link>
               </div>
 
               <div className="flex flex-col items-center space-y-6">
@@ -238,12 +318,12 @@ const StudentHomePage = () => {
                 <h3 className="text-xl font-semibold text-gray-900">
                   Các kỳ thi sắp tới
                 </h3>
-                <a
-                  href="#"
+                <Link
+                  to={paths.student_home} // Updated path
                   className="text-sm text-green-600 hover:text-green-700 hover:underline font-medium transition"
                 >
                   Xem tất cả
-                </a>
+                </Link>
               </div>
 
               <div className="space-y-6">
@@ -318,6 +398,7 @@ const StudentHomePage = () => {
               </div>
             </div>
 
+            {/* To-Do List Card */}
             <div className="bg-white p-6 rounded-2xl shadow-xl">
               <h3 className="text-xl font-semibold text-gray-900">
                 Việc cần làm
@@ -385,15 +466,15 @@ const StudentHomePage = () => {
                     <div
                       key={date}
                       className={`
-            w-9 h-9 relative rounded-full flex items-center justify-center 
-            font-medium cursor-pointer transition-all
-            ${isCurrent ? "border-2 border-green-600" : ""}
-            ${
-              hasTask
-                ? "bg-green-100 text-green-700 hover:bg-green-200"
-                : "text-gray-800 hover:bg-gray-100"
-            }
-          `}
+                        w-9 h-9 relative rounded-full flex items-center justify-center 
+                        font-medium cursor-pointer transition-all
+                        ${isCurrent ? "border-2 border-green-600" : ""}
+                        ${
+                          hasTask
+                            ? "bg-green-100 text-green-700 hover:bg-green-200"
+                            : "text-gray-800 hover:bg-gray-100"
+                        }
+                      `}
                     >
                       {date}
                       {hasTask && (
@@ -405,7 +486,10 @@ const StudentHomePage = () => {
               </div>
 
               {/* CTA Button */}
-              <button className="w-full mt-6 bg-green-50 text-green-700 font-semibold py-2.5 px-4 rounded-lg hover:bg-green-100 transition-colors duration-200">
+              <button
+                onClick={() => navigate(paths.student_home)} // Updated path
+                className="w-full mt-6 bg-green-50 text-green-700 font-semibold py-2.5 px-4 rounded-lg hover:bg-green-100 transition-colors duration-200"
+              >
                 Xem chi tiết việc cần làm
               </button>
             </div>
@@ -417,175 +501,117 @@ const StudentHomePage = () => {
               <h3 className="text-2xl font-bold text-gray-900 tracking-tight">
                 Khóa học đã đăng ký
               </h3>
-              <a
-                href="#"
+              <Link
+                to={paths.student_home}
                 className="text-green-600 hover:text-green-700 hover:underline text-base font-semibold transition"
               >
                 Xem tất cả
-              </a>
+              </Link>
             </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-              {[
-                {
-                  image:
-                    "https://res.cloudinary.com/jcertpre-090725/image/upload/v1752225127/images/hqdefault_tcmisu.jpg",
-                  title: "Tiếng Nhật giao tiếp",
-                  teacher: "Tanaka Keiko",
-                  progress: "12/20 bài học đã hoàn thành",
-                  progressPercent: 60,
-                },
-                {
-                  image:
-                    "https://res.cloudinary.com/jcertpre-090725/image/upload/v1752225127/images/hqdefault_tcmisu.jpg",
-                  title: "Làm chủ Kanji: Trình độ N3",
-                  teacher: "Suzuki Hiroshi",
-                  progress: "16/20 bài học đã hoàn thành",
-                  progressPercent: 80,
-                },
-                {
-                  image:
-                    "https://res.cloudinary.com/jcertpre-090725/image/upload/v1752225127/images/hqdefault_tcmisu.jpg",
-                  title: "Nền tảng ngữ pháp",
-                  teacher: "Tanaka Akira",
-                  progress: "8/20 bài học đã hoàn thành",
-                  progressPercent: 40,
-                },
-              ].map((course, index) => (
-                <div
-                  key={index}
-                  className="bg-white rounded-xl shadow-md hover:shadow-lg hover:ring-2 hover:ring-green-400 transition duration-300 overflow-hidden border border-gray-100 flex flex-col"
-                >
-                  <div className="aspect-[16/9] w-full overflow-hidden rounded-t-xl">
-                    <img
-                      src={course.image}
-                      alt={course.title}
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                  <div className="p-6 flex flex-col flex-grow justify-between">
-                    <div>
-                      <h4 className="text-xl font-semibold text-gray-900 leading-snug mb-2">
-                        {course.title}
-                      </h4>
-
-                      <div className="flex items-center text-gray-600 text-sm mb-4">
-                        <img
-                          src="https://placehold.co/24x24/cccccc/ffffff?text=GV"
-                          alt="Teacher Avatar"
-                          className="rounded-full mr-3 w-6 h-6"
-                        />
-                        <span className="truncate">{course.teacher}</span>
-                      </div>
-
-                      <p className="text-sm text-gray-500 mb-4">
-                        {course.progress}
-                      </p>
-
-                      <div className="w-full bg-gray-200 rounded-full h-3 mb-6 overflow-hidden">
-                        <div
-                          className="bg-green-500 h-3 rounded-full transition-all duration-500 ease-in-out"
-                          style={{ width: `${course.progressPercent}%` }}
-                        ></div>
-                      </div>
+            {isLoadingEnrolledCourses ? (
+              <div className="flex justify-center items-center h-24 bg-white rounded-2xl shadow-xl">
+                <div className="animate-spin rounded-full h-8 w-8 border-4 border-t-4 border-green-500 border-opacity-25"></div>
+                <p className="ml-4 text-gray-600">Đang tải khóa học đã đăng ký...</p>
+              </div>
+            ) : enrolledCourses.length === 0 ? (
+              <div className="bg-white p-6 rounded-2xl shadow-xl">
+                <p className="text-gray-600">Bạn chưa đăng ký khóa học nào.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+                {enrolledCourses.map((enrollment) => (
+                  <div
+                    key={enrollment.enrollmentId}
+                    className="bg-white rounded-xl shadow-md hover:shadow-lg hover:ring-2 hover:ring-green-400 transition duration-300 overflow-hidden border border-gray-100 flex flex-col"
+                  >
+                    <div className="aspect-[16/9] w-full overflow-hidden rounded-t-xl">
+                      <img
+                        src={enrolledThumbnails[enrollment.courseId] || "https://placehold.co/400x200/E0F2F1/004D40?text=Course+Thumbnail"}
+                        alt={enrollment.courseTitle}
+                        className="w-full h-full object-cover"
+                      />
                     </div>
-
-                    <button
-                      type="button"
-                      className="w-full flex items-center justify-center gap-2 bg-green-600 text-white text-sm font-semibold py-3 rounded-lg hover:bg-green-700 transition-colors duration-300 select-none
-            focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-2"
-                    >
-                      <span>Tiếp tục học</span>
-                      <FaArrowRight className="w-4 h-4" />
-                    </button>
+                    <div className="p-6 flex flex-col flex-grow justify-between">
+                      <div>
+                        <h4 className="text-xl font-semibold text-gray-900 leading-snug mb-2">
+                          {enrollment.courseTitle}
+                        </h4>
+                        <div className="flex items-center text-gray-600 text-sm mb-4">
+                          <img
+                            src="https://placehold.co/24x24/cccccc/ffffff?text=GV"
+                            alt="Teacher Avatar"
+                            className="rounded-full mr-3 w-6 h-6"
+                          />
+                          <span className="truncate">Giáo viên</span>
+                        </div>
+                        <p className="text-sm text-gray-500 mb-4">
+                          {enrollment.courseDescription}
+                        </p>
+                        {/* Nếu có progress, render thanh tiến độ ở đây */}
+                      </div>
+                      <Link
+                        to={`/learn-course/${enrollment.courseId}`}
+                        className="w-full flex items-center justify-center gap-2 bg-green-600 text-white text-sm font-semibold py-3 rounded-lg hover:bg-green-700 transition-colors duration-300 select-none
+                          focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-2"
+                      >
+                        <span>Tiếp tục học</span>
+                        <FaArrowRight className="w-4 h-4" />
+                      </Link>
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
 
-          {/* Recommended Courses Section (Khóa học dành cho bạn) */}
+          {/* Recommended Courses Section (Khóa học dành cho bạn) - Dynamic Content */}
           <div className="mb-12">
             <div className="flex justify-between items-center mb-6 px-2">
               <h3 className="text-2xl font-bold text-gray-900 tracking-tight">
-                Khóa học dành cho bạn
+                Khóa học đề xuất cho bạn
               </h3>
               <Link
-                to="/student/recommended-courses"
+                to={paths.student_home} // Updated path
                 className="text-green-600 hover:text-green-700 hover:underline text-base font-semibold transition"
               >
                 Xem tất cả gợi ý
               </Link>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-              {[
-                {
-                  id: "jlpt-n3",
-                  image:
-                    "https://dungmori.com/cdn/course/default/1690873005_37035_14f279.png",
-                  title: "Luyện thi JLPT N3",
-                  description:
-                    "Khóa học nâng cao dành cho học viên muốn chinh phục N2.",
-                  level: "N2",
-                },
-                {
-                  id: "n4-nang-cao",
-                  image:
-                    "https://dungmori.com/cdn/course/default/1690872820_49380_d3f430.png",
-                  title: "Khóa học N4 nâng cao",
-                  description:
-                    "Nắm vững kiến thức N4 qua các ví dụ thực tế và bài tập chuyên sâu.",
-                  level: "N4",
-                },
-                {
-                  id: "n5-nguoi-moi-bat-dau",
-                  image:
-                    "https://dungmori.com/cdn/course/default/1690872770_61725_e6c174.png",
-                  title: "Khóa học N5 cho người mới bắt đầu",
-                  description:
-                    "Lý tưởng cho người mới học tiếng Nhật với bài giảng đơn giản và dễ hiểu.",
-                  level: "N5",
-                },
-              ].map((course) => (
-                <Link
-                  to={`/student/course-detail/${course.id}`}
-                  key={course.id}
-                  className="group block bg-white rounded-xl shadow-md hover:shadow-lg hover:ring-2 hover:ring-green-400 transition duration-300 overflow-hidden"
-                  tabIndex={0}
-                >
-                  <div className="aspect-[16/9] w-full overflow-hidden rounded-t-xl">
-                    <img
-                      src={course.image}
-                      alt={course.title}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-in-out"
-                    />
-                  </div>
-                  <div className="p-6 flex flex-col justify-between min-h-[260px]">
-                    <div className="space-y-3">
-                      <h4 className="text-xl font-semibold text-gray-900 group-hover:text-green-600 transition-colors duration-300">
-                        {course.title}
-                      </h4>
-                      <p className="text-sm text-gray-600 leading-relaxed line-clamp-3">
-                        {course.description}
-                      </p>
-                      <div className="text-xs text-gray-500 flex items-center gap-2 mt-2">
-                        <FaBookOpen className="text-green-500" />
-                        <span>Trình độ: {course.level}</span>
+            {isLoadingRecommendedCourses ? (
+              <div className="flex justify-center items-center h-24 bg-white rounded-2xl shadow-xl">
+                <div className="animate-spin rounded-full h-8 w-8 border-4 border-t-4 border-green-500 border-opacity-25"></div>
+                <p className="ml-4 text-gray-600">Đang tải khóa học đề xuất...</p>
+              </div>
+            ) : recommendedCourses.length === 0 ? (
+              <div className="bg-white p-6 rounded-2xl shadow-xl">
+                <p className="text-gray-600">Không tìm thấy khóa học đề xuất nào phù hợp. Vui lòng kiểm tra lại hồ sơ của bạn hoặc khám phá các khóa học khác.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {recommendedCourses.map((course) => (
+                  <Link to={`/student/course-detail/${course.courseId}`} key={course.courseId} className="block">
+                    <div className="bg-gray-50 rounded-lg shadow-md hover:shadow-lg transition-shadow duration-200 overflow-hidden">
+                      <img
+                        src={course.thumbnailUrl || "https://placehold.co/400x200/E0F2F1/004D40?text=Course+Thumbnail"}
+                        alt={course.title}
+                        className="w-full h-32 object-cover"
+                      />
+                      <div className="p-4">
+                        <h4 className="font-semibold text-gray-800 text-lg truncate">{course.title}</h4>
+                        <p className="text-sm text-gray-600 mb-2">Level: {CourseLevel[course.level]}</p>
+                        <p className="text-sm text-gray-700 font-bold">
+                          {course.price === 0 ? "Miễn phí" : `${course.price.toLocaleString("vi-VN")} VND`}
+                        </p>
+                        <button className="mt-3 w-full bg-green-500 text-white py-2 rounded-md hover:bg-green-600 transition-colors text-sm font-medium flex items-center justify-center">
+                          Xem chi tiết <FaArrowRight className="ml-2 text-xs" />
+                        </button>
                       </div>
                     </div>
-                    <div
-                      className="mt-6 flex items-center justify-center gap-2 bg-green-600 text-white text-sm font-semibold py-3 rounded-lg
-                       group-hover:bg-green-700 transition-colors duration-300 cursor-pointer select-none
-                       focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-2"
-                    >
-                      <span>Khám phá</span>
-                      <FaArrowRight className="w-4 h-4" />
-                    </div>
-                  </div>
-                </Link>
-              ))}
-            </div>
+                  </Link>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Personalized Study Recommendations & Announcements */}
@@ -700,8 +726,8 @@ const StudentHomePage = () => {
         <StudentProfileModal
           isOpen={showProfileModal}
           onClose={() => setShowProfileModal(false)}
-          userId={userInfo.id}
           onProfileCreated={handleProfileCreated}
+          userId={userInfo.id}
         />
       )}
     </div>

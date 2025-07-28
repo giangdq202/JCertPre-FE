@@ -1,20 +1,26 @@
-import React, { useState, useEffect } from "react";
-import { Table, Button, Input, Select, Space, Tag, message, PaginationProps } from "antd";
-import { PlusOutlined, SearchOutlined } from "@ant-design/icons";
-import { Link } from "react-router-dom";
-import { useNavigate } from "react-router-dom";
+// src/pages/staff/StaffCourseManagementPage.tsx
+import React, { useState, useEffect, useCallback } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import StaffSidebar from "../../components/sidebar/StaffSidebar";
 import StaffHeader from "../../components/header/StaffHeader";
+
+// Import icons from react-icons
+import {
+  FaPlus,
+  FaSearch,
+  FaFilter,
+  FaChevronLeft,
+  FaChevronRight,
+} from "react-icons/fa";
+
 import {
   getCourses,
   CourseListDto,
   CourseQueryParameters,
   CourseStatus,
   CourseLevel,
-  CourseType,
+  CourseType, // Still imported for enum definition, but filter removed
 } from "../../services/courseService"; // Đảm bảo đường dẫn đúng
-
-const { Option } = Select;
 
 const StaffCourseManagementPage: React.FC = () => {
   const navigate = useNavigate();
@@ -30,14 +36,14 @@ const StaffCourseManagementPage: React.FC = () => {
     pageNumber: 1,
     pageSize: 10,
     searchTerm: null,
-    instructorId: null,
+    instructorId: null, // This filter is not implemented in UI, but kept in query params
     status: null,
     level: null,
-    courseType: null,
+    courseType: null, // Default to Online as per new rule
   });
 
   // Hàm để fetch dữ liệu khóa học từ API
-  const fetchCourses = async () => {
+  const fetchCourses = useCallback(async () => {
     setLoading(true);
     try {
       const response = await getCourses(queryParameters);
@@ -49,38 +55,51 @@ const StaffCourseManagementPage: React.FC = () => {
         pageSize: response.pageSize,
       }));
     } catch (error) {
-      message.error("Failed to fetch courses.");
+      alert("Failed to fetch courses."); // Using alert instead of Ant Design message
       console.error("Error fetching courses:", error);
     } finally {
       setLoading(false);
     }
-  };
+  }, [queryParameters]); // `fetchCourses` depends on `queryParameters`
 
   // Gọi API khi queryParameters thay đổi
   useEffect(() => {
     fetchCourses();
-  }, [queryParameters]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [fetchCourses]); // `fetchCourses` is now a dependency of useEffect
 
   // Xử lý thay đổi phân trang
-  const handleTableChange = (page: number, pageSize?: number) => {
+  const handlePageChange = (page: number) => {
     setQueryParameters((prev) => ({
       ...prev,
       pageNumber: page,
-      pageSize: pageSize || prev.pageSize,
+    }));
+  };
+
+  const handlePageSizeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newSize = Number(e.target.value);
+    setQueryParameters((prev) => ({
+      ...prev,
+      pageSize: newSize,
+      pageNumber: 1, // Reset to page 1 when page size changes
     }));
   };
 
   // Xử lý thay đổi tìm kiếm
-  const handleSearch = (value: string) => {
+  const handleSearchTermChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setQueryParameters((prev) => ({
       ...prev,
-      searchTerm: value || null,
-      pageNumber: 1, // Reset về trang 1 khi tìm kiếm
+      searchTerm: e.target.value || null,
     }));
   };
 
+  const handleSearchSubmit = () => {
+    // Trigger fetchCourses via queryParameters change
+    setQueryParameters(prev => ({ ...prev, pageNumber: 1 }));
+  };
+
   // Xử lý thay đổi bộ lọc trạng thái
-  const handleStatusFilterChange = (value: CourseStatus | null) => {
+  const handleStatusFilterChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const value = e.target.value === "" ? null : Number(e.target.value) as CourseStatus;
     setQueryParameters((prev) => ({
       ...prev,
       status: value,
@@ -89,7 +108,8 @@ const StaffCourseManagementPage: React.FC = () => {
   };
 
   // Xử lý thay đổi bộ lọc cấp độ
-  const handleLevelFilterChange = (value: CourseLevel | null) => {
+  const handleLevelFilterChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const value = e.target.value === "" ? null : Number(e.target.value) as CourseLevel;
     setQueryParameters((prev) => ({
       ...prev,
       level: value,
@@ -97,180 +117,191 @@ const StaffCourseManagementPage: React.FC = () => {
     }));
   };
 
-  // Xử lý thay đổi bộ lọc loại khóa học
-  const handleTypeFilterChange = (value: CourseType | null) => {
-    setQueryParameters((prev) => ({
-      ...prev,
-      courseType: value,
-      pageNumber: 1,
-    }));
-  };
-
-  // Định nghĩa cột cho bảng khóa học
-  const columns = [
-    {
-      title: "Title",
-      dataIndex: "title",
-      key: "title",
-      render: (text: string, record: CourseListDto) => (
-        // Khi click vào tiêu đề, điều hướng đến trang chi tiết khóa học
-        <Link to={`/course-detail/${record.courseId}`} className="text-blue-600 hover:underline">
-          {text}
-        </Link>
-      ),
-    },
-    {
-      title: "Level",
-      dataIndex: "level",
-      key: "level",
-      render: (level: CourseLevel) => CourseLevel[level], // Hiển thị tên enum
-    },
-    {
-      title: "Type",
-      dataIndex: "courseType",
-      key: "courseType",
-      render: (type: CourseType) => CourseType[type], // Hiển thị tên enum
-    },
-    {
-      title: "Price (VND)",
-      dataIndex: "price",
-      key: "price",
-      render: (price: number) => price.toLocaleString("vi-VN"), // Định dạng tiền tệ Việt Nam
-    },
-    {
-      title: "Status",
-      dataIndex: "status",
-      key: "status",
-      render: (status: CourseStatus) => {
-        let color: string;
-        switch (status) {
-          case CourseStatus.Published:
-            color = "green";
-            break;
-          case CourseStatus.Draft:
-            color = "blue";
-            break;
-          case CourseStatus.Archived:
-            color = "gold";
-            break;
-          case CourseStatus.Suspended:
-            color = "red";
-            break;
-          default:
-            color = "default";
-        }
-        return <Tag color={color}>{CourseStatus[status].toUpperCase()}</Tag>;
-      },
-    },
-    {
-      title: "Enrollments",
-      dataIndex: "enrollmentsCount",
-      key: "enrollmentsCount",
-    },
-    {
-      title: "Instructors",
-      dataIndex: "instructorsCount",
-      key: "instructorsCount",
-    },
-    {
-      title: "Created At",
-      dataIndex: "createdAt",
-      key: "createdAt",
-      render: (date: string) => new Date(date).toLocaleDateString(),
-    },
-  ];
+  // Calculate total pages for pagination
+  const totalPages = Math.ceil(pagination.total / pagination.pageSize);
 
   return (
-    <div className="flex h-screen font-['Noto_Serif_JP']">
+    <div className="flex h-screen font-inter"> {/* Changed font to Inter */}
       <StaffSidebar />
       <div className="flex-1 flex flex-col">
         <StaffHeader />
         <main className="pt-16 p-6 bg-gray-50 h-full overflow-auto">
-          <h1 className="text-3xl font-bold text-pink-700 mb-6">Course Management</h1>
+          <h1 className="text-3xl font-bold text-gray-900 mb-6">
+            Course Management
+          </h1>
 
           {/* Filter and Create Course Section */}
-          <div className="bg-white p-6 rounded-lg shadow-md mb-6">
-            <Space className="w-full justify-between items-end mb-4" wrap>
-              <Input.Search
-                placeholder="Search by title or description"
-                allowClear
-                onSearch={handleSearch}
-                style={{ width: 300 }}
-                enterButton={<SearchOutlined />}
-              />
-              <Select
-                placeholder="Filter by Status"
-                allowClear
-                style={{ width: 180 }}
-                onChange={handleStatusFilterChange}
-                value={queryParameters.status}
-              >
-                {Object.keys(CourseStatus)
-                  .filter((key) => isNaN(Number(key)))
-                  .map((key) => (
-                    <Option key={key} value={CourseStatus[key as keyof typeof CourseStatus]}>
-                      {key}
-                    </Option>
-                  ))}
-              </Select>
-              <Select
-                placeholder="Filter by Level"
-                allowClear
-                style={{ width: 150 }}
-                onChange={handleLevelFilterChange}
-                value={queryParameters.level}
-              >
-                {Object.keys(CourseLevel)
-                  .filter((key) => isNaN(Number(key)))
-                  .map((key) => (
-                    <Option key={key} value={CourseLevel[key as keyof typeof CourseLevel]}>
-                      {key}
-                    </Option>
-                  ))}
-              </Select>
-              <Select
-                placeholder="Filter by Type"
-                allowClear
-                style={{ width: 150 }}
-                onChange={handleTypeFilterChange}
-                value={queryParameters.courseType}
-              >
-                {Object.keys(CourseType)
-                  .filter((key) => isNaN(Number(key)))
-                  .map((key) => (
-                    <Option key={key} value={CourseType[key as keyof typeof CourseType]}>
-                      {key}
-                    </Option>
-                  ))}
-              </Select>
-              <Button
-                type="primary"
-                icon={<PlusOutlined />}
+          <div className="bg-white p-6 rounded-xl shadow-xl mb-6"> {/* Rounded and shadow updated */}
+            <div className="flex flex-wrap items-end gap-4 mb-4"> {/* Using flexbox for layout */}
+              {/* Search Input */}
+              <div className="flex-1 min-w-[250px] max-w-sm">
+                <label htmlFor="search-input" className="block text-sm font-medium text-gray-700 mb-1">Search</label>
+                <div className="flex rounded-lg shadow-sm border border-gray-300 focus-within:border-orange-500 focus-within:ring-1 focus-within:ring-orange-500 transition-all">
+                  <input
+                    type="text"
+                    id="search-input"
+                    placeholder="Search by title or description"
+                    value={queryParameters.searchTerm || ""}
+                    onChange={handleSearchTermChange}
+                    onKeyDown={(e) => { if (e.key === 'Enter') handleSearchSubmit(); }}
+                    className="flex-1 block w-full px-4 py-2 rounded-l-lg focus:outline-none bg-white text-gray-800"
+                  />
+                  <button
+                    onClick={handleSearchSubmit}
+                    className="px-4 py-2 bg-orange-600 text-white rounded-r-lg hover:bg-orange-700 transition-colors flex items-center justify-center"
+                    aria-label="Search"
+                  >
+                    <FaSearch size={16} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Status Filter */}
+              <div className="min-w-[150px]">
+                <label htmlFor="status-filter" className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                <select
+                  id="status-filter"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white text-gray-800 focus:ring-green-500 focus:border-green-500 transition-colors appearance-none"
+                  onChange={handleStatusFilterChange}
+                  value={queryParameters.status === null ? "" : queryParameters.status}
+                >
+                  <option value="">All Statuses</option>
+                  {Object.keys(CourseStatus)
+                    .filter((key) => isNaN(Number(key)))
+                    .map((key) => (
+                      <option key={key} value={CourseStatus[key as keyof typeof CourseStatus]}>
+                        {key}
+                      </option>
+                    ))}
+                </select>
+              </div>
+
+              {/* Level Filter */}
+              <div className="min-w-[150px]">
+                <label htmlFor="level-filter" className="block text-sm font-medium text-gray-700 mb-1">Level</label>
+                <select
+                  id="level-filter"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white text-gray-800 focus:ring-green-500 focus:border-green-500 transition-colors appearance-none"
+                  onChange={handleLevelFilterChange}
+                  value={queryParameters.level === null ? "" : queryParameters.level}
+                >
+                  <option value="">All Levels</option>
+                  {Object.keys(CourseLevel)
+                    .filter((key) => isNaN(Number(key)))
+                    .map((key) => (
+                      <option key={key} value={CourseLevel[key as keyof typeof CourseLevel]}>
+                        {key}
+                      </option>
+                    ))}
+                </select>
+              </div>
+
+              {/* Create New Course Button */}
+              <button
                 onClick={() => navigate("/course-management/create")}
-                className="bg-pink-600 hover:bg-pink-700 border-pink-600 hover:border-pink-700"
+                className="flex items-center px-6 py-2 rounded-lg bg-pink-600 text-white shadow-md hover:bg-pink-700 transition-colors duration-200 text-sm font-semibold ml-auto"
               >
+                <FaPlus className="mr-2" />
                 Create New Course
-              </Button>
-            </Space>
+              </button>
+            </div>
           </div>
 
           {/* Courses Table */}
-          <div className="bg-white p-6 rounded-lg shadow-md">
-            <Table
-              columns={columns}
-              dataSource={courses}
-              rowKey="courseId"
-              loading={loading}
-              pagination={{
-                current: pagination.current,
-                pageSize: pagination.pageSize,
-                total: pagination.total,
-                showSizeChanger: true,
-                onChange: handleTableChange,
-                onShowSizeChange: handleTableChange,
-              }}
-              className="w-full"
-            />
+          <div className="bg-white p-6 rounded-xl shadow-xl overflow-x-auto"> {/* Added overflow-x-auto for responsiveness */}
+            {loading ? (
+              <div className="flex justify-center items-center h-48">
+                <div className="animate-spin rounded-full h-12 w-12 border-4 border-t-4 border-green-500 border-opacity-25"></div>
+                <p className="ml-4 text-gray-700">Loading courses...</p>
+              </div>
+            ) : courses.length === 0 ? (
+              <div className="text-center py-10 text-gray-600">No courses found matching your criteria.</div>
+            ) : (
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider rounded-tl-lg">Title</th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Level</th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price (VND)</th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Enrollments</th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Instructors</th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider rounded-tr-lg">Created At</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {courses.map((course) => (
+                    <tr key={course.courseId} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        <Link to={`/course-detail/${course.courseId}`} className="text-blue-600 hover:underline">
+                          {course.title}
+                        </Link>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{CourseLevel[course.level]}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{CourseType[course.courseType]}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{course.price.toLocaleString("vi-VN")}</td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full
+                          ${course.status === CourseStatus.Published ? 'bg-green-100 text-green-800' :
+                            course.status === CourseStatus.Draft ? 'bg-blue-100 text-blue-800' :
+                            course.status === CourseStatus.Archived ? 'bg-yellow-100 text-yellow-800' :
+                            course.status === CourseStatus.Suspended ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800'}
+                        `}>
+                          {CourseStatus[course.status].toUpperCase()}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{course.enrollmentsCount}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{course.instructorsCount}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{new Date(course.createdAt).toLocaleDateString()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+
+            {/* Custom Pagination */}
+            {totalPages > 0 && (
+              <div className="flex items-center justify-between mt-6 px-4 py-3 bg-gray-50 rounded-lg shadow-inner">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-gray-700">Items per page:</span>
+                  <select
+                    value={pagination.pageSize}
+                    onChange={handlePageSizeChange}
+                    className="px-3 py-1 border border-gray-300 rounded-md bg-white text-gray-800 focus:ring-green-500 focus:border-green-500 text-sm"
+                  >
+                    <option value={5}>5</option>
+                    <option value={10}>10</option>
+                    <option value={20}>20</option>
+                    <option value={50}>50</option>
+                  </select>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => handlePageChange(pagination.current - 1)}
+                    disabled={pagination.current === 1}
+                    className={`p-2 rounded-full ${pagination.current === 1 ? 'text-gray-400 cursor-not-allowed' : 'text-gray-700 hover:bg-gray-200'} transition-colors`}
+                    aria-label="Previous page"
+                  >
+                    <FaChevronLeft size={14} />
+                  </button>
+                  <span className="text-sm font-medium text-gray-800">
+                    Page {pagination.current} of {totalPages}
+                  </span>
+                  <button
+                    onClick={() => handlePageChange(pagination.current + 1)}
+                    disabled={pagination.current === totalPages}
+                    className={`p-2 rounded-full ${pagination.current === totalPages ? 'text-gray-400 cursor-not-allowed' : 'text-gray-700 hover:bg-gray-200'} transition-colors`}
+                    aria-label="Next page"
+                  >
+                    <FaChevronRight size={14} />
+                  </button>
+                </div>
+                <span className="text-sm text-gray-700">
+                  Total: {pagination.total} courses
+                </span>
+              </div>
+            )}
           </div>
         </main>
       </div>

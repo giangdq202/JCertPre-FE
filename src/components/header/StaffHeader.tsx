@@ -1,16 +1,17 @@
-import React, { useState, useEffect, useRef } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { FaUserCircle, FaAngleDown, FaAngleUp } from "react-icons/fa";
-import { useAuth } from "../../auth/AuthContext";
-import logo from "../../assets/logo.png";
+import React, { useState, useRef, useEffect } from "react";
+import { FaUserCircle, FaAngleDown, FaAngleUp, FaBell, FaCog } from "react-icons/fa";
+import { useNavigate, Link } from "react-router-dom";
+import { useAuth } from "../../auth/AuthContext"; // Assuming AuthContext provides userInfo and handleLogout
 import paths from "../../routes/path";
 
-const StaffHeader = () => {
+const StaffHeader: React.FC = () => {
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
-  const profileDropdownRef = useRef<HTMLDivElement>(null);
-  const { userInfo, handleLogout } = useAuth();
+  const profileDropdownRef = useRef<HTMLDivElement | null>(null);
+  const { userInfo, handleLogout } = useAuth(); // Assuming useAuth hook provides this
   const navigate = useNavigate();
+  const notificationCount = 3; // Example notification count for staff
 
+  // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (
@@ -30,146 +31,69 @@ const StaffHeader = () => {
   };
 
   const handleLogoutClick = () => {
-    handleLogout();
+    handleLogout(); // Call the logout function from AuthContext
     setIsProfileDropdownOpen(false);
-    navigate(paths.login, { replace: true });
+    navigate(paths.login, { replace: true }); // Redirect to login page
   };
 
   return (
-    <header className="bg-white shadow-md p-4 flex items-center justify-end rounded-b-xl lg:rounded-none">
+    <header className="fixed top-0 left-0 lg:left-64 right-0 z-40 bg-white shadow-md py-3 px-6 flex items-center justify-between transition-all duration-300">
+      {/* Left section: Placeholder for future elements or page title */}
+      <div className="flex items-center">
+        {/* The "Staff Panel" text has been removed from here */}
+      </div>
+
+      {/* Right section: Icons and Profile */}
       <div className="flex items-center space-x-4">
-        {/* Search bar */}
+        {/* Notifications Icon */}
         <div className="relative">
-          <input
-            type="text"
-            placeholder="Tìm kiếm..." // Simplified placeholder for staff
-            className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500" // Changed focus ring to red
-          />
-          <svg
-            className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="2"
-              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-            ></path>
-          </svg>
+          <button className="text-gray-600 hover:text-orange-600 transition-colors p-2 rounded-full hover:bg-gray-100">
+            <FaBell size={20} />
+          </button>
+          {notificationCount > 0 && (
+            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
+              {notificationCount}
+            </span>
+          )}
         </div>
-        {/* Notification button (optional, keeping for consistency) */}
-        <button className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg">
-          <svg
-            className="h-6 w-6"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="2"
-              d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
-            ></path>
-          </svg>
+
+        {/* Settings Icon */}
+        <button
+          onClick={() => navigate(paths.home)} // Assuming a staff settings path
+          className="text-gray-600 hover:text-orange-600 transition-colors p-2 rounded-full hover:bg-gray-100"
+        >
+          <FaCog size={20} />
         </button>
-        {/* Settings button (optional, keeping for consistency) */}
-        <button className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg">
-          <svg
-            className="h-6 w-6"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="2"
-              d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
-            ></path>
-          </svg>
-        </button>
-        {/* Profile Dropdown Integration */}
+
+        {/* User Profile Dropdown */}
         <div className="relative" ref={profileDropdownRef}>
           <button
             onClick={handleProfileClick}
-            className="flex items-center space-x-2 p-2 rounded-lg text-gray-600 hover:bg-gray-100 transition-colors duration-200 focus:outline-none"
+            className="flex items-center space-x-2 p-2 rounded-full hover:bg-gray-100 transition-colors"
           >
-            <img
-              src="https://placehold.co/32x32/ef4444/ffffff?text=QL"
-              alt="User Avatar"
-              className="rounded-full"
-            />{" "}
-            {/* Changed color to red for staff theme */}
-            <span className="text-gray-700 font-medium hidden md:block">
-              {userInfo?.fullName || "Người dùng"}
+            <FaUserCircle size={28} className="text-orange-500" />
+            <span className="font-medium text-gray-700 hidden md:block">
+              {userInfo?.fullName || "Staff User"}
             </span>
             {isProfileDropdownOpen ? (
-              <svg
-                className="h-4 w-4 text-gray-500"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                  d="M5 15l7-7 7 7"
-                ></path>
-              </svg>
+              <FaAngleUp size={16} className="text-gray-500" />
             ) : (
-              <svg
-                className="h-4 w-4 text-gray-500"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                  d="M19 9l-7 7-7-7"
-                ></path>
-              </svg>
+              <FaAngleDown size={16} className="text-gray-500" />
             )}
           </button>
+
           {isProfileDropdownOpen && (
-            <div className="absolute right-0 mt-2 w-64 bg-white border border-gray-200 shadow-lg rounded-md py-2 z-50">
-              <div className="px-4 py-2 text-sm text-gray-700">
-                <p>
-                  <strong>Họ và tên:</strong> {userInfo?.fullName || "N/A"}
-                </p>
-                <p>
-                  <strong>Email:</strong> {userInfo?.email || "N/A"}
-                </p>
-                <p>
-                  <strong>Số điện thoại:</strong> {userInfo?.phone || "N/A"}
-                </p>
-                <p>
-                  <strong>Vai trò:</strong> {userInfo?.roleName || "N/A"}
-                </p>
-              </div>
-              <div className="border-t border-gray-200 my-2"></div>
-              <button
-                onClick={() => {
-                  navigate(paths.student_profile); // Changed to staff_profile path
-                  setIsProfileDropdownOpen(false);
-                }}
-                className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-red-50 hover:text-red-700" // Changed hover color to red
+            <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl py-2 z-50 animate-fade-in-down">
+              <Link
+                to={paths.student_profile} // Assuming a staff profile path
+                onClick={() => setIsProfileDropdownOpen(false)}
+                className="block px-4 py-2 text-gray-700 hover:bg-gray-100 transition-colors"
               >
-                Xem Hồ sơ
-              </button>
+                Hồ sơ của tôi
+              </Link>
               <button
                 onClick={handleLogoutClick}
-                className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-red-50 hover:text-red-700" // Changed hover color to red
+                className="w-full text-left px-4 py-2 text-red-600 hover:bg-red-50 hover:text-red-700 transition-colors border-t border-gray-100 mt-1 pt-2"
               >
                 Đăng xuất
               </button>

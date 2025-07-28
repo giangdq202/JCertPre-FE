@@ -1,8 +1,15 @@
 import axiosInstance from "../consts/axios/axiosInstance";
-
-import { GET_COURSE_URL, GET_COURSE_BY_ID_URL, 
-    CREATE_COURSE_URL, UPDATE_COURSE_URL, UPDATE_COURSE_STATUS_URL,
-    ADD_INSTRUCTOR_TO_COURSE_URL, REMOVE_INSTRUCTOR_FROM_COURSE_URL} from "../consts/apiUrl/baseUrl";
+import {
+  GET_COURSE_URL,
+  GET_COURSE_BY_ID_URL,
+  CREATE_COURSE_URL,
+  UPDATE_COURSE_URL,
+  UPDATE_COURSE_STATUS_URL,
+  ADD_INSTRUCTOR_TO_COURSE_URL,
+  REMOVE_INSTRUCTOR_FROM_COURSE_URL,
+} from "../consts/apiUrl/baseUrl";
+import { Pagination } from "../types/pagination"; // Ensure this path is correct
+import { DocumentDto } from "./documentService"; // Ensure this path is correct (needed for LessonDto)
 
 export enum CourseStatus {
   Draft = 0,
@@ -69,6 +76,15 @@ export interface CourseDto {
   livestreamsCount: number;
   enrollmentsCount: number;
   instructors: InstructorInfoDto[]; // Danh sách các giảng viên
+  // Assuming LessonDto is defined elsewhere and includes documents
+  lessons: {
+    lessonId: string;
+    courseId: string;
+    title: string;
+    lessonOrder: number;
+    content: string;
+    documents: DocumentDto[]; // Include documents in CourseDto if fetched with course
+  }[];
 }
 
 export interface CreateCourseDto {
@@ -87,15 +103,6 @@ export interface UpdateCourseDto {
   price?: number | null;
   thumbnailUrl?: string | null;
   status?: CourseStatus | null;
-}
-export interface Pagination<T> {
-  totalItemsCount: number;
-  pageSize: number;
-  pageIndex: number;
-  totalPagesCount: number;
-  next: boolean;
-  previous: boolean;
-  items: T[];
 }
 
 export const getCourses = async (
@@ -140,8 +147,8 @@ export const getCourses = async (
 
 export const getCourseById = async (courseId: string): Promise<CourseDto> => {
   try {
-    // Gửi yêu cầu GET đến API khóa học với ID cụ thể
-    const response = await axiosInstance.get<CourseDto>(`https://localhost:7014/api/course/${courseId}`);
+    // Gửi yêu cầu GET đến API khóa học với ID cụ thể, sử dụng URL từ baseUrl.ts
+    const response = await axiosInstance.get<CourseDto>(GET_COURSE_BY_ID_URL(courseId));
     return response.data;
   } catch (error) {
     console.error(`GetCourseById API error for ID ${courseId}:`, error);
@@ -170,9 +177,9 @@ export const updateCourse = async (
   updateCourseDto: UpdateCourseDto
 ): Promise<CourseDto> => {
   try {
-    // Gửi yêu cầu PUT đến API khóa học với ID cụ thể
+    // Gửi yêu cầu PUT đến API khóa học với ID cụ thể, sử dụng URL từ baseUrl.ts
     const response = await axiosInstance.put<CourseDto>(
-      `${UPDATE_COURSE_URL}/${id}`,
+      UPDATE_COURSE_URL(id),
       updateCourseDto
     );
     return response.data;
@@ -182,17 +189,21 @@ export const updateCourse = async (
   }
 };
 
-export const updateCourseStatus = async (
-  id: string,
-  status: CourseStatus
-): Promise<void> => {
+export const updateCourseStatus = async (courseId: string, status: CourseStatus): Promise<void> => {
   try {
-
-    await axiosInstance.patch(`${UPDATE_COURSE_STATUS_URL}/${id}/status`, status);
-    console.log(`Course status for ID ${id} updated to ${CourseStatus[status]} successfully.`);
-  } catch (error) {
-    console.error(`UpdateCourseStatus API error for ID ${id}:`, error);
-    throw error; // Ném lỗi để component gọi có thể bắt và xử lý
+    // Gửi yêu cầu PATCH với giá trị số của enum TRỰC TIẾP trong body
+    // Backend đang mong đợi một giá trị số nguyên đơn lẻ (raw integer)
+    await axiosInstance.patch(`/course/${courseId}/status`, status); // Gửi trực tiếp giá trị 'status' (là một số)
+  } catch (error: any) {
+    console.error(`UpdateCourseStatus API error for ID ${courseId}:`, error);
+    // Log response data for more specific error details
+    if (error.response) {
+      console.error("Response data:", error.response.data);
+      console.error("Response status:", error.response.status);
+      console.error("Response headers:", error.response.headers);
+    }
+    //message.error("Failed to update course status.");
+    throw error;
   }
 };
 
@@ -201,8 +212,8 @@ export const addInstructorToCourse = async (
   instructorId: string
 ): Promise<void> => {
   try {
-    // Gửi yêu cầu POST đến API để gán giảng viên vào khóa học
-    await axiosInstance.post(`${ADD_INSTRUCTOR_TO_COURSE_URL}/${courseId}/instructors/${instructorId}`);
+    // Gửi yêu cầu POST đến API để gán giảng viên vào khóa học, sử dụng URL từ baseUrl.ts
+    await axiosInstance.post(ADD_INSTRUCTOR_TO_COURSE_URL(courseId, instructorId));
     console.log(`Instructor ${instructorId} assigned to course ${courseId} successfully.`);
   } catch (error) {
     console.error(`AddInstructorToCourse API error for course ${courseId} and instructor ${instructorId}:`, error);
@@ -215,8 +226,8 @@ export const removeInstructorFromCourse = async (
   instructorId: string
 ): Promise<void> => {
   try {
-    // Gửi yêu cầu DELETE đến API để gỡ giảng viên khỏi khóa học
-    await axiosInstance.delete(`${REMOVE_INSTRUCTOR_FROM_COURSE_URL}/${courseId}/instructors/${instructorId}`);
+    // Gửi yêu cầu DELETE đến API để gỡ giảng viên khỏi khóa học, sử dụng URL từ baseUrl.ts
+    await axiosInstance.delete(REMOVE_INSTRUCTOR_FROM_COURSE_URL(courseId, instructorId));
     console.log(`Instructor ${instructorId} removed from course ${courseId} successfully.`);
   } catch (error) {
     console.error(`RemoveInstructorFromCourse API error for course ${courseId} and instructor ${instructorId}:`, error);

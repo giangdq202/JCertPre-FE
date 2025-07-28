@@ -18,14 +18,21 @@ const { TextArea } = Input;
 
 const CreateCoursePage: React.FC = () => {
   const navigate = useNavigate();
-  const [form] = Form.useForm();
+  const [form] = Form.useForm(); // Use Ant Design Form hook
   const [submitting, setSubmitting] = useState<boolean>(false);
 
   // Xử lý khi submit form
   const onFinish = async (values: CreateCourseDto) => {
     setSubmitting(true);
     try {
-      const newCourse = await createCourse(values);
+      // Ensure courseType is set to Online as per new rule
+      const courseData: CreateCourseDto = {
+        ...values,
+        courseType: CourseType.Online, // Fixed to Online
+        thumbnailUrl: values.thumbnailUrl || "", // Ensure thumbnailUrl is not undefined
+      };
+
+      const newCourse = await createCourse(courseData);
       message.success(`Course "${newCourse.title}" created successfully!`);
       form.resetFields(); // Reset form sau khi tạo thành công
       navigate(`/course-detail/${newCourse.courseId}`); // Điều hướng đến trang chi tiết khóa học vừa tạo
@@ -38,14 +45,14 @@ const CreateCoursePage: React.FC = () => {
   };
 
   return (
-    <div className="flex h-screen font-['Noto_Serif_JP']">
+    <div className="flex h-screen font-inter"> {/* Changed font to Inter */}
       <StaffSidebar />
       <div className="flex-1 flex flex-col">
         <StaffHeader />
         <main className="pt-16 p-6 bg-gray-50 h-full overflow-auto">
-          <h1 className="text-3xl font-bold text-pink-700 mb-6">Create New Course</h1>
+          <h1 className="text-3xl font-bold text-gray-900 mb-6">Create New Course</h1>
 
-          <Card className="max-w-3xl mx-auto shadow-md rounded-lg">
+          <Card className="max-w-3xl mx-auto shadow-xl rounded-xl"> {/* Replaced Ant Design Card styling with Tailwind */}
             <Form
               form={form}
               layout="vertical"
@@ -58,34 +65,34 @@ const CreateCoursePage: React.FC = () => {
             >
               <Form.Item
                 name="title"
-                label="Course Title"
+                label={<span className="text-gray-700 font-medium">Course Title</span>}
                 rules={[
                   { required: true, message: "Please input the course title!" },
                   { min: 3, message: "Title must be at least 3 characters." },
                   { max: 200, message: "Title cannot exceed 200 characters." },
                 ]}
               >
-                <Input placeholder="e.g., JLPT N5 Complete Course - Beginner Japanese" />
+                <Input placeholder="e.g., JLPT N5 Complete Course - Beginner Japanese" className="rounded-lg px-4 py-2 border border-gray-300 focus:ring-orange-500 focus:border-orange-500" />
               </Form.Item>
 
               <Form.Item
                 name="description"
-                label="Description"
+                label={<span className="text-gray-700 font-medium">Description</span>}
                 rules={[
                   { required: true, message: "Please input the course description!" },
                   { min: 10, message: "Description must be at least 10 characters." },
                   { max: 2000, message: "Description cannot exceed 2000 characters." },
                 ]}
               >
-                <TextArea rows={6} placeholder="Detailed description of the course content and objectives." />
+                <TextArea rows={6} placeholder="Detailed description of the course content and objectives." className="rounded-lg px-4 py-2 border border-gray-300 focus:ring-orange-500 focus:border-orange-500" />
               </Form.Item>
 
               <Form.Item
                 name="level"
-                label="JLPT Level"
+                label={<span className="text-gray-700 font-medium">JLPT Level</span>}
                 rules={[{ required: true, message: "Please select the course level!" }]}
               >
-                <Select placeholder="Select a JLPT level">
+                <Select placeholder="Select a JLPT level" className="rounded-lg focus:ring-orange-500 focus:border-orange-500">
                   {Object.keys(CourseLevel)
                     .filter((key) => isNaN(Number(key)))
                     .map((key) => (
@@ -96,25 +103,16 @@ const CreateCoursePage: React.FC = () => {
                 </Select>
               </Form.Item>
 
+              {/* Course Type - Fixed to Online, no select input */}
               <Form.Item
-                name="courseType"
-                label="Course Type"
-                rules={[{ required: true, message: "Please select the course type!" }]}
+                label={<span className="text-gray-700 font-medium">Course Type</span>}
               >
-                <Select placeholder="Select a course type">
-                  {Object.keys(CourseType)
-                    .filter((key) => isNaN(Number(key)))
-                    .map((key) => (
-                      <Option key={key} value={CourseType[key as keyof typeof CourseType]}>
-                        {key}
-                      </Option>
-                    ))}
-                </Select>
+                <Input value="Online (Fixed)" disabled className="rounded-lg px-4 py-2 border border-gray-300 bg-gray-100 text-gray-700 cursor-not-allowed" />
               </Form.Item>
 
               <Form.Item
                 name="price"
-                label="Price (VND)"
+                label={<span className="text-gray-700 font-medium">Price (VND)</span>}
                 rules={[{ required: true, message: "Please input the course price!" }]}
               >
                 <InputNumber
@@ -123,23 +121,28 @@ const CreateCoursePage: React.FC = () => {
                   formatter={value => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
                   parser={value => value!.replace(/\$\s?|(,*)/g, '') as any}
                   placeholder="e.g., 1500000 (Set to 0 for free courses)"
+                  className="rounded-lg px-4 py-2 border border-gray-300 focus:ring-orange-500 focus:border-orange-500"
                 />
               </Form.Item>
 
               <Form.Item
-                name="thumbnail"
-                label="Thumbnail"
-                rules={[{ type: "url", message: "Please enter the thumbnail!" }]}
+                name="thumbnailUrl" // This name must match the DTO field
+                label={<span className="text-gray-700 font-medium">Thumbnail</span>}
+                rules={[{ type: "url", message: "Please enter a valid thumbnail URL!" }]}
+                // Removed valuePropName and getValueFromEvent as ThumbnailUploader directly calls form.setFieldsValue
               >
-                <ThumbnailUploader form={form} />
+                <ThumbnailUploader form={form} initialImageUrl={form.getFieldValue('thumbnailUrl')} />
               </Form.Item>
 
               <Form.Item>
-                <Space>
-                  <Button type="primary" htmlType="submit" loading={submitting} icon={<SaveOutlined />} className="bg-pink-600 hover:bg-pink-700 border-pink-600 hover:border-pink-700">
+                <Space className="flex gap-4"> {/* Replaced Ant Design Space with Tailwind flex gap */}
+                  <Button type="primary" htmlType="submit" loading={submitting} icon={<SaveOutlined />} className="bg-orange-600 hover:bg-orange-700 border-orange-600 hover:border-orange-700 rounded-lg shadow-md font-semibold">
                     Create Course
                   </Button>
-                  <Button onClick={() => navigate(paths.course_management)} icon={<RollbackOutlined />}>
+                  <Button onClick={() => form.resetFields()} icon={<RollbackOutlined />} className="rounded-lg shadow-md font-semibold"> {/* Reset button */}
+                    Reset
+                  </Button>
+                  <Button onClick={() => navigate(paths.course_management)} icon={<RollbackOutlined />} className="rounded-lg shadow-md font-semibold">
                     Cancel
                   </Button>
                 </Space>
