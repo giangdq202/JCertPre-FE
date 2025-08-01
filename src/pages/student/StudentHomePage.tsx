@@ -11,7 +11,9 @@ import {
   CourseStatus,
   CourseLevel,
   getCourseById,
+  getCourseInstructors,
 } from "../../services/courseService";
+import { InstructorInfoDto } from "../../services/courseService";
 import {
   getMyEnrollments,
   EnrollmentDetailDto,
@@ -24,6 +26,7 @@ import { HiOutlineClock } from "react-icons/hi2";
 import Lottie from "lottie-react";
 import studyAnimation from "../../animations/study.json";
 import StudentHeader from "../../components/header/StudentHeader";
+import CourseCard, { CourseTypeEnum } from "../../components/card/CourseCard";
 
 // Placeholder components (kept for routing purposes)
 const CoursesPage = () => <div className="p-6 text-gray-700">Nội dung trang Khóa học</div>;
@@ -70,6 +73,8 @@ const StudentHomePage = () => {
   const [isLoadingEnrolledCourses, setIsLoadingEnrolledCourses] = useState(true);
   const [enrolledThumbnails, setEnrolledThumbnails] = useState<{ [courseId: string]: string }>({});
   const [enrolledCoursesLoaded, setEnrolledCoursesLoaded] = useState(false);
+  const [enrolledInstructors, setEnrolledInstructors] = useState<{ [courseId: string]: InstructorInfoDto[] }>({});
+  const [recommendedInstructors, setRecommendedInstructors] = useState<{ [courseId: string]: InstructorInfoDto[] }>({});
 
   // Hàm xử lý khi hồ sơ được tạo thành công từ modal
   const handleProfileCreated = (profile: StudentProfileDto) => {
@@ -167,24 +172,94 @@ const StudentHomePage = () => {
   useEffect(() => {
     const fetchThumbnails = async () => {
       const newThumbnails: { [courseId: string]: string } = {};
-      await Promise.all(
-        enrolledCourses.map(async (enrollment) => {
-          try {
-            const course = await getCourseById(enrollment.courseId);
-            newThumbnails[enrollment.courseId] = course.thumbnailUrl || "";
-          } catch (e) {
-            newThumbnails[enrollment.courseId] = "";
-          }
-        })
-      );
+      try {
+        await Promise.all(
+          enrolledCourses.map(async (enrollment) => {
+            try {
+              const course = await getCourseById(enrollment.courseId);
+              newThumbnails[enrollment.courseId] = course.thumbnailUrl || "";
+            } catch (error) {
+              console.error(`Error fetching course ${enrollment.courseId}:`, error);
+              newThumbnails[enrollment.courseId] = "";
+            }
+          })
+        );
+      } catch (error) {
+        console.error("Error fetching thumbnails:", error);
+        // Set empty thumbnails as fallback
+        enrolledCourses.forEach((enrollment) => {
+          newThumbnails[enrollment.courseId] = "";
+        });
+      }
       setEnrolledThumbnails(newThumbnails);
     };
+    
     if (enrolledCourses.length > 0) {
       fetchThumbnails();
     } else {
       setEnrolledThumbnails({});
     }
   }, [enrolledCourses]);
+
+  // Fetch instructors for enrolled courses
+  useEffect(() => {
+    const fetchInstructors = async () => {
+      const result: { [courseId: string]: InstructorInfoDto[] } = {};
+      try {
+        await Promise.all(
+          enrolledCourses.map(async (enrollment) => {
+            try {
+              const instructors = await getCourseInstructors(enrollment.courseId);
+              result[enrollment.courseId] = instructors;
+            } catch (error) {
+              console.error(`Error fetching instructors for course ${enrollment.courseId}:`, error);
+              result[enrollment.courseId] = [];
+            }
+          })
+        );
+      } catch (error) {
+        console.error("Error fetching enrolled course instructors:", error);
+        // Set empty instructors as fallback
+        enrolledCourses.forEach((enrollment) => {
+          result[enrollment.courseId] = [];
+        });
+      }
+      setEnrolledInstructors(result);
+    };
+    
+    if (enrolledCourses.length > 0) fetchInstructors();
+    else setEnrolledInstructors({});
+  }, [enrolledCourses]);
+
+  // Fetch instructors for recommended courses
+  useEffect(() => {
+    const fetchInstructors = async () => {
+      const result: { [courseId: string]: InstructorInfoDto[] } = {};
+      try {
+        await Promise.all(
+          recommendedCourses.map(async (course) => {
+            try {
+              const instructors = await getCourseInstructors(course.courseId);
+              result[course.courseId] = instructors;
+            } catch (error) {
+              console.error(`Error fetching instructors for course ${course.courseId}:`, error);
+              result[course.courseId] = [];
+            }
+          })
+        );
+      } catch (error) {
+        console.error("Error fetching recommended course instructors:", error);
+        // Set empty instructors as fallback
+        recommendedCourses.forEach((course) => {
+          result[course.courseId] = [];
+        });
+      }
+      setRecommendedInstructors(result);
+    };
+    
+    if (recommendedCourses.length > 0) fetchInstructors();
+    else setRecommendedInstructors({});
+  }, [recommendedCourses]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-gray-100 to-gray-200 font-inter flex flex-col lg:flex-row">
@@ -499,7 +574,7 @@ const StudentHomePage = () => {
           <div className="mb-12">
             <div className="flex justify-between items-center mb-6 px-2">
               <h3 className="text-2xl font-bold text-gray-900 tracking-tight">
-                Khóa học đã đăng ký
+                Khóa học của tôi
               </h3>
               <Link
                 to={paths.student_home}
@@ -511,55 +586,65 @@ const StudentHomePage = () => {
             {isLoadingEnrolledCourses ? (
               <div className="flex justify-center items-center h-24 bg-white rounded-2xl shadow-xl">
                 <div className="animate-spin rounded-full h-8 w-8 border-4 border-t-4 border-green-500 border-opacity-25"></div>
-                <p className="ml-4 text-gray-600">Đang tải khóa học đã đăng ký...</p>
+                <p className="ml-4 text-gray-600">Đang tải khóa học...</p>
               </div>
             ) : enrolledCourses.length === 0 ? (
               <div className="bg-white p-6 rounded-2xl shadow-xl">
                 <p className="text-gray-600">Bạn chưa đăng ký khóa học nào.</p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-                {enrolledCourses.map((enrollment) => (
-                  <div
-                    key={enrollment.enrollmentId}
-                    className="bg-white rounded-xl shadow-md hover:shadow-lg hover:ring-2 hover:ring-green-400 transition duration-300 overflow-hidden border border-gray-100 flex flex-col"
-                  >
-                    <div className="aspect-[16/9] w-full overflow-hidden rounded-t-xl">
-                      <img
-                        src={enrolledThumbnails[enrollment.courseId] || "https://placehold.co/400x200/E0F2F1/004D40?text=Course+Thumbnail"}
-                        alt={enrollment.courseTitle}
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                    <div className="p-6 flex flex-col flex-grow justify-between">
-                      <div>
-                        <h4 className="text-xl font-semibold text-gray-900 leading-snug mb-2">
-                          {enrollment.courseTitle}
-                        </h4>
-                        <div className="flex items-center text-gray-600 text-sm mb-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                {enrolledCourses.map((enrollment) => {
+                  const instructorNode = (() => {
+                    const instructor = enrolledInstructors[enrollment.courseId]?.[0];
+                    if (instructor) {
+                      return (
+                        <>
                           <img
-                            src="https://placehold.co/24x24/cccccc/ffffff?text=GV"
-                            alt="Teacher Avatar"
-                            className="rounded-full mr-3 w-6 h-6"
+                            src={instructor.avatarUrl || "https://placehold.co/24x24/cccccc/ffffff?text=GV"}
+                            alt={instructor.fullName}
+                            className="rounded-full mr-3 w-6 h-6 object-cover"
                           />
-                          <span className="truncate">Giáo viên</span>
-                        </div>
-                        <p className="text-sm text-gray-500 mb-4">
-                          {enrollment.courseDescription}
-                        </p>
-                        {/* Nếu có progress, render thanh tiến độ ở đây */}
-                      </div>
-                      <Link
-                        to={`/learn-course/${enrollment.courseId}`}
-                        className="w-full flex items-center justify-center gap-2 bg-green-600 text-white text-sm font-semibold py-3 rounded-lg hover:bg-green-700 transition-colors duration-300 select-none
-                          focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-2"
-                      >
-                        <span>Tiếp tục học</span>
-                        <FaArrowRight className="w-4 h-4" />
-                      </Link>
-                    </div>
-                  </div>
-                ))}
+                          <span className="truncate">{instructor.fullName}</span>
+                        </>
+                      );
+                    }
+                    return (
+                      <>
+                        <img
+                          src="https://placehold.co/24x24/cccccc/ffffff?text=GV"
+                          alt="Teacher Avatar"
+                          className="rounded-full mr-3 w-6 h-6"
+                        />
+                        <span className="truncate">Giáo viên</span>
+                      </>
+                    );
+                  })();
+                  return (
+                    <CourseCard
+                      key={enrollment.enrollmentId}
+                      id={enrollment.courseId}
+                      thumbnail={enrolledThumbnails[enrollment.courseId] || "https://placehold.co/400x200/E0F2F1/004D40?text=Course+Thumbnail"}
+                      title={enrollment.courseTitle}
+                      description={enrollment.courseDescription}
+                      level="N5" // Mock level since it's not in EnrollmentDetailDto
+                      price={0} // Mock price since it's not in EnrollmentDetailDto
+                      progress={75} // Mock progress
+                      courseType="Online" // Mock course type
+                      onClick={() => navigate(`/learn-course/${enrollment.courseId}`)}
+                      instructor={(() => {
+                        const instructor = enrolledInstructors[enrollment.courseId]?.[0];
+                        if (instructor) {
+                          return {
+                            avatarUrl: instructor.avatarUrl || undefined,
+                            fullName: instructor.fullName,
+                          };
+                        }
+                        return undefined;
+                      })()}
+                    />
+                  );
+                })}
               </div>
             )}
           </div>
@@ -568,7 +653,7 @@ const StudentHomePage = () => {
           <div className="mb-12">
             <div className="flex justify-between items-center mb-6 px-2">
               <h3 className="text-2xl font-bold text-gray-900 tracking-tight">
-                Khóa học đề xuất cho bạn
+                Danh sách khóa học
               </h3>
               <Link
                 to={paths.student_home} // Updated path
@@ -581,35 +666,64 @@ const StudentHomePage = () => {
             {isLoadingRecommendedCourses ? (
               <div className="flex justify-center items-center h-24 bg-white rounded-2xl shadow-xl">
                 <div className="animate-spin rounded-full h-8 w-8 border-4 border-t-4 border-green-500 border-opacity-25"></div>
-                <p className="ml-4 text-gray-600">Đang tải khóa học đề xuất...</p>
+                <p className="ml-4 text-gray-600">Đang tải khóa học...</p>
               </div>
             ) : recommendedCourses.length === 0 ? (
               <div className="bg-white p-6 rounded-2xl shadow-xl">
-                <p className="text-gray-600">Không tìm thấy khóa học đề xuất nào phù hợp. Vui lòng kiểm tra lại hồ sơ của bạn hoặc khám phá các khóa học khác.</p>
+                <p className="text-gray-600">Không tìm thấy khóa học nào phù hợp.</p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                {recommendedCourses.map((course) => (
-                  <Link to={`/student/course-detail/${course.courseId}`} key={course.courseId} className="block">
-                    <div className="bg-gray-50 rounded-lg shadow-md hover:shadow-lg transition-shadow duration-200 overflow-hidden">
-                      <img
-                        src={course.thumbnailUrl || "https://placehold.co/400x200/E0F2F1/004D40?text=Course+Thumbnail"}
-                        alt={course.title}
-                        className="w-full h-32 object-cover"
-                      />
-                      <div className="p-4">
-                        <h4 className="font-semibold text-gray-800 text-lg truncate">{course.title}</h4>
-                        <p className="text-sm text-gray-600 mb-2">Level: {CourseLevel[course.level]}</p>
-                        <p className="text-sm text-gray-700 font-bold">
-                          {course.price === 0 ? "Miễn phí" : `${course.price.toLocaleString("vi-VN")} VND`}
-                        </p>
-                        <button className="mt-3 w-full bg-green-500 text-white py-2 rounded-md hover:bg-green-600 transition-colors text-sm font-medium flex items-center justify-center">
-                          Xem chi tiết <FaArrowRight className="ml-2 text-xs" />
-                        </button>
-                      </div>
-                    </div>
-                  </Link>
-                ))}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {recommendedCourses.map((course) => {
+                  const recInstructorNode = (() => {
+                    const instructor = recommendedInstructors[course.courseId]?.[0];
+                    if (instructor) {
+                      return (
+                        <>
+                          <img
+                            src={instructor.avatarUrl || "https://placehold.co/24x24/cccccc/ffffff?text=GV"}
+                            alt={instructor.fullName}
+                            className="rounded-full mr-3 w-6 h-6 object-cover"
+                          />
+                          <span className="truncate">{instructor.fullName}</span>
+                        </>
+                      );
+                    }
+                    return (
+                      <>
+                        <img
+                          src="https://placehold.co/24x24/cccccc/ffffff?text=GV"
+                          alt="Teacher Avatar"
+                          className="rounded-full mr-3 w-6 h-6"
+                        />
+                        <span className="truncate">Giáo viên</span>
+                      </>
+                    );
+                  })();
+                  return (
+                    <CourseCard
+                      key={course.courseId}
+                      id={course.courseId}
+                      thumbnail={course.thumbnailUrl || "https://placehold.co/400x200/E0F2F1/004D40?text=Course+Thumbnail"}
+                      title={course.title}
+                      description={course.description}
+                      level={CourseLevel[course.level]}
+                      price={course.price}
+                      courseType="Online" // Mock course type
+                      onClick={() => navigate(`/student/course-detail/${course.courseId}`)}
+                      instructor={(() => {
+                        const instructor = recommendedInstructors[course.courseId]?.[0];
+                        if (instructor) {
+                          return {
+                            avatarUrl: instructor.avatarUrl || undefined,
+                            fullName: instructor.fullName,
+                          };
+                        }
+                        return undefined;
+                      })()}
+                    />
+                  );
+                })}
               </div>
             )}
           </div>

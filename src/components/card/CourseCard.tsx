@@ -28,6 +28,10 @@ interface CourseCardProps {
   price?: number;
   progress?: number;
   courseType?: CourseTypeEnum;
+  instructor?: {
+    avatarUrl?: string;
+    fullName: string;
+  };
 }
 
 const typeColorMap: Record<CourseTypeEnum, string> = {
@@ -46,6 +50,7 @@ const CourseCard: React.FC<CourseCardProps> = ({
   courseType,
   buttonText,
   onClick,
+  instructor,
 }) => {
   const isPurchased = progress !== undefined; // true nếu đã đăng ký
 
@@ -91,6 +96,18 @@ const CourseCard: React.FC<CourseCardProps> = ({
             <FaBookOpen className="text-green-500" />
             <span>Trình độ: {level}</span>
           </div>
+
+          {/* Hiển thị thông tin giáo viên nếu có */}
+          {instructor && (
+            <div className="flex items-center gap-2 mt-2">
+              <img
+                src={instructor.avatarUrl || "https://placehold.co/24x24/cccccc/ffffff?text=GV"}
+                alt={instructor.fullName}
+                className="w-6 h-6 rounded-full object-cover"
+              />
+              <span className="text-xs text-gray-600 truncate">{instructor.fullName}</span>
+            </div>
+          )}
 
           {/* Hiển thị giá nếu chưa mua */}
           {!isPurchased && price !== undefined && (

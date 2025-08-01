@@ -1,10 +1,9 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useAuth } from "../../auth/AuthContext";
-import { uploadImage } from "../../services/cloudSerivce"; // 1. Import service upload
-// Giả định bạn có một service để cập nhật thông tin người dùng ở backend
-// import { updateUserProfile } from "../../services/userService";
+import { updateUserAvatar, updateUser } from "../../services/userService";
 import { toast } from "react-toastify";
 import background from "../../assets/background_benefit.jpg";
+import BackButton from "../../components/BackButton";
 
 const ProfilePage: React.FC = () => {
   // Giả định useAuth cung cấp cả hàm để cập nhật userInfo trong context
@@ -36,53 +35,62 @@ const ProfilePage: React.FC = () => {
     event: React.ChangeEvent<HTMLInputElement>
   ) => {
     const file = event.target.files?.[0];
-    if (!file) return;
+    if (!file || !userInfo?.id) return;
 
     setIsUploading(true);
     try {
-      // Gọi API upload ảnh từ cloudinaryService
-      const uploadResponse = await uploadImage(file);
-      const newAvatarUrl = uploadResponse.imageUrl;
-
-      // ----- BƯỚC QUAN TRỌNG -----
-      // Sau khi có URL ảnh mới, bạn cần gọi API của backend
-      // để lưu URL này vào database cho user.
-      // Ví dụ: await updateUserProfile(userInfo.id, { avatarUrl: newAvatarUrl });
-      console.log("Giả lập: Gửi URL mới về backend:", newAvatarUrl);
+      // Gọi API updateUserAvatar từ userService
+      const updatedUser = await updateUserAvatar(userInfo.id, file);
+      const newAvatarUrl = updatedUser.avatarUrl;
 
       // Cập nhật thông tin user trong AuthContext để UI thay đổi ngay lập tức
-      const updatedUserInfo = { ...userInfo!, avatarUrl: newAvatarUrl };
+      const updatedUserInfo = { ...userInfo, avatarUrl: newAvatarUrl };
       setUserInfo(updatedUserInfo);
 
       console.log("Cập nhật avatar thành công!");
       toast.success("Cập nhật avatar thành công!");
     } catch (error) {
       console.error("Lỗi khi upload avatar:", error);
-      console.log("Upload avatar thất bại. Vui lòng thử lại.");
+      toast.error("Upload avatar thất bại. Vui lòng thử lại.");
     } finally {
       setIsUploading(false);
     }
   };
 
-  const handleFinish = (event: React.FormEvent) => {
+  const handleFinish = async (event: React.FormEvent) => {
     event.preventDefault();
+    if (!userInfo?.id) return;
+
     console.log("ProfilePage: Saving profile changes:", {
       fullName: editFullName,
       phone: editPhone,
     });
-    // Ở đây bạn sẽ gọi API để cập nhật fullName và phone
-    // Ví dụ: await updateUserProfile(userInfo.id, { fullName: editFullName, phone: editPhone });
 
-    // Cập nhật lại AuthContext
-    const updatedUserInfo = {
-      ...userInfo!,
-      fullName: editFullName,
-      phone: editPhone,
-    };
-    setUserInfo(updatedUserInfo);
+    setIsSaving(true);
+    try {
+      // Gọi API updateUser để cập nhật thông tin profile
+      const updatedUser = await updateUser(userInfo.id, {
+        fullName: editFullName,
+        phone: editPhone,
+      });
 
-    console.log("Thông tin đã được lưu (giả lập)!");
-    setIsEditing(false);
+      // Cập nhật lại AuthContext
+      const updatedUserInfo = {
+        ...userInfo,
+        fullName: updatedUser.fullName,
+        phone: updatedUser.phone || null,
+      };
+      setUserInfo(updatedUserInfo);
+
+      console.log("Thông tin đã được lưu thành công!");
+      toast.success("Cập nhật thông tin thành công!");
+      setIsEditing(false);
+    } catch (error) {
+      console.error("Lỗi khi cập nhật thông tin:", error);
+      toast.error("Cập nhật thông tin thất bại. Vui lòng thử lại.");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -91,6 +99,9 @@ const ProfilePage: React.FC = () => {
       style={{ backgroundImage: `url(${background})` }}
     >
       <div className="max-w-4xl mx-auto p-6 min-h-screen flex flex-col items-center font-inter">
+        <div className="w-full flex justify-start mb-6">
+          <BackButton text="Quay lại" />
+        </div>
         <h2 className="text-3xl font-bold text-gray-800 mb-8">
           Thông tin cá nhân
         </h2>
@@ -215,14 +226,20 @@ const ProfilePage: React.FC = () => {
                   {" "}
                   <button
                     type="submit"
-                    className="flex-1 bg-red-600 text-white py-2 px-4 rounded-lg hover:bg-red-700 transition-colors duration-200 shadow-md font-semibold"
+                    disabled={isSaving}
+                    className={`flex-1 py-2 px-4 rounded-lg transition-colors duration-200 shadow-md font-semibold ${
+                      isSaving 
+                        ? 'bg-red-400 cursor-not-allowed text-white' 
+                        : 'bg-red-600 text-white hover:bg-red-700'
+                    }`}
                   >
-                    Lưu thay đổi{" "}
+                    {isSaving ? "Đang lưu..." : "Lưu thay đổi"}
                   </button>{" "}
                   <button
                     type="button"
                     onClick={() => setIsEditing(false)}
-                    className="flex-1 bg-gray-200 text-gray-800 py-2 px-4 rounded-lg hover:bg-gray-300 transition-colors duration-200 shadow-md font-semibold"
+                    disabled={isSaving}
+                    className="flex-1 bg-gray-200 text-gray-800 py-2 px-4 rounded-lg hover:bg-gray-300 transition-colors duration-200 shadow-md font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Hủy{" "}
                   </button>{" "}

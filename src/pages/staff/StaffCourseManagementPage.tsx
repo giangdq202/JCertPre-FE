@@ -55,7 +55,7 @@ const StaffCourseManagementPage: React.FC = () => {
         pageSize: response.pageSize,
       }));
     } catch (error) {
-      alert("Failed to fetch courses."); // Using alert instead of Ant Design message
+      alert("Không thể tải danh sách khóa học."); // Using alert instead of Ant Design message
       console.error("Error fetching courses:", error);
     } finally {
       setLoading(false);
@@ -127,7 +127,7 @@ const StaffCourseManagementPage: React.FC = () => {
         <StaffHeader />
         <main className="pt-16 p-6 bg-gray-50 h-full overflow-auto">
           <h1 className="text-3xl font-bold text-gray-900 mb-6">
-            Course Management
+            Quản lý Khóa học
           </h1>
 
           {/* Filter and Create Course Section */}
@@ -135,12 +135,12 @@ const StaffCourseManagementPage: React.FC = () => {
             <div className="flex flex-wrap items-end gap-4 mb-4"> {/* Using flexbox for layout */}
               {/* Search Input */}
               <div className="flex-1 min-w-[250px] max-w-sm">
-                <label htmlFor="search-input" className="block text-sm font-medium text-gray-700 mb-1">Search</label>
+                <label htmlFor="search-input" className="block text-sm font-medium text-gray-700 mb-1">Tìm kiếm</label>
                 <div className="flex rounded-lg shadow-sm border border-gray-300 focus-within:border-orange-500 focus-within:ring-1 focus-within:ring-orange-500 transition-all">
                   <input
                     type="text"
                     id="search-input"
-                    placeholder="Search by title or description"
+                    placeholder="Tìm kiếm theo tiêu đề hoặc mô tả"
                     value={queryParameters.searchTerm || ""}
                     onChange={handleSearchTermChange}
                     onKeyDown={(e) => { if (e.key === 'Enter') handleSearchSubmit(); }}
@@ -149,7 +149,7 @@ const StaffCourseManagementPage: React.FC = () => {
                   <button
                     onClick={handleSearchSubmit}
                     className="px-4 py-2 bg-orange-600 text-white rounded-r-lg hover:bg-orange-700 transition-colors flex items-center justify-center"
-                    aria-label="Search"
+                    aria-label="Tìm kiếm"
                   >
                     <FaSearch size={16} />
                   </button>
@@ -158,14 +158,14 @@ const StaffCourseManagementPage: React.FC = () => {
 
               {/* Status Filter */}
               <div className="min-w-[150px]">
-                <label htmlFor="status-filter" className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                <label htmlFor="status-filter" className="block text-sm font-medium text-gray-700 mb-1">Trạng thái</label>
                 <select
                   id="status-filter"
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white text-gray-800 focus:ring-green-500 focus:border-green-500 transition-colors appearance-none"
                   onChange={handleStatusFilterChange}
                   value={queryParameters.status === null ? "" : queryParameters.status}
                 >
-                  <option value="">All Statuses</option>
+                  <option value="">Tất cả trạng thái</option>
                   {Object.keys(CourseStatus)
                     .filter((key) => isNaN(Number(key)))
                     .map((key) => (
@@ -178,14 +178,14 @@ const StaffCourseManagementPage: React.FC = () => {
 
               {/* Level Filter */}
               <div className="min-w-[150px]">
-                <label htmlFor="level-filter" className="block text-sm font-medium text-gray-700 mb-1">Level</label>
+                <label htmlFor="level-filter" className="block text-sm font-medium text-gray-700 mb-1">Cấp độ</label>
                 <select
                   id="level-filter"
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white text-gray-800 focus:ring-green-500 focus:border-green-500 transition-colors appearance-none"
                   onChange={handleLevelFilterChange}
                   value={queryParameters.level === null ? "" : queryParameters.level}
                 >
-                  <option value="">All Levels</option>
+                  <option value="">Tất cả cấp độ</option>
                   {Object.keys(CourseLevel)
                     .filter((key) => isNaN(Number(key)))
                     .map((key) => (
@@ -202,7 +202,7 @@ const StaffCourseManagementPage: React.FC = () => {
                 className="flex items-center px-6 py-2 rounded-lg bg-pink-600 text-white shadow-md hover:bg-pink-700 transition-colors duration-200 text-sm font-semibold ml-auto"
               >
                 <FaPlus className="mr-2" />
-                Create New Course
+                Tạo Khóa học Mới
               </button>
             </div>
           </div>
@@ -212,22 +212,21 @@ const StaffCourseManagementPage: React.FC = () => {
             {loading ? (
               <div className="flex justify-center items-center h-48">
                 <div className="animate-spin rounded-full h-12 w-12 border-4 border-t-4 border-green-500 border-opacity-25"></div>
-                <p className="ml-4 text-gray-700">Loading courses...</p>
+                <p className="ml-4 text-gray-700">Đang tải khóa học...</p>
               </div>
             ) : courses.length === 0 ? (
-              <div className="text-center py-10 text-gray-600">No courses found matching your criteria.</div>
+              <div className="text-center py-10 text-gray-600">Không tìm thấy khóa học nào phù hợp với tiêu chí của bạn.</div>
             ) : (
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider rounded-tl-lg">Title</th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Level</th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price (VND)</th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Enrollments</th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Instructors</th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider rounded-tr-lg">Created At</th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider rounded-tl-lg">Tiêu đề</th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cấp độ</th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Giá (VND)</th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Trạng thái</th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Số học viên</th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Giảng viên</th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider rounded-tr-lg">Ngày tạo</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
@@ -239,7 +238,6 @@ const StaffCourseManagementPage: React.FC = () => {
                         </Link>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{CourseLevel[course.level]}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{CourseType[course.courseType]}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{course.price.toLocaleString("vi-VN")}</td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full
@@ -264,7 +262,7 @@ const StaffCourseManagementPage: React.FC = () => {
             {totalPages > 0 && (
               <div className="flex items-center justify-between mt-6 px-4 py-3 bg-gray-50 rounded-lg shadow-inner">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm text-gray-700">Items per page:</span>
+                  <span className="text-sm text-gray-700">Số mục trên trang:</span>
                   <select
                     value={pagination.pageSize}
                     onChange={handlePageSizeChange}
@@ -281,24 +279,24 @@ const StaffCourseManagementPage: React.FC = () => {
                     onClick={() => handlePageChange(pagination.current - 1)}
                     disabled={pagination.current === 1}
                     className={`p-2 rounded-full ${pagination.current === 1 ? 'text-gray-400 cursor-not-allowed' : 'text-gray-700 hover:bg-gray-200'} transition-colors`}
-                    aria-label="Previous page"
+                    aria-label="Trang trước"
                   >
                     <FaChevronLeft size={14} />
                   </button>
                   <span className="text-sm font-medium text-gray-800">
-                    Page {pagination.current} of {totalPages}
+                    Trang {pagination.current} của {totalPages}
                   </span>
                   <button
                     onClick={() => handlePageChange(pagination.current + 1)}
                     disabled={pagination.current === totalPages}
                     className={`p-2 rounded-full ${pagination.current === totalPages ? 'text-gray-400 cursor-not-allowed' : 'text-gray-700 hover:bg-gray-200'} transition-colors`}
-                    aria-label="Next page"
+                    aria-label="Trang tiếp"
                   >
                     <FaChevronRight size={14} />
                   </button>
                 </div>
                 <span className="text-sm text-gray-700">
-                  Total: {pagination.total} courses
+                  Tổng cộng: {pagination.total} khóa học
                 </span>
               </div>
             )}

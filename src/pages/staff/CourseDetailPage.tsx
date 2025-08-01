@@ -54,6 +54,7 @@ import {
   deleteDocument,
   getDocumentsByLessonId,
 } from "../../services/documentService";
+import { getAllUsers, UserDto } from "../../services/userService";
 import paths from "../../routes/path";
 
 // Custom Modal component (simplified for this example, you might have a more robust one)
@@ -219,15 +220,16 @@ const CourseDetailPage: React.FC = () => {
     []
   );
 
-  const [isUploadDocumentModalVisible, setIsUploadDocumentModalVisible] =
-    useState<boolean>(false);
-  const [currentLessonForDocument, setCurrentLessonForDocument] =
-    useState<string | null>(null);
-  const [fileList, setFileList] = useState<File[]>([]); // Store actual File objects
+  const [isUploadDocumentModalVisible, setIsUploadDocumentModalVisible] = useState(false);
+  const [fileList, setFileList] = useState<File[]>([]);
+  const [currentLessonIdForUpload, setCurrentLessonIdForUpload] = useState<string>("");
+  const [instructors, setInstructors] = useState<UserDto[]>([]);
+  const [loadingInstructors, setLoadingInstructors] = useState(false);
 
 
   // Form state for course details
   const [courseFormState, setCourseFormState] = useState<UpdateCourseDto>({});
+  const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
   // Form state for creating new lesson
   const [createLessonFormState, setCreateLessonFormState] = useState<CreateLessonDto>({ title: '', content: '', lessonOrder: 0 });
   // Form state for editing lesson
@@ -286,6 +288,32 @@ const CourseDetailPage: React.FC = () => {
     fetchCourseAndLessons();
   }, [courseId, navigate]);
 
+  // Fetch instructors for the dropdown
+  useEffect(() => {
+    const fetchInstructors = async () => {
+      setLoadingInstructors(true);
+      try {
+        // Get all users without roleId filter, then filter by roleName on frontend
+        const response = await getAllUsers({
+          pageNumber: 1,
+          pageSize: 1000, // Get all users
+        });
+        // Filter users whose roleName is "Instructor"
+        const instructorUsers = response.items.filter(user => user.roleName === "INSTRUCTOR");
+        setInstructors(instructorUsers);
+      } catch (error) {
+        console.error("Error fetching instructors:", error);
+        alert("Không thể tải danh sách giảng viên.");
+      } finally {
+        setLoadingInstructors(false);
+      }
+    };
+
+    if (isAddInstructorModalVisible) {
+      fetchInstructors();
+    }
+  }, [isAddInstructorModalVisible]);
+
 
   // --- Course Management Handlers ---
   const handleCourseFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -297,12 +325,21 @@ const CourseDetailPage: React.FC = () => {
     setCourseFormState(prev => ({ ...prev, [name]: value }));
   };
 
+  const handleThumbnailChange = (file: File | null) => {
+    setThumbnailFile(file);
+  };
+
   const onFinishCourse = async () => {
     if (!courseId) return;
     setSubmittingCourse(true);
     try {
-      const updatedCourse = await updateCourse(courseId, courseFormState);
+      const updateData: UpdateCourseDto = {
+        ...courseFormState,
+        thumbnailFile: thumbnailFile,
+      };
+      const updatedCourse = await updateCourse(courseId, updateData);
       setCourse(updatedCourse);
+      setThumbnailFile(null); // Reset thumbnail file after successful update
       // message.success("Course updated successfully!"); // Removed Ant Design message
       alert("Course updated successfully!"); // Using alert
     } catch (error) {
@@ -341,22 +378,19 @@ const CourseDetailPage: React.FC = () => {
 
   const handleAddInstructor = async () => {
     if (!courseId || !newInstructorId) {
-      // message.warning("Please enter an instructor ID."); // Removed Ant Design message
-      alert("Please enter an instructor ID."); // Using alert
+      alert("Vui lòng chọn một giảng viên.");
       return;
     }
     setSubmittingCourse(true);
     try {
       await addInstructorToCourse(courseId, newInstructorId);
-      // message.success("Instructor added successfully!"); // Removed Ant Design message
-      alert("Instructor added successfully!"); // Using alert
+      alert("Đã thêm giảng viên thành công!");
       const updatedCourseData = await getCourseById(courseId);
       setCourse(updatedCourseData);
       setIsAddInstructorModalVisible(false);
       setNewInstructorId("");
     } catch (error) {
-      // message.error("Failed to add instructor. Check ID or if already assigned."); // Removed Ant Design message
-      alert("Failed to add instructor. Check ID or if already assigned."); // Using alert
+      alert("Không thể thêm giảng viên. Kiểm tra ID hoặc nếu đã được gán.");
       console.error("Error adding instructor:", error);
     } finally {
       setSubmittingCourse(false);
@@ -392,6 +426,7 @@ const CourseDetailPage: React.FC = () => {
         thumbnailUrl: course.thumbnailUrl,
         status: course.status,
       });
+      setThumbnailFile(null); // Reset thumbnail file when canceling
       // message.info("Course changes discarded."); // Removed Ant Design message
       alert("Course changes discarded."); // Using alert
     }
@@ -524,7 +559,7 @@ const CourseDetailPage: React.FC = () => {
   // --- Document Management Handlers ---
 
   const showUploadDocumentModal = (lessonId: string) => {
-    setCurrentLessonForDocument(lessonId);
+    setCurrentLessonIdForUpload(lessonId);
     setFileList([]);
     setIsUploadDocumentModalVisible(true);
   };
@@ -538,7 +573,7 @@ const CourseDetailPage: React.FC = () => {
   };
 
   const handleUploadDocument = async () => {
-    if (!currentLessonForDocument || fileList.length === 0) {
+    if (!currentLessonIdForUpload || fileList.length === 0) {
       alert("Please select a file to upload.");
       return;
     }
@@ -549,25 +584,25 @@ const CourseDetailPage: React.FC = () => {
       const fileType = fileToUpload.type;
       if (fileType.startsWith("image/")) {
         newDocument = await uploadImageDocument({
-          lessonId: currentLessonForDocument,
+          lessonId: currentLessonIdForUpload,
           file: fileToUpload,
         });
       } else if (fileToUpload.name.endsWith(".mp4")) {
         newDocument = await uploadVideoDocument({
-          lessonId: currentLessonForDocument,
+          lessonId: currentLessonIdForUpload,
           file: fileToUpload,
         });
       } else {
         // Assume all other types are raw documents (pdf, word, excel, ppt)
         newDocument = await uploadRawDocument({
-          lessonId: currentLessonForDocument,
+          lessonId: currentLessonIdForUpload,
           file: fileToUpload,
         });
       }
 
       setLessons((prevLessons) =>
         prevLessons.map((lesson) =>
-          lesson.lessonId === currentLessonForDocument
+          lesson.lessonId === currentLessonIdForUpload
             ? { ...lesson, documents: [...lesson.documents, newDocument] }
             : lesson
         ).sort((a, b) => a.lessonOrder - b.lessonOrder)
@@ -651,16 +686,16 @@ const CourseDetailPage: React.FC = () => {
         <StaffHeader />
         <main className="flex-1 p-6 overflow-y-auto">
           <h1 className="text-3xl font-bold text-gray-900 mb-6">
-            Course Management: <span className="text-green-600">{course.title}</span>
+            Quản lý Khóa học: <span className="text-green-600">{course.title}</span>
           </h1>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Left Column: Course Information */}
             <div className="bg-white p-6 rounded-2xl shadow-xl">
-              <h2 className="text-2xl font-semibold text-gray-800 mb-5 border-b pb-3">Course Information</h2>
+              <h2 className="text-2xl font-semibold text-gray-800 mb-5 border-b pb-3">Thông tin khóa học</h2>
               <div className="space-y-5">
                 <div>
-                  <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-1">Title</label>
+                  <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-1">Tiêu đề</label>
                   <input
                     type="text"
                     id="title"
@@ -671,7 +706,7 @@ const CourseDetailPage: React.FC = () => {
                   />
                 </div>
                 <div>
-                  <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                  <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">Mô tả</label>
                   <textarea
                     id="description"
                     name="description"
@@ -682,9 +717,9 @@ const CourseDetailPage: React.FC = () => {
                   ></textarea>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label htmlFor="level" className="block text-sm font-medium text-gray-700 mb-1">Level</label>
+                    <label htmlFor="level" className="block text-sm font-medium text-gray-700 mb-1">Cấp độ</label>
                     <select
                       id="level"
                       name="level"
@@ -702,25 +737,7 @@ const CourseDetailPage: React.FC = () => {
                     </select>
                   </div>
                   <div>
-                    <label htmlFor="courseType" className="block text-sm font-medium text-gray-700 mb-1">Course Type</label>
-                    <select
-                      id="courseType"
-                      name="courseType"
-                      value={courseFormState.courseType ?? ''}
-                      onChange={(e) => handleCourseSelectChange('courseType')(Number(e.target.value))}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500 transition-colors bg-white"
-                    >
-                      {Object.keys(CourseType)
-                        .filter((key) => isNaN(Number(key)))
-                        .map((key) => (
-                          <option key={key} value={CourseType[key as keyof typeof CourseType]}>
-                            {key}
-                          </option>
-                        ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label htmlFor="price" className="block text-sm font-medium text-gray-700 mb-1">Price (VND)</label>
+                    <label htmlFor="price" className="block text-sm font-medium text-gray-700 mb-1">Giá (VND)</label>
                     <input
                       type="number"
                       id="price"
@@ -734,13 +751,14 @@ const CourseDetailPage: React.FC = () => {
                 </div>
 
                 <div>
-                  <label htmlFor="thumbnailUrl" className="block text-sm font-medium text-gray-700 mb-1">Thumbnail URL</label>
+                  <label htmlFor="thumbnailUrl" className="block text-sm font-medium text-gray-700 mb-1">Ảnh đại diện</label>
                   <ThumbnailUploader
                     form={{
                       setFieldsValue: (values: any) => setCourseFormState(prev => ({ ...prev, ...values })),
                       getFieldValue: (name: string) => (courseFormState as any)[name],
                     } as any}
                     initialImageUrl={course?.thumbnailUrl}
+                    onFileChange={handleThumbnailChange}
                   />
                 </div>
 
@@ -753,21 +771,21 @@ const CourseDetailPage: React.FC = () => {
                     `}
                   >
                     <FaSave className="mr-2" />
-                    {submittingCourse ? "Saving..." : "Save Course Changes"}
+                    {submittingCourse ? "Đang lưu..." : "Lưu thay đổi khóa học"}
                   </button>
                   <button
                     onClick={handleCancelCourseEdit}
                     className="flex items-center px-6 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100 transition-colors duration-200 font-semibold"
                   >
                     <FaRedo className="mr-2" />
-                    Discard Changes
+                    Hủy thay đổi
                   </button>
                 </div>
 
                 <div className="mt-8 border-t pt-6">
-                  <h3 className="text-xl font-semibold text-gray-800 mb-4">Course Status</h3>
+                  <h3 className="text-xl font-semibold text-gray-800 mb-4">Trạng thái khóa học</h3>
                   <p className="mb-4 text-base">
-                    Current Status:{" "}
+                    Trạng thái hiện tại:{" "}
                     <span className={`px-3 py-1 rounded-full text-sm font-medium
                       ${course.status === CourseStatus.Published ? 'bg-green-100 text-green-700' :
                         course.status === CourseStatus.Draft ? 'bg-blue-100 text-blue-700' :
@@ -786,7 +804,7 @@ const CourseDetailPage: React.FC = () => {
                         return (
                           <CustomPopconfirm
                             key={key}
-                            title={`Are you sure to change status to ${key}?`}
+                            title={`Bạn có chắc muốn đổi trạng thái thành ${key}?`}
                             onConfirm={() => handleUpdateCourseStatus(statusValue)}
                             disabled={submittingCourse}
                           >
@@ -800,7 +818,7 @@ const CourseDetailPage: React.FC = () => {
                               `}
                               disabled={submittingCourse}
                             >
-                              Set as {key}
+                              Đặt thành {key}
                             </button>
                           </CustomPopconfirm>
                         );
@@ -809,15 +827,15 @@ const CourseDetailPage: React.FC = () => {
                 </div>
 
                 <div className="mt-8 border-t pt-6">
-                  <h3 className="text-xl font-semibold text-gray-800 mb-4">Instructors</h3>
+                  <h3 className="text-xl font-semibold text-gray-800 mb-4">Giảng viên</h3>
                   <button
                     onClick={() => setIsAddInstructorModalVisible(true)}
                     className="flex items-center px-5 py-2 rounded-lg bg-green-600 text-white shadow-md hover:bg-green-700 transition-colors duration-200 text-sm font-semibold mb-4"
                   >
-                    <FaPlus className="mr-2" /> Add Instructor
+                    <FaPlus className="mr-2" /> Thêm Giảng viên
                   </button>
                   {course.instructors.length === 0 ? (
-                    <p className="text-gray-600 text-sm">No instructors assigned.</p>
+                    <p className="text-gray-600 text-sm">Chưa có giảng viên nào được gán.</p>
                   ) : (
                     <ul className="space-y-3">
                       {course.instructors.map((instructor: InstructorInfoDto) => (
@@ -827,7 +845,7 @@ const CourseDetailPage: React.FC = () => {
                             <p className="text-sm text-gray-600">{instructor.email}</p>
                           </div>
                           <CustomPopconfirm
-                            title="Are you sure to remove this instructor?"
+                            title="Bạn có chắc muốn xóa giảng viên này?"
                             onConfirm={() => handleRemoveInstructor(instructor.id)}
                             disabled={submittingCourse}
                           >
@@ -848,13 +866,13 @@ const CourseDetailPage: React.FC = () => {
 
             {/* Right Column: Lesson Management */}
             <div className="bg-white p-6 rounded-2xl shadow-xl flex flex-col">
-              <h2 className="text-2xl font-semibold text-gray-800 mb-5 border-b pb-3">Lesson Management</h2>
+              <h2 className="text-2xl font-semibold text-gray-800 mb-5 border-b pb-3">Quản lý bài học</h2>
 
               {/* Create New Lesson Form */}
-              <h3 className="text-xl font-semibold text-gray-800 mb-4">Create New Lesson</h3>
+              <h3 className="text-xl font-semibold text-gray-800 mb-4">Tạo bài học mới</h3>
               <div className="mb-6 p-5 border border-gray-200 rounded-xl bg-gray-50">
                 <div className="mb-4">
-                  <label htmlFor="create-title" className="block text-sm font-medium text-gray-700 mb-1">Lesson Title</label>
+                  <label htmlFor="create-title" className="block text-sm font-medium text-gray-700 mb-1">Tiêu đề bài học</label>
                   <input
                     type="text"
                     id="create-title"
@@ -865,7 +883,7 @@ const CourseDetailPage: React.FC = () => {
                   />
                 </div>
                 <div className="mb-4">
-                  <label htmlFor="create-content" className="block text-sm font-medium text-gray-700 mb-1">Lesson Content</label>
+                  <label htmlFor="create-content" className="block text-sm font-medium text-gray-700 mb-1">Nội dung bài học</label>
                   <textarea
                     id="create-content"
                     name="content"
@@ -883,15 +901,15 @@ const CourseDetailPage: React.FC = () => {
                   `}
                 >
                   <FaPlus className="mr-2" />
-                  {submittingLesson ? "Adding..." : "Add Lesson"}
+                  {submittingLesson ? "Đang thêm..." : "Thêm bài học"}
                 </button>
               </div>
 
               {/* Existing Lessons List */}
-              <h3 className="text-xl font-semibold text-gray-800 mb-4">Existing Lessons</h3>
+              <h3 className="text-xl font-semibold text-gray-800 mb-4">Bài học hiện có</h3>
               <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar">
                 {lessons.length === 0 ? (
-                  <p className="text-gray-600 text-sm">No lessons found for this course.</p>
+                  <p className="text-gray-600 text-sm">Chưa có bài học nào cho khóa học này.</p>
                 ) : (
                   <div className="space-y-3">
                     {lessons.map((lesson) => (
@@ -903,12 +921,12 @@ const CourseDetailPage: React.FC = () => {
                           className="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-100 transition-colors"
                           onClick={() => setActiveLessonPanel(activeLessonPanel === lesson.lessonId ? [] : lesson.lessonId)}
                         >
-                          <span className="font-medium text-gray-800">Lesson {lesson.lessonOrder}: {lesson.title}</span>
+                          <span className="font-medium text-gray-800">Bài học {lesson.lessonOrder}: {lesson.title}</span>
                           <div className="flex items-center gap-2">
                             <button
                               onClick={(e) => { e.stopPropagation(); showUploadDocumentModal(lesson.lessonId); }}
                               className="text-gray-600 hover:text-green-600 transition-colors p-1 rounded-full hover:bg-gray-200"
-                              title="Upload Document"
+                              title="Tải lên tài liệu"
                               disabled={submittingDocument}
                             >
                               <FaUpload size={16} />
@@ -916,20 +934,20 @@ const CourseDetailPage: React.FC = () => {
                             <button
                               onClick={(e) => { e.stopPropagation(); handleEditLessonClick(lesson); }}
                               className="text-gray-600 hover:text-blue-600 transition-colors p-1 rounded-full hover:bg-gray-200"
-                              title="Edit Lesson"
+                              title="Sửa bài học"
                               disabled={submittingLesson}
                             >
                               <FaEdit size={16} />
                             </button>
                             <CustomPopconfirm
-                              title="Are you sure to delete this lesson?"
+                              title="Bạn có chắc muốn xóa bài học này?"
                               onConfirm={() => handleDeleteLesson(lesson.lessonId)}
                               disabled={submittingLesson}
                             >
                               <button
                                 onClick={(e) => e.stopPropagation()} // Prevent collapse on popconfirm click
                                 className="text-red-500 hover:text-red-700 transition-colors p-1 rounded-full hover:bg-red-100"
-                                title="Delete Lesson"
+                                title="Xóa bài học"
                                 disabled={submittingLesson}
                               >
                                 <FaTrash size={16} />
@@ -944,7 +962,7 @@ const CourseDetailPage: React.FC = () => {
                             {editingLessonId === lesson.lessonId ? (
                               <div className="space-y-4">
                                 <div>
-                                  <label htmlFor={`edit-title-${lesson.lessonId}`} className="block text-sm font-medium text-gray-700 mb-1">Title</label>
+                                  <label htmlFor={`edit-title-${lesson.lessonId}`} className="block text-sm font-medium text-gray-700 mb-1">Tiêu đề</label>
                                   <input
                                     type="text"
                                     id={`edit-title-${lesson.lessonId}`}
@@ -955,7 +973,7 @@ const CourseDetailPage: React.FC = () => {
                                   />
                                 </div>
                                 <div>
-                                  <label htmlFor={`edit-order-${lesson.lessonId}`} className="block text-sm font-medium text-gray-700 mb-1">Order</label>
+                                  <label htmlFor={`edit-order-${lesson.lessonId}`} className="block text-sm font-medium text-gray-700 mb-1">Thứ tự</label>
                                   <input
                                     type="number"
                                     id={`edit-order-${lesson.lessonId}`}
@@ -967,7 +985,7 @@ const CourseDetailPage: React.FC = () => {
                                   />
                                 </div>
                                 <div>
-                                  <label htmlFor={`edit-content-${lesson.lessonId}`} className="block text-sm font-medium text-gray-700 mb-1">Content</label>
+                                  <label htmlFor={`edit-content-${lesson.lessonId}`} className="block text-sm font-medium text-gray-700 mb-1">Nội dung</label>
                                   <textarea
                                     id={`edit-content-${lesson.lessonId}`}
                                     name="content"
@@ -986,28 +1004,28 @@ const CourseDetailPage: React.FC = () => {
                                     `}
                                   >
                                     <FaSave className="mr-2" />
-                                    {submittingLesson ? "Saving..." : "Save Changes"}
+                                    {submittingLesson ? "Đang lưu..." : "Lưu thay đổi"}
                                   </button>
                                   <button
                                     onClick={handleCancelEditLesson}
                                     className="flex items-center px-5 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100 transition-colors duration-200 font-semibold"
                                   >
                                     <FaRedo className="mr-2" />
-                                    Cancel
+                                    Hủy
                                   </button>
                                 </div>
                               </div>
                             ) : (
                               <div className="space-y-3">
                                 <p className="text-gray-700 text-base">
-                                  <span className="font-semibold">Order:</span> {lesson.lessonOrder}
+                                  <span className="font-semibold">Thứ tự:</span> {lesson.lessonOrder}
                                 </p>
                                 <p className="text-gray-700 text-base">
-                                  <span className="font-semibold">Content:</span> {lesson.content}
+                                  <span className="font-semibold">Nội dung:</span> {lesson.content}
                                 </p>
 
                                 {/* Documents Section for this lesson */}
-                                <h4 className="text-lg font-semibold text-gray-700 mt-5 mb-3 border-t pt-4">Lesson Documents</h4>
+                                <h4 className="text-lg font-semibold text-gray-700 mt-5 mb-3 border-t pt-4">Tài liệu bài học</h4>
                                 {lesson.documents && lesson.documents.length > 0 ? (
                                   <ul className="space-y-3">
                                     {lesson.documents.map((doc) => (
@@ -1043,18 +1061,18 @@ const CourseDetailPage: React.FC = () => {
                                               document.body.removeChild(link);
                                             }}
                                             className="text-gray-600 hover:text-green-600 transition-colors p-1 rounded-full hover:bg-gray-200"
-                                            title="Download Document"
+                                            title="Tải xuống tài liệu"
                                           >
                                             <FaDownload size={16} />
                                           </button>
                                           <CustomPopconfirm
-                                            title="Are you sure to delete this document?"
+                                            title="Bạn có chắc muốn xóa tài liệu này?"
                                             onConfirm={() => handleDeleteDocument(lesson.lessonId, doc.documentId)}
                                             disabled={submittingDocument}
                                           >
                                             <button
                                               className="text-red-500 hover:text-red-700 transition-colors p-1 rounded-full hover:bg-red-100"
-                                              title="Delete Document"
+                                              title="Xóa tài liệu"
                                               disabled={submittingDocument}
                                             >
                                               <FaTrash size={16} />
@@ -1065,7 +1083,7 @@ const CourseDetailPage: React.FC = () => {
                                     ))}
                                   </ul>
                                 ) : (
-                                  <p className="text-gray-500 text-sm">No documents attached to this lesson.</p>
+                                  <p className="text-gray-500 text-sm">Chưa có tài liệu nào được gắn với bài học này.</p>
                                 )}
                               </div>
                             )}
@@ -1077,7 +1095,7 @@ const CourseDetailPage: React.FC = () => {
                 )}
               </div>
               <CustomPopconfirm
-                title="Are you sure you want to delete ALL lessons in this course? This action cannot be undone."
+                title="Bạn có chắc muốn xóa tất cả các bài học trong khóa học này? Hành động này không thể hoàn tác."
                 onConfirm={handleDeleteAllLessons}
                 disabled={submittingLesson || lessons.length === 0}
               >
@@ -1087,7 +1105,7 @@ const CourseDetailPage: React.FC = () => {
                   `}
                   disabled={submittingLesson || lessons.length === 0}
                 >
-                  <FaTrash className="inline-block mr-2" /> Delete All Lessons
+                  <FaTrash className="inline-block mr-2" /> Xóa tất cả bài học
                 </button>
               </CustomPopconfirm>
             </div>
@@ -1099,21 +1117,36 @@ const CourseDetailPage: React.FC = () => {
       <CustomModal
         isOpen={isAddInstructorModalVisible}
         onClose={() => setIsAddInstructorModalVisible(false)}
-        title="Add Instructor to Course"
+        title="Thêm Giảng viên vào Khóa học"
         onConfirm={handleAddInstructor}
         confirmLoading={submittingCourse}
-        okText="Add"
+        okText="Thêm"
       >
         <div className="mb-4">
-          <label htmlFor="instructor-id" className="block text-sm font-medium text-gray-700 mb-1">Instructor ID</label>
-          <input
-            type="text"
-            id="instructor-id"
-            value={newInstructorId}
-            onChange={(e) => setNewInstructorId(e.target.value)}
-            placeholder="Enter instructor's GUID"
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500 transition-colors"
-          />
+          <label htmlFor="instructor-select" className="block text-sm font-medium text-gray-700 mb-1">Chọn giảng viên</label>
+          {loadingInstructors ? (
+            <div className="flex items-center justify-center py-4">
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-green-500"></div>
+              <span className="ml-2 text-gray-600">Đang tải danh sách giảng viên...</span>
+            </div>
+          ) : (
+            <select
+              id="instructor-select"
+              value={newInstructorId}
+              onChange={(e) => setNewInstructorId(e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500 transition-colors"
+            >
+              <option value="">-- Chọn giảng viên --</option>
+              {instructors.map((instructor) => (
+                <option key={instructor.id} value={instructor.id}>
+                  {instructor.fullName} ({instructor.email})
+                </option>
+              ))}
+            </select>
+          )}
+          {instructors.length === 0 && !loadingInstructors && (
+            <p className="text-gray-500 text-sm mt-2">Không có giảng viên nào khả dụng.</p>
+          )}
         </div>
       </CustomModal>
 
@@ -1124,13 +1157,13 @@ const CourseDetailPage: React.FC = () => {
           setIsUploadDocumentModalVisible(false);
           setFileList([]); // Clear file selection on cancel
         }}
-        title={`Upload Document for Lesson`}
+        title={`Tải lên tài liệu cho bài học`}
         onConfirm={handleUploadDocument}
         confirmLoading={submittingDocument}
-        okText="Upload"
+        okText="Tải lên"
       >
         <div className="mb-4">
-          <label htmlFor="file-upload-input" className="block text-sm font-medium text-gray-700 mb-1">Select File</label>
+          <label htmlFor="file-upload-input" className="block text-sm font-medium text-gray-700 mb-1">Chọn tệp</label>
           <input
             type="file"
             id="file-upload-input"
@@ -1145,7 +1178,7 @@ const CourseDetailPage: React.FC = () => {
             accept=".pdf,.doc,.docx,.txt,.mp4,.avi,.mov,.wmv,.flv,.webm,.mkv,.3gp,.jpg,.jpeg,.png,.gif,.bmp,.webp,.svg"
           />
           {fileList.length > 0 && (
-            <p className="text-gray-600 text-sm mt-2">Selected: {fileList[0].name}</p>
+            <p className="text-gray-600 text-sm mt-2">Đã chọn: {fileList[0].name}</p>
           )}
         </div>
       </CustomModal>

@@ -1,4 +1,4 @@
-// src/pages/student/StudentCoursesPage.tsx
+// src/pages/student/MyCoursePage.tsx
 import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -9,8 +9,8 @@ import CourseCard, {
   CourseStatusEnum,
 } from "../../components/card/CourseCard";
 import Pagination from "../../components/pagination/Pagination";
-import { getCourses, CourseListDto, CourseStatus, CourseLevel } from "../../services/courseService";
-import { getMyEnrollments } from "../../services/enrollmentService";
+import { getMyEnrollments, EnrollmentDetailDto } from "../../services/enrollmentService";
+import { getCourseById, CourseDto } from "../../services/courseService";
 
 interface Course {
   id: string;
@@ -21,10 +21,10 @@ interface Course {
   courseType: CourseTypeEnum;
   status: CourseStatusEnum;
   description?: string;
-  isEnrolled?: boolean; // Add this field to track enrollment status
+  progress?: number; // my courses only
 }
 
-const StudentCoursesPage: React.FC = () => {
+const MyCoursePage: React.FC = () => {
   const navigate = useNavigate();
 
   // ---------- Filters ----------
@@ -36,80 +36,75 @@ const StudentCoursesPage: React.FC = () => {
   const [pageSize, setPageSize] = useState<number>(10);
 
   // ---------- Data ----------
-  const [allCourses, setAllCourses] = useState<Course[]>([]);
+  const [myCourses, setMyCourses] = useState<Course[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [enrolledCourseIds, setEnrolledCourseIds] = useState<string[]>([]);
 
-  // Fetch all courses and enrolled courses from API
+  // Fetch enrolled courses from API
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchEnrolledCourses = async () => {
       setIsLoading(true);
       setError(null);
       
       try {
-        // Get all published courses
-        const queryParams = {
-          pageNumber: 1,
-          pageSize: 100, // Get more courses to filter from
-          status: CourseStatus.Published,
-        };
-
-        const response = await getCourses(queryParams);
+        // Get enrollments
+        const enrollments = await getMyEnrollments();
         
-        // Get enrolled course IDs
-        try {
-          const enrollments = await getMyEnrollments();
-          const enrolledIds = enrollments.map(enrollment => enrollment.courseId);
-          setEnrolledCourseIds(enrolledIds);
-        } catch (error) {
-          console.error("Error fetching enrollments:", error);
-          setEnrolledCourseIds([]);
-        }
+        // Fetch course details for each enrollment
+        const coursesWithDetails = await Promise.all(
+          enrollments.map(async (enrollment) => {
+            try {
+              const courseDetails = await getCourseById(enrollment.courseId);
+              
+              return {
+                id: enrollment.courseId,
+                title: courseDetails.title,
+                level: getLevelString(courseDetails.level),
+                price: courseDetails.price,
+                thumbnail: courseDetails.thumbnailUrl || "",
+                courseType: getCourseTypeString(courseDetails.courseType),
+                status: getStatusString(courseDetails.status),
+                description: courseDetails.description,
+                progress: 0, // TODO: Get actual progress from API if available
+              };
+            } catch (error) {
+              console.error(`Error fetching course details for ${enrollment.courseId}:`, error);
+              // Return basic info from enrollment if course fetch fails
+              return {
+                id: enrollment.courseId,
+                title: enrollment.courseTitle || "Unknown Course",
+                level: "N5", // Default level
+                price: 0,
+                thumbnail: "",
+                courseType: "Online" as CourseTypeEnum,
+                status: "Published" as CourseStatusEnum,
+                description: enrollment.courseDescription || "",
+                progress: 0,
+              };
+            }
+          })
+        );
         
-        // Convert to Course interface and mark enrolled courses
-        const coursesWithDetails = response.items.map(course => ({
-          id: course.courseId,
-          title: course.title,
-          level: getLevelString(course.level),
-          price: course.price,
-          thumbnail: course.thumbnailUrl || "",
-          courseType: getCourseTypeString(course.courseType),
-          status: getStatusString(course.status),
-          description: course.description,
-          isEnrolled: enrolledCourseIds.includes(course.courseId),
-        }));
-        
-        setAllCourses(coursesWithDetails);
+        setMyCourses(coursesWithDetails);
       } catch (error) {
-        console.error("Error fetching courses:", error);
-        setError("Không thể tải danh sách khóa học");
+        console.error("Error fetching enrolled courses:", error);
+        setError("Không thể tải danh sách khóa học đã đăng ký");
       } finally {
         setIsLoading(false);
       }
     };
 
-    fetchData();
+    fetchEnrolledCourses();
   }, []);
 
-  // Update enrollment status when enrolledCourseIds changes
-  useEffect(() => {
-    setAllCourses(prevCourses => 
-      prevCourses.map(course => ({
-        ...course,
-        isEnrolled: enrolledCourseIds.includes(course.id)
-      }))
-    );
-  }, [enrolledCourseIds]);
-
   // Helper functions to convert enums to strings
-  const getLevelString = (level: CourseLevel): string => {
-    const levelMap: { [key in CourseLevel]: string } = {
-      [CourseLevel.N5]: "N5",
-      [CourseLevel.N4]: "N4",
-      [CourseLevel.N3]: "N3",
-      [CourseLevel.N2]: "N2",
-      [CourseLevel.N1]: "N1"
+  const getLevelString = (level: number): string => {
+    const levelMap: { [key: number]: string } = {
+      0: "N5",
+      1: "N4", 
+      2: "N3",
+      3: "N2",
+      4: "N1"
     };
     return levelMap[level] || "N5";
   };
@@ -123,19 +118,19 @@ const StudentCoursesPage: React.FC = () => {
     return typeMap[courseType] || "Online";
   };
 
-  const getStatusString = (status: CourseStatus): CourseStatusEnum => {
-    const statusMap: { [key in CourseStatus]: CourseStatusEnum } = {
-      [CourseStatus.Draft]: "Draft",
-      [CourseStatus.Published]: "Published",
-      [CourseStatus.Archived]: "Archived",
-      [CourseStatus.Suspended]: "Suspended"
+  const getStatusString = (status: number): CourseStatusEnum => {
+    const statusMap: { [key: number]: CourseStatusEnum } = {
+      0: "Draft",
+      1: "Published",
+      2: "Archived", 
+      3: "Suspended"
     };
     return statusMap[status] || "Published";
   };
 
   // Filter courses based on search term and selected level
   const filteredCourses = useMemo(() => {
-    return allCourses.filter((course) => {
+    return myCourses.filter((course) => {
       const matchesSearch = course.title
         .toLowerCase()
         .includes(searchTerm.toLowerCase()) ||
@@ -145,7 +140,7 @@ const StudentCoursesPage: React.FC = () => {
       
       return matchesSearch && matchesLevel;
     });
-  }, [allCourses, searchTerm, selectedLevel]);
+  }, [myCourses, searchTerm, selectedLevel]);
 
   // Pagination
   const startIndex = (page - 1) * pageSize;
@@ -157,15 +152,9 @@ const StudentCoursesPage: React.FC = () => {
     setSelectedLevel("");
   };
 
-  // Handle course click based on enrollment status
+  // Handle course click - navigate to learn course page
   const handleCourseClick = (course: Course) => {
-    if (course.isEnrolled) {
-      // Navigate to learn course page (like in StudentHomePage)
-      navigate(`/learn-course/${course.id}`);
-    } else {
-      // Navigate to course detail page
-      navigate(`/student/course-detail/${course.id}`);
-    }
+    navigate(`/learn-course/${course.id}`);
   };
 
   if (isLoading) {
@@ -215,7 +204,7 @@ const StudentCoursesPage: React.FC = () => {
         {/* Header */}
         <div className="p-6">
           <h1 className="text-3xl font-bold text-gray-800 mb-6">
-            Danh sách khóa học
+            Khóa học của tôi
           </h1>
           
           {/* Bộ lọc */}
@@ -261,16 +250,27 @@ const StudentCoursesPage: React.FC = () => {
                   description={course.description}
                   level={course.level}
                   price={course.price}
+                  progress={course.progress}
                   courseType={course.courseType}
-                  buttonText={course.isEnrolled ? "Đã đăng ký" : "Đăng ký"}
+                  buttonText="Tiếp tục học"
                   onClick={() => handleCourseClick(course)}
                 />
               ))
             ) : (
               <div className="col-span-full text-center py-12">
                 <p className="text-gray-500 text-lg">
-                  Không tìm thấy khóa học nào phù hợp bộ lọc.
+                  {searchTerm || selectedLevel 
+                    ? "Không tìm thấy khóa học nào phù hợp bộ lọc."
+                    : "Bạn chưa đăng ký khóa học nào."}
                 </p>
+                {!searchTerm && !selectedLevel && (
+                  <button
+                    onClick={() => navigate("/student/courses")}
+                    className="mt-4 bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition"
+                  >
+                    Khám phá khóa học
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -291,4 +291,4 @@ const StudentCoursesPage: React.FC = () => {
   );
 };
 
-export default StudentCoursesPage;
+export default MyCoursePage; 

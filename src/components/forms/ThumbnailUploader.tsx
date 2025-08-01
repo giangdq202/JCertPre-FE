@@ -2,17 +2,22 @@
 import React, { useState, useEffect } from 'react';
 import { Form, Upload, Button, message, Image, Input } from 'antd'; // Ant Design imports
 import { UploadOutlined } from '@ant-design/icons';
-import { uploadImage } from '../../services/cloudSerivce'; // Import service upload
 import type { FormInstance } from 'antd/es/form';
 
 interface ThumbnailUploaderProps {
   form: FormInstance; // Nhận form instance để cập nhật field
   initialImageUrl?: string | null; // URL ảnh ban đầu để hiển thị
+  onFileChange?: (file: File | null) => void; // Callback để trả về file cho component cha
 }
 
-const ThumbnailUploader: React.FC<ThumbnailUploaderProps> = ({ form, initialImageUrl }) => {
+const ThumbnailUploader: React.FC<ThumbnailUploaderProps> = ({ 
+  form, 
+  initialImageUrl, 
+  onFileChange 
+}) => {
   const [uploading, setUploading] = useState(false);
   const [imageUrl, setImageUrl] = useState<string | null>(initialImageUrl || null);
+  const [currentFile, setCurrentFile] = useState<File | null>(null);
 
   // Cập nhật ảnh preview nếu initialImageUrl thay đổi
   useEffect(() => {
@@ -23,19 +28,21 @@ const ThumbnailUploader: React.FC<ThumbnailUploaderProps> = ({ form, initialImag
     const { file, onSuccess, onError } = options;
     setUploading(true);
     try {
-      const response = await uploadImage(file); // This is where the actual upload happens
-      const newUrl = response.imageUrl; // Assuming response.imageUrl exists
+      // Tạo URL preview cho file
+      const previewUrl = URL.createObjectURL(file);
+      setImageUrl(previewUrl);
+      setCurrentFile(file);
       
-      // Cập nhật state nội bộ để hiển thị preview
-      setImageUrl(newUrl);
-      // Cập nhật giá trị trong Ant Design Form của form cha
-      form.setFieldsValue({ thumbnailUrl: newUrl });
+      // Gọi callback để trả về file cho component cha
+      if (onFileChange) {
+        onFileChange(file);
+      }
 
-      message.success(`${file.name} uploaded successfully!`);
+      message.success(`${file.name} selected successfully!`);
       onSuccess(null, file); // Báo cho AntD Upload biết là đã thành công
     } catch (error) {
-      console.error('Upload failed:', error);
-      message.error(`${file.name} upload failed.`);
+      console.error('File selection failed:', error);
+      message.error(`${file.name} selection failed.`);
       onError(error); // Báo cho AntD Upload biết là đã thất bại
     } finally {
       setUploading(false);
@@ -44,6 +51,13 @@ const ThumbnailUploader: React.FC<ThumbnailUploaderProps> = ({ form, initialImag
 
   const handleRemoveImage = () => {
     setImageUrl(null);
+    setCurrentFile(null);
+    
+    // Gọi callback để thông báo file đã bị xóa
+    if (onFileChange) {
+      onFileChange(null);
+    }
+    
     form.setFieldsValue({ thumbnailUrl: null }); // Clear the thumbnail URL in the parent form
     message.info("Thumbnail removed.");
   };

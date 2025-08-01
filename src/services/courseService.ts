@@ -10,6 +10,7 @@ import {
 } from "../consts/apiUrl/baseUrl";
 import { Pagination } from "../types/pagination"; // Ensure this path is correct
 import { DocumentDto } from "./documentService"; // Ensure this path is correct (needed for LessonDto)
+import { UserDto } from "./userService";
 
 export enum CourseStatus {
   Draft = 0,
@@ -46,7 +47,16 @@ export interface InstructorInfoDto {
   id: string;
   fullName: string;
   email: string;
-  phone: string | null;
+  phone?: string | null;
+  userName?: string;
+  avatarUrl?: string | null;
+  dateOfBirth?: string | null;
+  address?: string | null;
+  credit?: number;
+  lastLogin?: string | null;
+  status?: number;
+  roleId?: string;
+  roleName?: string;
 }
 
 export interface CourseListDto {
@@ -55,7 +65,7 @@ export interface CourseListDto {
   description: string;
   level: CourseLevel;
   courseType: CourseType;
-  price: number;
+  price: number; // Keep as number for frontend compatibility
   thumbnailUrl: string;
   status: CourseStatus;
   createdAt: string; // ISO 8601 string
@@ -68,7 +78,7 @@ export interface CourseDto {
   description: string;
   level: CourseLevel;
   courseType: CourseType;
-  price: number;
+  price: number; // Keep as number for frontend compatibility
   thumbnailUrl: string;
   status: CourseStatus;
   createdAt: string; // ISO 8601 string
@@ -92,17 +102,29 @@ export interface CreateCourseDto {
   description: string;
   level: CourseLevel;
   courseType: CourseType;
-  price: number;
+  price: number; // Keep as number for frontend compatibility
+  thumbnailFile?: File | null;
   thumbnailUrl?: string | null;
 }
+
 export interface UpdateCourseDto {
   title?: string | null;
   description?: string | null;
   level?: CourseLevel | null;
   courseType?: CourseType | null;
-  price?: number | null;
+  price?: number | null; // Keep as number for frontend compatibility
+  thumbnailFile?: File | null;
   thumbnailUrl?: string | null;
   status?: CourseStatus | null;
+}
+
+export interface CourseInstructorHistoryDto {
+  instructorId: string;
+  instructorName: string;
+  assignedOn: string;
+  leftOn?: string | null;
+  isActive: boolean;
+  notes?: string | null;
 }
 
 export const getCourses = async (
@@ -124,13 +146,13 @@ export const getCourses = async (
       params.append("InstructorId", queryParameters.instructorId);
     }
     if (queryParameters.status !== undefined && queryParameters.status !== null) {
-      params.append("Status", CourseStatus[queryParameters.status]); // Chuyển enum sang string
+      params.append("Status", queryParameters.status.toString()); // Send as number
     }
     if (queryParameters.level !== undefined && queryParameters.level !== null) {
-      params.append("Level", CourseLevel[queryParameters.level]); // Chuyển enum sang string
+      params.append("Level", queryParameters.level.toString()); // Send as number
     }
     if (queryParameters.courseType !== undefined && queryParameters.courseType !== null) {
-      params.append("CourseType", CourseType[queryParameters.courseType]); // Chuyển enum sang string
+      params.append("CourseType", queryParameters.courseType.toString()); // Send as number
     }
 
     // Gửi yêu cầu GET đến API khóa học
@@ -147,12 +169,33 @@ export const getCourses = async (
 
 export const getCourseById = async (courseId: string): Promise<CourseDto> => {
   try {
-    // Gửi yêu cầu GET đến API khóa học với ID cụ thể, sử dụng URL từ baseUrl.ts
-    const response = await axiosInstance.get<CourseDto>(GET_COURSE_BY_ID_URL(courseId));
+    // Validate courseId format
+    if (!courseId || courseId.trim() === '') {
+      throw new Error('CourseId is empty or invalid');
+    }
+    
+    // Log the URL being called
+    const url = GET_COURSE_BY_ID_URL(courseId);
+    console.log(`Calling getCourseById with URL: ${url}`);
+    console.log(`CourseId: ${courseId}`);
+    console.log(`CourseId type: ${typeof courseId}`);
+    console.log(`CourseId length: ${courseId.length}`);
+    
+    const response = await axiosInstance.get<CourseDto>(url);
     return response.data;
-  } catch (error) {
+  } catch (error: any) {
     console.error(`GetCourseById API error for ID ${courseId}:`, error);
-    throw error; // Ném lỗi để component gọi có thể bắt và xử lý
+    if (error.response) {
+      console.error("Response data:", error.response.data);
+      console.error("Response status:", error.response.status);
+      console.error("Response headers:", error.response.headers);
+      console.error("Full error response:", JSON.stringify(error.response, null, 2));
+    } else if (error.request) {
+      console.error("Request was made but no response received:", error.request);
+    } else {
+      console.error("Error setting up request:", error.message);
+    }
+    throw error;
   }
 };
 
@@ -160,10 +203,23 @@ export const createCourse = async (
   createCourseDto: CreateCourseDto
 ): Promise<CourseDto> => {
   try {
+    const formData = new FormData();
+    formData.append("Title", createCourseDto.title);
+    formData.append("Description", createCourseDto.description);
+    formData.append("Level", createCourseDto.level.toString());
+    formData.append("CourseType", createCourseDto.courseType.toString());
+    formData.append("Price", createCourseDto.price.toString());
+    if (createCourseDto.thumbnailFile) {
+      formData.append("ThumbnailFile", createCourseDto.thumbnailFile);
+    }
+    if (createCourseDto.thumbnailUrl) {
+      formData.append("ThumbnailUrl", createCourseDto.thumbnailUrl);
+    }
+
     // Gửi yêu cầu POST đến API khóa học
     const response = await axiosInstance.post<CourseDto>(
       CREATE_COURSE_URL,
-      createCourseDto
+      formData
     );
     return response.data;
   } catch (error) {
@@ -177,10 +233,36 @@ export const updateCourse = async (
   updateCourseDto: UpdateCourseDto
 ): Promise<CourseDto> => {
   try {
+    const formData = new FormData();
+    if (updateCourseDto.title !== undefined && updateCourseDto.title !== null) {
+      formData.append("Title", updateCourseDto.title);
+    }
+    if (updateCourseDto.description !== undefined && updateCourseDto.description !== null) {
+      formData.append("Description", updateCourseDto.description);
+    }
+    if (updateCourseDto.level !== undefined && updateCourseDto.level !== null) {
+      formData.append("Level", updateCourseDto.level.toString());
+    }
+    if (updateCourseDto.courseType !== undefined && updateCourseDto.courseType !== null) {
+      formData.append("CourseType", updateCourseDto.courseType.toString());
+    }
+    if (updateCourseDto.price !== undefined && updateCourseDto.price !== null) {
+      formData.append("Price", updateCourseDto.price.toString());
+    }
+    if (updateCourseDto.thumbnailFile) {
+      formData.append("ThumbnailFile", updateCourseDto.thumbnailFile);
+    }
+    if (updateCourseDto.thumbnailUrl) {
+      formData.append("ThumbnailUrl", updateCourseDto.thumbnailUrl);
+    }
+    if (updateCourseDto.status !== undefined && updateCourseDto.status !== null) {
+      formData.append("Status", updateCourseDto.status.toString());
+    }
+
     // Gửi yêu cầu PUT đến API khóa học với ID cụ thể, sử dụng URL từ baseUrl.ts
     const response = await axiosInstance.put<CourseDto>(
       UPDATE_COURSE_URL(id),
-      updateCourseDto
+      formData
     );
     return response.data;
   } catch (error) {
@@ -233,4 +315,32 @@ export const removeInstructorFromCourse = async (
     console.error(`RemoveInstructorFromCourse API error for course ${courseId} and instructor ${instructorId}:`, error);
     throw error; // Ném lỗi để component gọi có thể bắt và xử lý
   }
+};
+
+export const getCourseInstructors = async (courseId: string): Promise<InstructorInfoDto[]> => {
+  try {
+    // Validate courseId format
+    if (!courseId || courseId.trim() === '') {
+      throw new Error('CourseId is empty or invalid');
+    }
+    
+    const url = `${GET_COURSE_BY_ID_URL(courseId)}/instructors`;
+    console.log(`Calling getCourseInstructors with URL: ${url}`);
+    console.log(`CourseId: ${courseId}`);
+    
+    const { data } = await axiosInstance.get<InstructorInfoDto[]>(url);
+    return data;
+  } catch (error: any) {
+    console.error(`GetCourseInstructors API error for ID ${courseId}:`, error);
+    if (error.response) {
+      console.error("Response data:", error.response.data);
+      console.error("Response status:", error.response.status);
+    }
+    throw error;
+  }
+};
+
+export const getCourseInstructorHistory = async (courseId: string): Promise<CourseInstructorHistoryDto[]> => {
+  const { data } = await axiosInstance.get<CourseInstructorHistoryDto[]>(`${GET_COURSE_BY_ID_URL(courseId)}/instructors/history`);
+  return data;
 };

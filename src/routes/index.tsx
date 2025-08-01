@@ -7,6 +7,7 @@ import Register from "../pages/register/Register";
 import Home from "../pages/home/Home";
 import StudentHomePage from "../pages/student/StudentHomePage";
 import StudentCoursesPage from "../pages/student/StudentCoursesPage";
+import MyCoursePage from "../pages/student/MyCoursePage";
 import StudentExamPage from "../pages/student/StudentExamPage";
 import StudentSchedulePage from "../pages/student/StudentSchedulePage";
 import StaffHomePage from "../pages/staff/StaffHomePage";
@@ -19,6 +20,8 @@ import StaffSub from "../pages/staff/SubContentManagementPage"; // Assuming this
 import paths from "./path";
 import StudentCourseDetailPage from "../pages/student/StudentCourseDetailPage";
 import StudentLearnCoursePage from "../pages/student/StudentLearnCoursePage";
+import QuestionManagementPage from "../pages/QuestionManagementPage";
+import CreateQuestionPage from "../pages/CreateQuestionPage";
 
 const AppRoutes: React.FC = () => {
   console.log("AppRoutes: Rendering routes");
@@ -47,6 +50,14 @@ const AppRoutes: React.FC = () => {
           element={
             <ProtectedRoute allowedRoles={["STUDENT"]}>
               <StudentCoursesPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path={paths.student_my_courses}
+          element={
+            <ProtectedRoute allowedRoles={["STUDENT"]}>
+              <MyCoursePage />
             </ProtectedRoute>
           }
         />
@@ -95,6 +106,22 @@ const AppRoutes: React.FC = () => {
           element={
             <ProtectedRoute allowedRoles={["ACADEMIC_MANAGER"]}>
               <StaffHomePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path={paths.question_management}
+          element={
+            <ProtectedRoute allowedRoles={["STUDENT", "ACADEMIC_MANAGER"]}>
+              <QuestionManagementPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path={paths.create_question}
+          element={
+            <ProtectedRoute allowedRoles={["ACADEMIC_MANAGER"]}>
+              <CreateQuestionPage />
             </ProtectedRoute>
           }
         />

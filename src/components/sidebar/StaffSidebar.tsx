@@ -18,7 +18,7 @@ const menuItems = [
   {
     name: "Tổng quan",
     icon: <MdDashboard size={20} />,
-    path: "/nhan-vien/bang-dieu-khien",
+    path: paths.staff_home,
   },
   {
     name: "Quản lý khóa học",
@@ -41,16 +41,16 @@ const menuItems = [
     path: "/staff/reports",
   },
   {
-    name: "Cấu trúc đề thi", // Tags for exam structure
+    name: "Cấu trúc câu hỏi", // Tags for exam structure
     icon: <MdOutlineCategory size={20} />,
     path: paths.staff_sub_content_management,
   },
   {
     name: "Ngân hàng câu hỏi",
     icon: <MdOutlineQuiz size={20} />,
-    path: "/staff/questions",
-  },
-  // {
+      path: paths.question_management,
+    },
+    // {
   //   name: "Hồ sơ nhân viên",
   //   icon: <MdOutlinePerson size={20} />,
   //   path: "/nhan-vien/ho-so",
