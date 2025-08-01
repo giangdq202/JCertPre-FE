@@ -229,16 +229,16 @@ const StudentCourseDetailPage = () => {
                                 />
                                 <div className="mb-6">
                                     <h2 className="text-3xl font-bold text-gray-800 mb-4">{course.title}</h2>
-                                    <div className="flex items-center space-x-4 text-gray-600 mb-4">
-                                        {mainInstructor && (
-                                            <div className="flex items-center space-x-2">
-                                                <img src="https://placehold.co/40x40/cccccc/ffffff?text=GV" alt="Instructor Avatar" className="w-10 h-10 rounded-full" />
-                                                <span>{mainInstructor.fullName}</span>
+                                    <p className="text-gray-700 leading-relaxed mb-4">{course.description}</p>
+                                    {mainInstructor && (
+                                        <div className="flex items-center gap-3 mt-6">
+                                            <img src="https://placehold.co/40x40/cccccc/ffffff?text=GV" alt="Instructor Avatar" className="w-10 h-10 rounded-full object-cover border" />
+                                            <div>
+                                                <div className="font-medium text-gray-800">{mainInstructor.fullName}</div>
+                                                <div className="text-sm text-gray-500">Level: {CourseLevel[course.level]}</div>
                                             </div>
-                                        )}
-                                        <span className="text-base text-gray-500">Level: {CourseLevel[course.level]}</span>
-                                    </div>
-                                    <p className="text-gray-700 leading-relaxed mb-6">{course.description}</p>
+                                        </div>
+                                    )}
                                 </div>
                                 <div className="grid grid-cols-3 gap-6 text-center text-gray-600 border-t border-b border-gray-200 py-4">
                                     {courseOverview.map((item, index) => (

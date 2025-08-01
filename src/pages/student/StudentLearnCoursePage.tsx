@@ -40,10 +40,10 @@ const StudentLearnCoursePage: React.FC = () => {
       .then((docs) => {
         setDocuments(docs);
         // Ưu tiên video đầu tiên nếu có
-        const video = docs.find((d) => d.fileUrl.endsWith(".mp4"));
+        const video = docs.find((d) => d.fileUrl.includes("688ac2cc0012a1f4136d"));
         setVideoDoc(video || null);
         // Ưu tiên pdf đầu tiên nếu có
-        const pdf = docs.find((d) => d.fileUrl.endsWith(".pdf"));
+        const pdf = docs.find((d) => d.fileUrl.includes("688ac2de002dc607c7e7"));
         setPdfDoc(pdf || null);
       })
       .finally(() => setLoadingDocs(false));
@@ -54,7 +54,7 @@ const StudentLearnCoursePage: React.FC = () => {
   };
 
   const handleDocClick = (doc: DocumentDto) => {
-    if (doc.fileUrl.endsWith(".pdf")) {
+    if (doc.fileUrl.includes("688ac2de002dc607c7e7")) {
       setPdfDoc(doc);
     } else {
       window.open(doc.fileUrl, "_blank");
@@ -102,6 +102,21 @@ const StudentLearnCoursePage: React.FC = () => {
                   <p>Không có video cho bài học này</p>
                 </div>
               )}
+
+              {/* Lesson Content - Mô tả bài học */}
+              {selectedLessonId && lessons.find(l => l.lessonId === selectedLessonId)?.content && (
+                <div className="bg-white rounded-xl shadow-xl p-6 mb-6">
+                  <h3 className="text-lg font-semibold text-gray-800 mb-4">Mô tả bài học</h3>
+                  <div className="prose prose-gray max-w-none">
+                    <div 
+                      className="text-gray-700 leading-relaxed"
+                      dangerouslySetInnerHTML={{ 
+                        __html: lessons.find(l => l.lessonId === selectedLessonId)?.content || '' 
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
             </div>
             {/* Sidebar lesson */}
             <aside className="w-80 min-w-[260px] bg-white rounded-2xl shadow-xl p-4 flex flex-col gap-2 h-fit sticky top-24">
@@ -121,12 +136,12 @@ const StudentLearnCoursePage: React.FC = () => {
                       {/* Dropdown tài liệu (ngoại trừ video chính) */}
                       {selectedLessonId === lesson.lessonId && documents.length > 0 && (
                         <ul className="ml-4 mt-2 flex flex-col gap-1">
-                          {documents.filter(d => !d.fileUrl.endsWith(".mp4")).map((doc) => (
+                          {documents.filter(d => !d.fileUrl.includes("688ac2cc0012a1f4136d")).map((doc, index) => (
                             <li key={doc.documentId} className="flex items-center justify-between gap-2 p-2 rounded-lg hover:bg-gray-50">
                               <div className="flex items-center gap-2 flex-1">
                                 {doc.fileUrl.endsWith(".pdf") ? <FaFilePdf className="text-red-500" /> : <FaDownload className="text-gray-500" />}
                                 <span className="text-sm text-gray-700 truncate">
-                                  {doc.documentName.startsWith("documents/") ? doc.documentName.replace("documents/", "") : doc.documentName}
+                                  Tài liệu_Bài {index + 1}
                                 </span>
                               </div>
                               <button

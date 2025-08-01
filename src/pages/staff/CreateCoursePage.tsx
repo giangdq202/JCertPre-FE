@@ -20,21 +20,25 @@ const CreateCoursePage: React.FC = () => {
   const navigate = useNavigate();
   const [form] = Form.useForm(); // Use Ant Design Form hook
   const [submitting, setSubmitting] = useState<boolean>(false);
+  const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
 
   // Xử lý khi submit form
-  const onFinish = async (values: CreateCourseDto) => {
+  const onFinish = async (values: any) => {
     setSubmitting(true);
     try {
-      // Ensure courseType is set to Online as per new rule
       const courseData: CreateCourseDto = {
-        ...values,
-        courseType: CourseType.Online, // Fixed to Online
-        thumbnailUrl: values.thumbnailUrl || "", // Ensure thumbnailUrl is not undefined
+        title: values.title,
+        description: values.description,
+        level: values.level,
+        courseType: CourseType.Online, // Default to Online (0)
+        price: values.price,
+        thumbnailFile: thumbnailFile, // Use the file from state
       };
 
       const newCourse = await createCourse(courseData);
       message.success(`Course "${newCourse.title}" created successfully!`);
       form.resetFields(); // Reset form sau khi tạo thành công
+      setThumbnailFile(null); // Reset thumbnail file
       navigate(`/course-detail/${newCourse.courseId}`); // Điều hướng đến trang chi tiết khóa học vừa tạo
     } catch (error) {
       message.error("Failed to create course. Please check your input.");
@@ -42,6 +46,11 @@ const CreateCoursePage: React.FC = () => {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  // Handle thumbnail file change
+  const handleThumbnailChange = (file: File | null) => {
+    setThumbnailFile(file);
   };
 
   return (
@@ -103,12 +112,7 @@ const CreateCoursePage: React.FC = () => {
                 </Select>
               </Form.Item>
 
-              {/* Course Type - Fixed to Online, no select input */}
-              <Form.Item
-                label={<span className="text-gray-700 font-medium">Course Type</span>}
-              >
-                <Input value="Online (Fixed)" disabled className="rounded-lg px-4 py-2 border border-gray-300 bg-gray-100 text-gray-700 cursor-not-allowed" />
-              </Form.Item>
+              {/* Course Type - Hidden, default to Online (0) */}
 
               <Form.Item
                 name="price"
@@ -126,12 +130,13 @@ const CreateCoursePage: React.FC = () => {
               </Form.Item>
 
               <Form.Item
-                name="thumbnailUrl" // This name must match the DTO field
                 label={<span className="text-gray-700 font-medium">Thumbnail</span>}
-                rules={[{ type: "url", message: "Please enter a valid thumbnail URL!" }]}
-                // Removed valuePropName and getValueFromEvent as ThumbnailUploader directly calls form.setFieldsValue
               >
-                <ThumbnailUploader form={form} initialImageUrl={form.getFieldValue('thumbnailUrl')} />
+                <ThumbnailUploader 
+                  form={form} 
+                  initialImageUrl={form.getFieldValue('thumbnailUrl')} 
+                  onFileChange={handleThumbnailChange}
+                />
               </Form.Item>
 
               <Form.Item>
