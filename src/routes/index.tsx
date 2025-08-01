@@ -22,6 +22,13 @@ import StudentCourseDetailPage from "../pages/student/StudentCourseDetailPage";
 import StudentLearnCoursePage from "../pages/student/StudentLearnCoursePage";
 import QuestionManagementPage from "../pages/QuestionManagementPage";
 import CreateQuestionPage from "../pages/CreateQuestionPage";
+import StaffInquiriesPage from "../pages/staff/StaffInquiriesPage";
+import StaffMessagesPage from "../pages/staff/StaffMessagesPage";
+import CreditPurchasePage from "../pages/student/CreditPurchasePage";
+import CreditHistoryPage from "../pages/student/CreditHistoryPage";
+import PaymentCallbackPage from "../pages/PaymentCallbackPage";
+import MessagesPage from "../pages/student/MessagesPage";
+import VocabularyPage from "../pages/student/VocabularyPage";
 
 const AppRoutes: React.FC = () => {
   console.log("AppRoutes: Rendering routes");
@@ -94,6 +101,22 @@ const AppRoutes: React.FC = () => {
           }
         />
         <Route
+          path={paths.student_messages}
+          element={
+            <ProtectedRoute allowedRoles={["STUDENT"]}>
+              <MessagesPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path={paths.student_vocabulary}
+          element={
+            <ProtectedRoute allowedRoles={["STUDENT"]}>
+              <VocabularyPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path={paths.student_profile}
           element={
             <ProtectedRoute allowedRoles={["STUDENT", "ACADEMIC_MANAGER"]}>
@@ -156,6 +179,45 @@ const AppRoutes: React.FC = () => {
               <StaffSub />
             </ProtectedRoute>
           }
+        />
+        {/* Staff chat routes */}
+        <Route
+          path={paths.staff_inquiries}
+          element={
+            <ProtectedRoute allowedRoles={["ACADEMIC_MANAGER"]}>
+              <StaffInquiriesPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path={paths.staff_messages}
+          element={
+            <ProtectedRoute allowedRoles={["ACADEMIC_MANAGER"]}>
+              <StaffMessagesPage />
+            </ProtectedRoute>
+          }
+        />
+        {/* Payment routes */}
+        <Route
+          path={paths.credit_purchase}
+          element={
+            <ProtectedRoute allowedRoles={["STUDENT"]}>
+              <CreditPurchasePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path={paths.credit_history}
+          element={
+            <ProtectedRoute allowedRoles={["STUDENT"]}>
+              <CreditHistoryPage />
+            </ProtectedRoute>
+          }
+        />
+        {/* Payment callback route (public) */}
+        <Route
+          path={paths.payment_callback}
+          element={<PaymentCallbackPage />}
         />
         {/* Route 404 */}
         {/* <Route path="*" element={<Navigate to="/" replace />} /> */}

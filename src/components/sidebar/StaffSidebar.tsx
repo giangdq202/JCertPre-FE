@@ -18,7 +18,7 @@ const menuItems = [
   {
     name: "Tổng quan",
     icon: <MdDashboard size={20} />,
-    path: paths.staff_home,
+    path: "/staff_homepage",
   },
   {
     name: "Quản lý khóa học",

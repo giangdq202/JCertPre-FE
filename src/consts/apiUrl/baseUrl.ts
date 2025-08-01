@@ -44,3 +44,10 @@ export const CLOUDINARY_DELETE_DOCUMENT_URL = `${CLOUDINARY_BASE_URL}/delete-doc
 
 export const CREATE_STUDENT_PROFILE_URL = `${BASE_URL}/student-profile/create`;
 export const BASE_STUDENT_PROFILE_URL = `${BASE_URL}/student-profile`;
+
+// Payment API endpoints
+export const PAYMENT_BASE_URL = `${BASE_URL}/payment`;
+export const GET_PAYMENT_HISTORY_URL = (userId: string) => `${PAYMENT_BASE_URL}/history/${userId}`;
+export const GET_CREDIT_HISTORY_URL = (userId: string) => `${PAYMENT_BASE_URL}/credit-history/${userId}`;
+export const CHECK_CREDIT_URL = (userId: string, amount: number) => `${PAYMENT_BASE_URL}/check-credit/${userId}/${amount}`;
+export const CREATE_CREDIT_PURCHASE_URL = `${PAYMENT_BASE_URL}/create-credit-purchase`;

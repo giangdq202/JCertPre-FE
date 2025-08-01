@@ -17,9 +17,18 @@ const paths = {
   student_course_detail: "/student/course-detail/:courseId",
   student_exam: "/student/exam-simulations",
   student_schedule: "/student/schedule",
+  student_messages: "/student/messages",
+  student_vocabulary: "/student/vocabulary",
   staff_sub_content_management: "/staff/sub-content-management",
   question_management: "/question-management",
   create_question: "/create-question",
+  // Staff chat routes
+  staff_inquiries: "/staff/inquiries",
+  staff_messages: "/staff/messages/:inquiryId",
+  // Payment routes
+  credit_purchase: "/credit-purchase",
+  credit_history: "/credit-history",
+  payment_callback: "/payment/callback",
 };
 
 export default paths;

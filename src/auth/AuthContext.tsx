@@ -16,6 +16,7 @@ interface UserInfoResponse {
   phone: string | null;
   avatarUrl?: string | null; // Có trong RegisterModel, có thể có trong AppUserDto
   roleName: string; // Nếu role được trả về trực tiếp trong user object
+  credit?: number; // Thêm credit field
 }
 
 interface AuthContextType {
