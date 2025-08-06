@@ -11,6 +11,8 @@ import CourseCard, {
 import Pagination from "../../components/pagination/Pagination";
 import { getMyEnrollments, EnrollmentDetailDto } from "../../services/enrollmentService";
 import { getCourseById, CourseDto } from "../../services/courseService";
+import { useLessonProgress } from "../../hooks/useLessonProgress";
+import { useAuth } from "../../auth/AuthContext";
 
 interface Course {
   id: string;
@@ -26,10 +28,13 @@ interface Course {
 
 const MyCoursePage: React.FC = () => {
   const navigate = useNavigate();
+  const { getCourseCompletionRate } = useLessonProgress();
+  const { userInfo } = useAuth();
 
   // ---------- Filters ----------
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [selectedLevel, setSelectedLevel] = useState<string>(""); // empty = all
+  const [selectedStatus, setSelectedStatus] = useState<string>(""); // empty = all
 
   // ---------- Pagination states ----------
   const [page, setPage] = useState<number>(1);
@@ -39,6 +44,8 @@ const MyCoursePage: React.FC = () => {
   const [myCourses, setMyCourses] = useState<Course[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [courseCompletionRates, setCourseCompletionRates] = useState<{ [courseId: string]: number }>({});
+  const [isLoadingCompletionRates, setIsLoadingCompletionRates] = useState(false);
 
   // Fetch enrolled courses from API
   useEffect(() => {
@@ -65,7 +72,7 @@ const MyCoursePage: React.FC = () => {
                 courseType: getCourseTypeString(courseDetails.courseType),
                 status: getStatusString(courseDetails.status),
                 description: courseDetails.description,
-                progress: 0, // TODO: Get actual progress from API if available
+                progress: 0, // Will be updated with actual completion rate
               };
             } catch (error) {
               console.error(`Error fetching course details for ${enrollment.courseId}:`, error);
@@ -96,6 +103,48 @@ const MyCoursePage: React.FC = () => {
 
     fetchEnrolledCourses();
   }, []);
+
+  // Fetch completion rates for courses
+  useEffect(() => {
+    const fetchCompletionRates = async () => {
+      if (myCourses.length === 0) return;
+      
+      setIsLoadingCompletionRates(true);
+      const rates: { [courseId: string]: number } = {};
+      
+      try {
+        await Promise.all(
+          myCourses.map(async (course) => {
+            try {
+              const completionRate = await getCourseCompletionRate(course.id);
+              rates[course.id] = completionRate;
+            } catch (error) {
+              console.error(`Error fetching completion rate for course ${course.id}:`, error);
+              rates[course.id] = 0; // Default to 0 if error
+            }
+          })
+        );
+        
+        setCourseCompletionRates(rates);
+        
+        // Update courses with completion rates
+        setMyCourses(prevCourses => 
+          prevCourses.map(course => ({
+            ...course,
+            progress: rates[course.id] || 0
+          }))
+        );
+      } catch (error) {
+        console.error("Error fetching completion rates:", error);
+      } finally {
+        setIsLoadingCompletionRates(false);
+      }
+    };
+
+    if (myCourses.length > 0) {
+      fetchCompletionRates();
+    }
+  }, [myCourses.length, getCourseCompletionRate]);
 
   // Helper functions to convert enums to strings
   const getLevelString = (level: number): string => {
@@ -128,7 +177,7 @@ const MyCoursePage: React.FC = () => {
     return statusMap[status] || "Published";
   };
 
-  // Filter courses based on search term and selected level
+  // Filter courses based on search term, selected level, and completion status
   const filteredCourses = useMemo(() => {
     return myCourses.filter((course) => {
       const matchesSearch = course.title
@@ -138,9 +187,13 @@ const MyCoursePage: React.FC = () => {
       
       const matchesLevel = selectedLevel === "" || course.level === selectedLevel;
       
-      return matchesSearch && matchesLevel;
+      const matchesStatus = selectedStatus === "" || 
+        (selectedStatus === "completed" && (course.progress || 0) >= 100) ||
+        (selectedStatus === "incomplete" && (course.progress || 0) < 100);
+      
+      return matchesSearch && matchesLevel && matchesStatus;
     });
-  }, [myCourses, searchTerm, selectedLevel]);
+  }, [myCourses, searchTerm, selectedLevel, selectedStatus]);
 
   // Pagination
   const startIndex = (page - 1) * pageSize;
@@ -150,11 +203,12 @@ const MyCoursePage: React.FC = () => {
   const handleResetFilter = () => {
     setSearchTerm("");
     setSelectedLevel("");
+    setSelectedStatus("");
   };
 
-  // Handle course click - navigate to learn course page
+  // Handle course click - navigate to course detail page
   const handleCourseClick = (course: Course) => {
-    navigate(`/learn-course/${course.id}`);
+    navigate(`/student/course-detail/${course.id}`);
   };
 
   if (isLoading) {
@@ -230,6 +284,16 @@ const MyCoursePage: React.FC = () => {
               <option value="N1">N1</option>
             </select>
 
+            <select
+              value={selectedStatus}
+              onChange={(e) => setSelectedStatus(e.target.value)}
+              className="border rounded-lg px-3 py-2 text-sm bg-white shadow-sm focus:ring-2 focus:ring-green-400"
+            >
+              <option value="">Tất cả trạng thái</option>
+              <option value="completed">Đã hoàn thành</option>
+              <option value="incomplete">Chưa hoàn thành</option>
+            </select>
+
             <button
               onClick={handleResetFilter}
               className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition text-sm font-medium"
@@ -250,27 +314,23 @@ const MyCoursePage: React.FC = () => {
                   description={course.description}
                   level={course.level}
                   price={course.price}
-                  progress={course.progress}
+                  progress={isLoadingCompletionRates ? undefined : course.progress}
                   courseType={course.courseType}
-                  buttonText="Tiếp tục học"
+                  buttonText="Xem chi tiết"
                   onClick={() => handleCourseClick(course)}
+                  studentName={userInfo?.fullName || "Học viên"}
+                  onCertificateDownload={() => {
+                    console.log('Certificate downloaded for course:', course.title);
+                  }}
                 />
               ))
             ) : (
               <div className="col-span-full text-center py-12">
                 <p className="text-gray-500 text-lg">
-                  {searchTerm || selectedLevel 
-                    ? "Không tìm thấy khóa học nào phù hợp bộ lọc."
-                    : "Bạn chưa đăng ký khóa học nào."}
+                  {searchTerm || selectedLevel
+                    ? "Không tìm thấy khóa học phù hợp"
+                    : "Bạn chưa đăng ký khóa học nào"}
                 </p>
-                {!searchTerm && !selectedLevel && (
-                  <button
-                    onClick={() => navigate("/student/courses")}
-                    className="mt-4 bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition"
-                  >
-                    Khám phá khóa học
-                  </button>
-                )}
               </div>
             )}
           </div>

@@ -22,11 +22,60 @@ export interface TokenData {
   // id?: string; // id của user, giống nameidentifier
 }
 
-
 export interface RegisterPayload {
   email: string;
   password: string;
   fullName: string;
   phone?: string | null; 
   avatarUrl?: string | null; 
+}
+
+// Payment Types
+export interface UserInfoResponse {
+  id: string;
+  fullName: string;
+  email: string;
+  phone: string | null;
+  avatarUrl?: string | null;
+  roleName: string;
+  credit?: number; // Thêm credit field
+}
+
+export interface CreateCreditPurchaseRequest {
+  userId: string;
+  creditAmount: number;
+}
+
+export interface CreateCreditPurchaseResponse {
+  paymentUrl: string;
+  orderCode: number;
+  amount: number;
+  description: string;
+}
+
+export interface PaymentHistoryItem {
+  paymentId: string;
+  userId: string;
+  amount: number;
+  paymentType: string;
+  transactionId?: string;
+  status: string;
+  createdAt: string;
+  description?: string;
+}
+
+export interface CreditTransactionItem {
+  transactionId: string;
+  userId: string;
+  amount: number;
+  balanceBefore: number;
+  balanceAfter: number;
+  description: string;
+  createdAt: string;
+}
+
+export interface CreditCheckResponse {
+  userId: string;
+  hasSufficientCredit: boolean;
+  requiredAmount: number;
 }

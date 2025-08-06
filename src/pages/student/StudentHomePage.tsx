@@ -20,6 +20,7 @@ import {
 } from "../../services/enrollmentService";
 import StudentProfileModal from "../../components/modals/StudentProfileModal";
 import { useAuth } from "../../auth/AuthContext";
+import { useLessonProgress } from "../../hooks/useLessonProgress";
 import paths from "../../routes/path";
 import { FaBookOpen, FaPenNib, FaArrowRight } from "react-icons/fa";
 import { HiOutlineClock } from "react-icons/hi2";
@@ -27,6 +28,8 @@ import Lottie from "lottie-react";
 import studyAnimation from "../../animations/study.json";
 import StudentHeader from "../../components/header/StudentHeader";
 import CourseCard, { CourseTypeEnum } from "../../components/card/CourseCard";
+import { livestreamApi, LivestreamTimetableDto } from "../../services/livestreamService";
+import dayjs from "dayjs";
 
 // Placeholder components (kept for routing purposes)
 const CoursesPage = () => <div className="p-6 text-gray-700">Nội dung trang Khóa học</div>;
@@ -62,6 +65,7 @@ const getNumericLevel = (levelString: string): CourseLevel | undefined => {
 const StudentHomePage = () => {
   const { userInfo } = useAuth(); // Kept for user info
   const navigate = useNavigate();
+  const { getCourseCompletionRate } = useLessonProgress();
 
   const [studentProfile, setStudentProfile] =
     useState<StudentProfileDto | null>(null);
@@ -75,6 +79,12 @@ const StudentHomePage = () => {
   const [enrolledCoursesLoaded, setEnrolledCoursesLoaded] = useState(false);
   const [enrolledInstructors, setEnrolledInstructors] = useState<{ [courseId: string]: InstructorInfoDto[] }>({});
   const [recommendedInstructors, setRecommendedInstructors] = useState<{ [courseId: string]: InstructorInfoDto[] }>({});
+  const [courseCompletionRates, setCourseCompletionRates] = useState<{ [courseId: string]: number }>({});
+  const [isLoadingCompletionRates, setIsLoadingCompletionRates] = useState(false);
+  
+  // Livestream states
+  const [livestreams, setLivestreams] = useState<LivestreamTimetableDto[]>([]);
+  const [isLoadingLivestreams, setIsLoadingLivestreams] = useState(false);
 
   // Hàm xử lý khi hồ sơ được tạo thành công từ modal
   const handleProfileCreated = (profile: StudentProfileDto) => {
@@ -130,6 +140,60 @@ const StudentHomePage = () => {
       fetchEnrolledCourses();
     }
   }, [isLoadingProfile]);
+
+  // Fetch completion rates for enrolled courses
+  useEffect(() => {
+    const fetchCompletionRates = async () => {
+      if (enrolledCourses.length === 0) return;
+      
+      setIsLoadingCompletionRates(true);
+      const rates: { [courseId: string]: number } = {};
+      
+      try {
+        await Promise.all(
+          enrolledCourses.map(async (enrollment) => {
+            try {
+              const completionRate = await getCourseCompletionRate(enrollment.courseId);
+              rates[enrollment.courseId] = completionRate;
+            } catch (error) {
+              console.error(`Error fetching completion rate for course ${enrollment.courseId}:`, error);
+              rates[enrollment.courseId] = 0; // Default to 0 if error
+            }
+          })
+        );
+        
+        setCourseCompletionRates(rates);
+      } catch (error) {
+        console.error("Error fetching completion rates:", error);
+      } finally {
+        setIsLoadingCompletionRates(false);
+      }
+    };
+
+    if (enrolledCoursesLoaded && enrolledCourses.length > 0) {
+      fetchCompletionRates();
+    }
+  }, [enrolledCoursesLoaded, enrolledCourses, getCourseCompletionRate]);
+
+  // Fetch livestreams for enrolled courses
+  useEffect(() => {
+    const fetchLivestreams = async () => {
+      if (!userInfo?.id || !enrolledCoursesLoaded) return;
+      
+      setIsLoadingLivestreams(true);
+      try {
+        const livestreamsData = await livestreamApi.getLivestreamsForEnrolledCourses(userInfo.id);
+        setLivestreams(livestreamsData);
+      } catch (error) {
+        console.error("Error fetching livestreams:", error);
+        setLivestreams([]);
+      } finally {
+        setIsLoadingLivestreams(false);
+      }
+    };
+
+    fetchLivestreams();
+  }, [userInfo?.id, enrolledCoursesLoaded]);
 
   // Fetch recommended courses based on student profile and enrolled courses
   useEffect(() => {
@@ -260,6 +324,43 @@ const StudentHomePage = () => {
     if (recommendedCourses.length > 0) fetchInstructors();
     else setRecommendedInstructors({});
   }, [recommendedCourses]);
+
+  // Helper functions for calendar
+  const getCurrentMonthData = () => {
+    const currentDate = dayjs();
+    const currentMonth = currentDate.month();
+    const currentYear = currentDate.year();
+    const daysInMonth = currentDate.daysInMonth();
+    
+    // Get first day of month (0 = Sunday, 1 = Monday, etc.)
+    const firstDayOfMonth = dayjs(`${currentYear}-${currentMonth + 1}-01`).day();
+    // Convert to Monday = 0 format
+    const mondayFirstDay = firstDayOfMonth === 0 ? 6 : firstDayOfMonth - 1;
+    
+    return {
+      currentMonth,
+      currentYear,
+      daysInMonth,
+      mondayFirstDay
+    };
+  };
+
+  const getLivestreamDates = () => {
+    const datesWithLivestreams: number[] = [];
+    
+    livestreams.forEach(livestream => {
+      const livestreamDate = dayjs(livestream.scheduledDateTime);
+      const currentDate = dayjs();
+      
+      // Only show livestreams in current month
+      if (livestreamDate.month() === currentDate.month() && 
+          livestreamDate.year() === currentDate.year()) {
+        datesWithLivestreams.push(livestreamDate.date());
+      }
+    });
+    
+    return datesWithLivestreams;
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-gray-100 to-gray-200 font-inter flex flex-col lg:flex-row">
@@ -497,7 +598,7 @@ const StudentHomePage = () => {
                   </svg>
                 </button>
                 <span className="text-base font-semibold text-gray-700">
-                  Tháng 7, 2025
+                  {dayjs().format('MMMM, YYYY')}
                 </span>
                 <button className="p-2 rounded-full hover:bg-gray-100 transition-colors">
                   <svg
@@ -527,42 +628,52 @@ const StudentHomePage = () => {
 
               {/* Dates */}
               <div className="grid grid-cols-7 gap-1 text-sm text-center">
-                {/* Empty slots (example: 2 days for Wed start) */}
-                {Array.from({ length: 2 }).map((_, index) => (
-                  <span key={`empty-${index}`} className="w-9 h-9"></span>
-                ))}
-
-                {/* Calendar Days */}
-                {Array.from({ length: 31 }, (_, i) => i + 1).map((date) => {
-                  const hasTask = [5, 10, 15, 22].includes(date);
-                  const isCurrent = date === 18;
+                {(() => {
+                  const { mondayFirstDay, daysInMonth } = getCurrentMonthData();
+                  const livestreamDates = getLivestreamDates();
+                  const currentDate = dayjs().date();
 
                   return (
-                    <div
-                      key={date}
-                      className={`
-                        w-9 h-9 relative rounded-full flex items-center justify-center 
-                        font-medium cursor-pointer transition-all
-                        ${isCurrent ? "border-2 border-green-600" : ""}
-                        ${
-                          hasTask
-                            ? "bg-green-100 text-green-700 hover:bg-green-200"
-                            : "text-gray-800 hover:bg-gray-100"
-                        }
-                      `}
-                    >
-                      {date}
-                      {hasTask && (
-                        <span className="absolute bottom-0.5 w-1.5 h-1.5 bg-green-600 rounded-full"></span>
-                      )}
-                    </div>
+                    <>
+                      {/* Empty slots */}
+                      {Array.from({ length: mondayFirstDay }).map((_, index) => (
+                        <span key={`empty-${index}`} className="w-9 h-9"></span>
+                      ))}
+
+                      {/* Calendar Days */}
+                      {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((date) => {
+                        const hasLivestream = livestreamDates.includes(date);
+                        const isCurrent = date === currentDate;
+
+                        return (
+                          <div
+                            key={date}
+                            className={`
+                              w-9 h-9 relative rounded-full flex items-center justify-center 
+                              font-medium cursor-pointer transition-all
+                              ${isCurrent ? "border-2 border-green-600" : ""}
+                              ${
+                                hasLivestream
+                                  ? "bg-green-100 text-green-700 hover:bg-green-200"
+                                  : "text-gray-800 hover:bg-gray-100"
+                              }
+                            `}
+                          >
+                            {date}
+                            {hasLivestream && (
+                              <span className="absolute bottom-0.5 w-1.5 h-1.5 bg-green-600 rounded-full"></span>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </>
                   );
-                })}
+                })()}
               </div>
 
               {/* CTA Button */}
               <button
-                onClick={() => navigate(paths.student_home)} // Updated path
+                onClick={() => navigate("/student/schedule")}
                 className="w-full mt-6 bg-green-50 text-green-700 font-semibold py-2.5 px-4 rounded-lg hover:bg-green-100 transition-colors duration-200"
               >
                 Xem chi tiết việc cần làm
@@ -629,9 +740,14 @@ const StudentHomePage = () => {
                       description={enrollment.courseDescription}
                       level="N5" // Mock level since it's not in EnrollmentDetailDto
                       price={0} // Mock price since it's not in EnrollmentDetailDto
-                      progress={75} // Mock progress
+                      progress={isLoadingCompletionRates ? undefined : (courseCompletionRates[enrollment.courseId] || 0)} // Use completion rate with loading state
                       courseType="Online" // Mock course type
-                      onClick={() => navigate(`/learn-course/${enrollment.courseId}`)}
+                      buttonText="Xem chi tiết"
+                      onClick={() => navigate(`/student/course-detail/${enrollment.courseId}`)}
+                      studentName={userInfo?.fullName || "Học viên"}
+                      onCertificateDownload={() => {
+                        console.log('Certificate downloaded for course:', enrollment.courseTitle);
+                      }}
                       instructor={(() => {
                         const instructor = enrolledInstructors[enrollment.courseId]?.[0];
                         if (instructor) {

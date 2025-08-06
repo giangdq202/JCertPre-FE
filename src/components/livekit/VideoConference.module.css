@@ -1,0 +1,187 @@
+.videoConferenceContainer {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.header {
+  background-color: #1976d2;
+  color: white;
+  padding: 8px 16px;
+}
+
+.toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.mainContent {
+  flex: 1;
+  display: flex;
+}
+
+.videoArea {
+  flex: 1;
+  position: relative;
+  background-color: #000;
+}
+
+.sidebar {
+  width: 320px;
+  background-color: #f5f5f5;
+  border-left: 1px solid #e0e0e0;
+  overflow-y: auto;
+}
+
+.participantsSection {
+  padding: 16px;
+}
+
+.chatSection {
+  padding: 16px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.messagesContainer {
+  flex: 1;
+  overflow-y: auto;
+  margin-bottom: 16px;
+}
+
+.messageInput {
+  display: flex;
+  gap: 8px;
+}
+
+.messageInput input {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.messageInput input:focus {
+  outline: none;
+  border-color: #1976d2;
+  box-shadow: 0 0 0 2px rgba(25, 118, 210, 0.2);
+}
+
+.participantCard {
+  margin-bottom: 8px;
+  padding: 12px;
+  border-radius: 4px;
+  background-color: white;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.participantInfo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.participantDetails {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.participantActions {
+  display: flex;
+  gap: 4px;
+}
+
+.layoutButtons {
+  display: flex;
+  gap: 4px;
+}
+
+.layoutButton {
+  padding: 4px;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.layoutButton:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.layoutButton.active {
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+.controlBar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background-color: rgba(0, 0, 0, 0.8);
+  padding: 16px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+}
+
+.controlButton {
+  background-color: rgba(255, 255, 255, 0.1);
+  border: none;
+  border-radius: 50%;
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.controlButton:hover {
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+.controlButton.danger {
+  background-color: #f44336;
+}
+
+.controlButton.danger:hover {
+  background-color: #d32f2f;
+}
+
+.controlButton.success {
+  background-color: #4caf50;
+}
+
+.controlButton.success:hover {
+  background-color: #388e3c;
+}
+
+@media (max-width: 768px) {
+  .sidebar {
+    width: 100%;
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 10;
+    background-color: white;
+  }
+  
+  .mainContent {
+    position: relative;
+  }
+  
+  .videoArea {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+  }
+} 

@@ -16,47 +16,14 @@ import {
     checkEnrollmentStatus,
     // unenrollFromCourse // Không cần import nữa nếu bỏ chức năng hủy ghi danh
 } from '../../services/enrollmentService';
+import { useLessonProgress } from '../../hooks/useLessonProgress';
+import { useAuth } from '../../auth/AuthContext';
+import CertificateGenerator from '../../components/CertificateGenerator';
+import { livestreamApi, LivestreamDto, LivestreamStatus } from '../../services/livestreamService';
 import paths from "../../routes/path";
-
-// Mock data cho các phần khác (hiện tại vẫn giữ nguyên tĩnh)
-const mockSessions = [
-    {
-        session: "Lớp tổng ôn Ngữ pháp N3",
-        instructor: "Yamamoto Keiko",
-        date: "10/05/2025",
-        time: "10:00-11:30 JST",
-        duration: "1.5 giờ",
-        level: "N3",
-        spots: "6/15"
-    },
-    {
-        session: "Thực hành Nói: Hàng ngày",
-        instructor: "Saito Akira",
-        date: "10/05/2025",
-        time: "10:00-11:00 JST",
-        duration: "1 giờ",
-        level: "N3",
-        spots: "7/10"
-    },
-    {
-        session: "Hội thảo Nhận diện Hán tự",
-        instructor: "Tanaka Yoshiko",
-        date: "15/05/2025",
-        time: "13:00-15:00 JST",
-        duration: "2 giờ",
-        level: "N3",
-        spots: "9/20"
-    },
-    {
-        session: "Thi thử và Ôn tập JLPT N3",
-        instructor: "Watanabe Hanako",
-        date: "20/05/2025",
-        time: "09:00-13:00 JST",
-        duration: "4 giờ",
-        level: "N3",
-        spots: "18/30"
-    }
-];
+import dayjs from 'dayjs';
+import { FaPlay, FaClock, FaCalendarAlt, FaUser, FaVideo } from 'react-icons/fa';
+import { HiOutlineAcademicCap, HiOutlineClock, HiOutlineCalendar } from 'react-icons/hi2';
 
 const StudentCourseDetailPage = () => {
     const { courseId } = useParams<{ courseId: string }>();
@@ -64,12 +31,20 @@ const StudentCourseDetailPage = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const navigate = useNavigate();
+    const { getCourseCompletionRate } = useLessonProgress();
+    const { userInfo } = useAuth();
 
     const [similarCourses, setSimilarCourses] = useState<CourseListDto[]>([]);
     const [isLoadingSimilarCourses, setIsLoadingSimilarCourses] = useState(true);
 
     const [isEnrolling, setIsEnrolling] = useState<boolean>(false);
     const [isUserEnrolled, setIsUserEnrolled] = useState<boolean | null>(null);
+    const [completionRate, setCompletionRate] = useState<number>(0);
+    const [isLoadingCompletion, setIsLoadingCompletion] = useState(false);
+
+    // Livestream states
+    const [livestreams, setLivestreams] = useState<LivestreamDto[]>([]);
+    const [isLoadingLivestreams, setIsLoadingLivestreams] = useState(false);
 
     useEffect(() => {
         const fetchCourseDetailsAndEnrollmentStatus = async () => {
@@ -102,6 +77,48 @@ const StudentCourseDetailPage = () => {
 
         fetchCourseDetailsAndEnrollmentStatus();
     }, [courseId, navigate]);
+
+    // Fetch completion rate when user is enrolled
+    useEffect(() => {
+        const fetchCompletionRate = async () => {
+            if (!courseId || !isUserEnrolled) return;
+            
+            setIsLoadingCompletion(true);
+            try {
+                const rate = await getCourseCompletionRate(courseId);
+                setCompletionRate(rate);
+            } catch (error) {
+                console.error('Error fetching completion rate:', error);
+                setCompletionRate(0);
+            } finally {
+                setIsLoadingCompletion(false);
+            }
+        };
+
+        fetchCompletionRate();
+    }, [courseId, isUserEnrolled, getCourseCompletionRate]);
+
+    // Fetch livestreams for this course
+    useEffect(() => {
+        const fetchLivestreams = async () => {
+            if (!courseId) return;
+            
+            setIsLoadingLivestreams(true);
+            try {
+                const livestreamsData = await livestreamApi.getLivestreamsByCourse(courseId);
+                setLivestreams(livestreamsData);
+            } catch (error) {
+                console.error("Error fetching livestreams:", error);
+                setLivestreams([]);
+            } finally {
+                setIsLoadingLivestreams(false);
+            }
+        };
+
+        if (!isLoading) {
+            fetchLivestreams();
+        }
+    }, [courseId, isLoading]);
 
     useEffect(() => {
         const fetchSimilarCourses = async () => {
@@ -149,6 +166,84 @@ const StudentCourseDetailPage = () => {
         } finally {
             setIsEnrolling(false);
         }
+    };
+
+    const handleJoinLivestream = async (livestream: LivestreamDto) => {
+        const now = dayjs();
+        const livestreamStart = dayjs(livestream.scheduledDateTime);
+        const timeUntilStart = livestreamStart.diff(now, 'minute');
+
+        if (timeUntilStart > 15) {
+            toast.warning(`Buổi livestream sẽ bắt đầu sau ${timeUntilStart} phút. Bạn chỉ có thể tham gia 15 phút trước khi bắt đầu.`);
+            return;
+        }
+
+        if (timeUntilStart < -livestream.durationMinutes) {
+            toast.error("Buổi livestream đã kết thúc.");
+            return;
+        }
+
+        try {
+            // Check if user can join
+            const canJoin = await livestreamApi.canJoinLivestream(livestream.livestreamId, userInfo?.id || '');
+            
+            if (!canJoin) {
+                toast.error("Bạn không có quyền tham gia buổi livestream này.");
+                return;
+            }
+
+            // Generate join token
+            const joinData = await livestreamApi.generateJoinToken(livestream.livestreamId, userInfo?.id || '');
+            
+            // Navigate to livestream room
+            navigate(paths.student_livestream.replace(':livestreamId', livestream.livestreamId), {
+                state: {
+                    livestreamId: livestream.livestreamId,
+                    roomName: joinData.roomName,
+                    token: joinData.token,
+                    title: joinData.title,
+                    scheduledDateTime: joinData.scheduledDateTime,
+                    description: joinData.description,
+                    durationMinutes: joinData.durationMinutes
+                }
+            });
+        } catch (error: any) {
+            console.error("Error joining livestream:", error);
+            toast.error("Không thể tham gia buổi livestream. Vui lòng thử lại.");
+        }
+    };
+
+    const getLivestreamStatus = (livestream: LivestreamDto) => {
+        const now = dayjs();
+        const livestreamStart = dayjs(livestream.scheduledDateTime);
+        const livestreamEnd = dayjs(livestream.endDateTime);
+        const timeUntilStart = livestreamStart.diff(now, 'minute');
+
+        if (livestream.status === LivestreamStatus.COMPLETED) {
+            return { status: 'completed', text: 'Đã kết thúc', color: 'text-gray-500' };
+        }
+
+        if (livestream.status === LivestreamStatus.LIVE) {
+            return { status: 'live', text: 'Đang diễn ra', color: 'text-red-600' };
+        }
+
+        if (timeUntilStart <= 0 && timeUntilStart > -livestream.durationMinutes) {
+            return { status: 'live', text: 'Đang diễn ra', color: 'text-red-600' };
+        }
+
+        if (timeUntilStart <= 15 && timeUntilStart > 0) {
+            return { status: 'starting', text: 'Sắp bắt đầu', color: 'text-orange-600' };
+        }
+
+        return { status: 'scheduled', text: 'Đã lên lịch', color: 'text-green-600' };
+    };
+
+    const canJoinLivestream = (livestream: LivestreamDto) => {
+        const now = dayjs();
+        const livestreamStart = dayjs(livestream.scheduledDateTime);
+        const timeUntilStart = livestreamStart.diff(now, 'minute');
+        
+        return timeUntilStart <= 15 && timeUntilStart > -livestream.durationMinutes && livestream.status !== LivestreamStatus.COMPLETED;
     };
 
     // Hiển thị trạng thái tải cho khóa học chính
@@ -202,7 +297,7 @@ const StudentCourseDetailPage = () => {
     // Chuẩn bị dữ liệu hiển thị từ khóa học đã tải
     const courseOverview = [
         { label: "Số lượng bài học", value: `${course.lessonsCount}` },
-        { label: "Số buổi livestream", value: `${course.livestreamsCount}` },
+        { label: "Số buổi livestream", value: `${livestreams.length}` },
         { label: "Số lượt đăng ký", value: `${course.enrollmentsCount}` },
     ];
     const mainInstructor = course.instructors.length > 0 ? course.instructors[0] : null;
@@ -273,12 +368,57 @@ const StudentCourseDetailPage = () => {
                                             Đang kiểm tra trạng thái...
                                         </button>
                                     ) : isUserEnrolled ? (
-                                        <button
-                                            onClick={() => courseId && navigate(paths.learn_course.replace(':courseId', courseId))}
-                                            className="w-full bg-blue-600 text-white font-bold py-3 rounded-lg hover:bg-blue-700 transition-colors shadow-lg mb-4"
-                                        >
-                                            Đi đến khóa học của bạn
-                                        </button>
+                                        <div className="space-y-4">
+                                            {completionRate >= 100 ? (
+                                                <>
+                                                    <div className="text-center py-3 bg-green-50 border border-green-200 rounded-lg">
+                                                        <div className="text-green-600 font-semibold mb-2">
+                                                            🎉 Đã hoàn thành khóa học!
+                                                        </div>
+                                                        <div className="text-sm text-green-600">
+                                                            Hoàn thành {completionRate}%
+                                                        </div>
+                                                    </div>
+                                                    <CertificateGenerator 
+                                                        certificateData={{
+                                                            studentName: userInfo?.fullName || "Học viên",
+                                                            courseTitle: course.title,
+                                                            completionDate: new Date().toLocaleDateString('vi-VN'),
+                                                            courseLevel: CourseLevel[course.level],
+                                                            instructorName: course.instructors[0]?.fullName,
+                                                        }}
+                                                        onDownload={() => {
+                                                            console.log('Certificate downloaded for course:', course.title);
+                                                        }}
+                                                    />
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <button
+                                                        onClick={() => courseId && navigate(paths.learn_course.replace(':courseId', courseId))}
+                                                        className="w-full bg-blue-600 text-white font-bold py-3 rounded-lg hover:bg-blue-700 transition-colors shadow-lg"
+                                                    >
+                                                        Đi đến khóa học của bạn
+                                                    </button>
+                                                    {!isLoadingCompletion && (
+                                                        <div className="text-center py-2">
+                                                            <div className="text-sm text-gray-600 mb-1">
+                                                                Tiến độ học tập
+                                                            </div>
+                                                            <div className="w-full bg-gray-200 rounded-full h-2">
+                                                                <div
+                                                                    className="bg-green-500 h-2 rounded-full transition-all duration-300"
+                                                                    style={{ width: `${completionRate}%` }}
+                                                                ></div>
+                                                            </div>
+                                                            <div className="text-xs text-gray-500 mt-1">
+                                                                {completionRate}% hoàn thành
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </>
+                                            )}
+                                        </div>
                                     ) : (
                                         <button
                                             onClick={handleEnrollCourse}
@@ -288,17 +428,6 @@ const StudentCourseDetailPage = () => {
                                             {isEnrolling ? 'Đang đăng ký...' : 'Đăng ký ngay'}
                                         </button>
                                     )}
-
-                                    {/* Loại bỏ nút "Hủy ghi danh" */}
-                                    {/* {isUserEnrolled && (
-                                        <button
-                                            onClick={handleUnenrollCourse}
-                                            disabled={isEnrolling}
-                                            className="w-full bg-red-500 text-white font-bold py-2 rounded-lg hover:bg-red-600 transition-colors shadow-lg mb-4 disabled:opacity-50 disabled:cursor-not-allowed"
-                                        >
-                                            {isEnrolling ? 'Đang hủy ghi danh...' : 'Hủy ghi danh'}
-                                        </button>
-                                    )} */}
 
                                     <div className="mt-6 text-sm text-gray-600 space-y-3">
                                         <div className="flex items-center">
@@ -320,6 +449,103 @@ const StudentCourseDetailPage = () => {
                     </div>
 
                     {/* Phần Các khóa học có sẵn khác (Khóa học tương tự) */}
+                    
+
+                    {/* Phần Lịch học sắp tới - Real data */}
+                    <div className="mb-8">
+                        <div className="flex items-center gap-3 mb-6">
+                            <FaVideo className="text-2xl text-blue-600" />
+                            <h3 className="text-xl font-bold text-gray-800">Lịch livestream sắp tới</h3>
+                        </div>
+                        
+                        {isLoadingLivestreams ? (
+                            <div className="bg-white rounded-xl shadow-lg p-8">
+                                <div className="flex justify-center items-center h-32">
+                                    <div className="animate-spin rounded-full h-8 w-8 border-4 border-t-4 border-green-500 border-opacity-25"></div>
+                                    <p className="ml-4 text-gray-600">Đang tải lịch livestream...</p>
+                                </div>
+                            </div>
+                        ) : livestreams.length === 0 ? (
+                            <div className="bg-white rounded-xl shadow-lg p-8 text-center">
+                                <FaVideo className="text-4xl text-gray-400 mx-auto mb-4" />
+                                <h4 className="text-lg font-semibold text-gray-700 mb-2">Chưa có livestream nào</h4>
+                                <p className="text-gray-500">Khóa học này chưa có lịch livestream nào được lên kế hoạch.</p>
+                            </div>
+                        ) : (
+                            <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+                                <div className="p-6">
+                                    <div className="grid grid-cols-1 lg:grid-cols-6 font-semibold text-gray-700 border-b border-gray-200 pb-4 mb-4 gap-4">
+                                        <div className="lg:col-span-2">Buổi học</div>
+                                        <div>Trạng thái</div>
+                                        <div>Ngày & Thời gian</div>
+                                        <div>Thời lượng</div>
+                                        <div></div>
+                                    </div>
+                                    
+                                    {livestreams.map((livestream) => {
+                                        const statusInfo = getLivestreamStatus(livestream);
+                                        const canJoin = canJoinLivestream(livestream);
+                                        
+                                        return (
+                                            <div key={livestream.livestreamId} className="grid grid-cols-1 lg:grid-cols-6 items-center py-4 border-b border-gray-100 last:border-b-0 gap-4">
+                                                <div className="lg:col-span-2">
+                                                    <div className="text-gray-900 font-medium">{livestream.description || 'Buổi học trực tuyến'}</div>
+                                                    <div className="text-sm text-gray-500 flex items-center gap-2 mt-1">
+                                                        <FaUser className="text-xs" />
+                                                        <span>Giảng viên</span>
+                                                    </div>
+                                                </div>
+                                                
+                                                <div>
+                                                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusInfo.color}`}>
+                                                        {statusInfo.text}
+                                                    </span>
+                                                </div>
+                                                
+                                                <div className="text-gray-600">
+                                                    <div className="flex items-center gap-2">
+                                                        <FaCalendarAlt className="text-sm" />
+                                                        <span>{dayjs(livestream.scheduledDateTime).format('DD/MM/YYYY')}</span>
+                                                    </div>
+                                                    <div className="flex items-center gap-2 mt-1">
+                                                        <FaClock className="text-sm" />
+                                                        <span className="font-semibold text-green-600">
+                                                            {dayjs(livestream.scheduledDateTime).format('HH:mm')}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                                
+                                                <div className="text-gray-600">
+                                                    <div className="flex items-center gap-2">
+                                                        <HiOutlineClock className="text-sm" />
+                                                        <span>{livestream.durationMinutes} phút</span>
+                                                    </div>
+                                                </div>
+                                                
+                                                <div className="text-right">
+                                                    {canJoin ? (
+                                                        <button
+                                                            onClick={() => handleJoinLivestream(livestream)}
+                                                            className="bg-green-500 text-white py-2 px-4 rounded-lg hover:bg-green-600 transition-colors text-sm font-medium flex items-center gap-2"
+                                                        >
+                                                            <FaPlay className="text-xs" />
+                                                            Tham gia
+                                                        </button>
+                                                    ) : statusInfo.status === 'completed' ? (
+                                                        <span className="text-gray-400 text-sm">Đã kết thúc</span>
+                                                    ) : statusInfo.status === 'scheduled' ? (
+                                                        <span className="text-gray-500 text-sm">Chưa đến giờ</span>
+                                                    ) : (
+                                                        <span className="text-orange-500 text-sm">Sắp bắt đầu</span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
+                    </div>
                     <div className="mb-8">
                         <div className="flex justify-between items-center mb-6">
                             <h3 className="text-xl font-bold text-gray-800">Các khóa học có sẵn khác</h3>
@@ -361,43 +587,7 @@ const StudentCourseDetailPage = () => {
                                 ))}
                             </div>
                         )}
-                    </div>
-
-                    {/* Phần Lịch học sắp tới - Giữ nguyên mock data */}
-                    <div className="mb-8">
-                        <h3 className="text-xl font-bold text-gray-800 mb-6">Lịch học sắp tới</h3>
-                        <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-                            <div className="p-6">
-                                <div className="grid grid-cols-7 font-semibold text-gray-700 border-b border-gray-200 pb-4 mb-4">
-                                    <div className="col-span-2">Session</div>
-                                    <div>Giảng viên</div>
-                                    <div className="col-span-2">Ngày & Thời gian</div>
-                                    <div>Thời lượng</div>
-                                    <div>Cấp độ</div>
-                                    <div></div>
-                                </div>
-                                {mockSessions.map((session, index) => (
-                                    <div key={index} className="grid grid-cols-7 items-center py-4 border-b border-gray-100 last:border-b-0">
-                                        <div className="col-span-2 text-gray-900 font-medium">{session.session}</div>
-                                        <div className="text-gray-600">{session.instructor}</div>
-                                        <div className="col-span-2 text-gray-600">
-                                            <p>{session.date}</p>
-                                            <p className="text-sm font-semibold text-green-600">{session.time}</p>
-                                        </div>
-                                        <div className="text-gray-600">{session.duration}</div>
-                                        <div className="text-gray-600">{session.level}</div>
-                                        <div className="text-right">
-                                            {/* Nút đăng ký cho từng session - hiện tại vẫn mock */}
-                                            <button className="bg-green-500 text-white py-2 px-4 rounded-lg hover:bg-green-600 transition-colors text-sm">
-                                                Đăng ký ({session.spots})
-                                            </button>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    </div>
-
+                    </div>    
                     {/* Phần Tư vấn */}
                     <div className="bg-white rounded-xl shadow-lg p-8 text-center">
                         <h3 className="text-xl font-bold text-gray-800 mb-4">Bạn cần trợ giúp chọn khóa học phù hợp?</h3>

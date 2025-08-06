@@ -4,6 +4,8 @@ import { useParams, useNavigate } from "react-router-dom";
 import StaffSidebar from "../../components/sidebar/StaffSidebar";
 import StaffHeader from "../../components/header/StaffHeader";
 import ThumbnailUploader from "../../components/forms/ThumbnailUploader"; // This component might still use Ant Design internally, will keep it for now.
+import { DatePicker } from "antd"; // Add DatePicker import
+import dayjs from "dayjs"; // Add dayjs import
 
 // Import icons from react-icons
 import {
@@ -20,6 +22,10 @@ import {
   FaDownload,
   FaTimes, // For close button in modal
   FaExclamationCircle, // For popconfirm icon
+  FaBroadcastTower, // For livestream icon
+  FaCalendarAlt, // For date/time icon
+  FaClock, // For duration icon
+  FaQuestionCircle, // For test icon
 } from "react-icons/fa";
 
 // Import services and types
@@ -55,7 +61,46 @@ import {
   getDocumentsByLessonId,
 } from "../../services/documentService";
 import { getAllUsers, UserDto } from "../../services/userService";
+import { 
+  livestreamApi, 
+  CreateLivestreamDto, 
+  LivestreamDto, 
+  LivestreamStatus 
+} from "../../services/livestreamService";
 import paths from "../../routes/path";
+import CreateTestModal from "../../components/modals/CreateTestModal";
+
+// Utility functions for date formatting
+const formatDateToDisplay = (isoDate: string): string => {
+  if (!isoDate) return '';
+  const date = new Date(isoDate);
+  const day = date.getDate().toString().padStart(2, '0');
+  const month = (date.getMonth() + 1).toString().padStart(2, '0');
+  const year = date.getFullYear();
+  return `${day}/${month}/${year}`;
+};
+
+const formatDisplayToISO = (displayDate: string): string => {
+  if (!displayDate) return '';
+  const [day, month, year] = displayDate.split('/');
+  // Create date in UTC to avoid timezone offset issues
+  const date = new Date(Date.UTC(parseInt(year), parseInt(month) - 1, parseInt(day)));
+  return date.toISOString();
+};
+
+const isValidDisplayDate = (displayDate: string): boolean => {
+  if (!displayDate) return false;
+  // Updated regex to allow both single and double-digit day/month
+  const dateRegex = /^\d{1,2}\/\d{1,2}\/\d{4}$/;
+  if (!dateRegex.test(displayDate)) return false;
+  
+  const [day, month, year] = displayDate.split('/');
+  // Create date in UTC to avoid timezone offset issues
+  const date = new Date(Date.UTC(parseInt(year), parseInt(month) - 1, parseInt(day)));
+  
+  // Check if the date is valid (not NaN)
+  return !isNaN(date.getTime());
+};
 
 // Custom Modal component (simplified for this example, you might have a more robust one)
 interface CustomModalProps {
@@ -236,6 +281,74 @@ const CourseDetailPage: React.FC = () => {
   const [editLessonFormState, setEditLessonFormState] = useState<UpdateLessonDto>({});
   const [editingLessonId, setEditingLessonId] = useState<string | null>(null);
 
+  // Validation error states
+  const [dateValidationError, setDateValidationError] = useState<string>("");
+  
+  // Livestream state
+  const [livestreams, setLivestreams] = useState<LivestreamDto[]>([]);
+  const [loadingLivestreams, setLoadingLivestreams] = useState(false);
+  const [isCreateLivestreamModalVisible, setIsCreateLivestreamModalVisible] = useState(false);
+  const [createLivestreamFormState, setCreateLivestreamFormState] = useState<CreateLivestreamDto>({
+    courseId: courseId || "",
+    description: "",
+    scheduledDateTime: "",
+    durationMinutes: 60,
+  });
+  const [submittingLivestream, setSubmittingLivestream] = useState(false);
+  const [livestreamValidationError, setLivestreamValidationError] = useState<string>("");
+
+  // Test creation state
+  const [isCreateTestModalVisible, setIsCreateTestModalVisible] = useState(false);
+  const [currentLessonForTest, setCurrentLessonForTest] = useState<string>("");
+
+  // Validation functions
+  const validateCourseDates = (startDate: string, endDate: string): { isValid: boolean; message: string } => {
+    // Get today's date in UTC to avoid timezone issues
+    const now = new Date();
+    const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+    
+    const startDateObj = new Date(startDate);
+    const endDateObj = new Date(endDate);
+    
+    // Check if start date is in the past
+    if (startDateObj < today) {
+      return { isValid: false, message: "Ngày bắt đầu không được là ngày đã qua." };
+    }
+    
+    // Check if end date is after start date with at least 24 hours difference
+    const timeDifference = endDateObj.getTime() - startDateObj.getTime();
+    const hoursDifference = timeDifference / (1000 * 60 * 60);
+    
+    if (hoursDifference < 24) {
+      return { isValid: false, message: "Ngày kết thúc phải sau ngày bắt đầu ít nhất 24 giờ." };
+    }
+    
+    return { isValid: true, message: "" };
+  };
+
+  const validateInstructorForPublishing = (instructors: InstructorInfoDto[]): { isValid: boolean; message: string } => {
+    if (instructors.length === 0) {
+      return { isValid: false, message: "Khóa học phải có ít nhất một giảng viên trước khi được xuất bản." };
+    }
+    return { isValid: true, message: "" };
+  };
+
+  const validateLivestreamSchedule = (scheduledDateTime: string, courseStartDate: string, courseEndDate: string): { isValid: boolean; message: string } => {
+    if (!scheduledDateTime) {
+      return { isValid: false, message: "Vui lòng chọn thời gian cho livestream." };
+    }
+
+    const scheduleDate = new Date(scheduledDateTime);
+    const startDate = new Date(courseStartDate);
+    const endDate = new Date(courseEndDate);
+
+    // Check if scheduled time is within course date range
+    if (scheduleDate < startDate || scheduleDate > endDate) {
+      return { isValid: false, message: "Thời gian livestream phải nằm trong khoảng thời gian của khóa học." };
+    }
+
+    return { isValid: true, message: "" };
+  };
 
   // --- Course Data Fetching ---
   useEffect(() => {
@@ -259,6 +372,8 @@ const CourseDetailPage: React.FC = () => {
           level: courseData.level,
           courseType: courseData.courseType,
           price: courseData.price,
+          startDate: courseData.startDate,
+          endDate: courseData.endDate,
           thumbnailUrl: courseData.thumbnailUrl,
           status: courseData.status,
         });
@@ -276,6 +391,11 @@ const CourseDetailPage: React.FC = () => {
           })
         );
         setLessons(lessonsWithDocuments.sort((a, b) => a.lessonOrder - b.lessonOrder));
+
+        // Fetch livestreams for this course
+        const livestreamsData = await livestreamApi.getLivestreamsByCourse(courseId);
+        setLivestreams(livestreamsData);
+        console.log("Livestreams loaded:", livestreamsData.length);
       } catch (error) {
         // message.error("Failed to fetch course details or lessons. Please check the ID or network connection."); // Removed Ant Design message
         alert("Failed to fetch course details or lessons. Please check the ID or network connection."); // Using alert
@@ -317,8 +437,37 @@ const CourseDetailPage: React.FC = () => {
 
   // --- Course Management Handlers ---
   const handleCourseFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    setCourseFormState(prev => ({ ...prev, [name]: value }));
+    const { name, value, type } = e.target;
+    
+    // Handle date fields - convert display format to ISO string
+    if ((name === 'startDate' || name === 'endDate') && value) {
+      // Allow partial input - only validate when the date format is complete
+      if (isValidDisplayDate(value)) {
+        const isoString = formatDisplayToISO(value);
+        setCourseFormState(prev => ({ ...prev, [name]: isoString }));
+        
+        // Validate dates when both start and end dates are available
+        if (name === 'startDate' && courseFormState.endDate) {
+          const validation = validateCourseDates(isoString, courseFormState.endDate);
+          setDateValidationError(validation.isValid ? "" : validation.message);
+        } else if (name === 'endDate' && courseFormState.startDate) {
+          const validation = validateCourseDates(courseFormState.startDate, isoString);
+          setDateValidationError(validation.isValid ? "" : validation.message);
+        }
+      } else {
+        // For partial input, store the display value temporarily
+        // This allows users to type without the field being cleared
+        setCourseFormState(prev => ({ ...prev, [name]: value }));
+        // Clear validation error for partial input
+        setDateValidationError("");
+      }
+    } else if ((name === 'startDate' || name === 'endDate') && !value) {
+      // Handle empty value
+      setCourseFormState(prev => ({ ...prev, [name]: '' }));
+      setDateValidationError("");
+    } else {
+      setCourseFormState(prev => ({ ...prev, [name]: value }));
+    }
   };
 
   const handleCourseSelectChange = (name: keyof UpdateCourseDto) => (value: any) => {
@@ -331,6 +480,16 @@ const CourseDetailPage: React.FC = () => {
 
   const onFinishCourse = async () => {
     if (!courseId) return;
+    
+    // Validate dates if both start and end dates are provided
+    if (courseFormState.startDate && courseFormState.endDate) {
+      const dateValidation = validateCourseDates(courseFormState.startDate, courseFormState.endDate);
+      if (!dateValidation.isValid) {
+        alert(dateValidation.message);
+        return;
+      }
+    }
+    
     setSubmittingCourse(true);
     try {
       const updateData: UpdateCourseDto = {
@@ -353,6 +512,25 @@ const CourseDetailPage: React.FC = () => {
 
   const handleUpdateCourseStatus = async (newStatus: CourseStatus) => {
     if (!courseId || !course) return; // Ensure course data is available
+    
+    // Validate instructor requirement for publishing
+    if (newStatus === CourseStatus.Published) {
+      const instructorValidation = validateInstructorForPublishing(course.instructors);
+      if (!instructorValidation.isValid) {
+        alert(instructorValidation.message);
+        return;
+      }
+    }
+    
+    // Validate dates if both start and end dates are provided and trying to publish
+    if (newStatus === CourseStatus.Published && courseFormState.startDate && courseFormState.endDate) {
+      const dateValidation = validateCourseDates(courseFormState.startDate, courseFormState.endDate);
+      if (!dateValidation.isValid) {
+        alert(dateValidation.message);
+        return;
+      }
+    }
+    
     setSubmittingCourse(true);
     try {
       // Create a new UpdateCourseDto with the updated status and existing course data
@@ -423,6 +601,8 @@ const CourseDetailPage: React.FC = () => {
         level: course.level,
         courseType: course.courseType,
         price: course.price,
+        startDate: course.startDate,
+        endDate: course.endDate,
         thumbnailUrl: course.thumbnailUrl,
         status: course.status,
       });
@@ -646,6 +826,90 @@ const CourseDetailPage: React.FC = () => {
     }
   };
 
+  // --- Livestream Handlers ---
+  const handleCreateLivestreamFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setCreateLivestreamFormState(prev => ({
+      ...prev,
+      [name]: value
+    }));
+    setLivestreamValidationError("");
+  };
+
+  const handleCreateLivestreamNumberChange = (name: keyof CreateLivestreamDto) => (value: number) => {
+    setCreateLivestreamFormState(prev => ({
+      ...prev,
+      [name]: value
+    }));
+    setLivestreamValidationError("");
+  };
+
+  const handleCreateLivestream = async () => {
+    if (!course) return;
+
+    // Validate livestream schedule
+    const validation = validateLivestreamSchedule(
+      createLivestreamFormState.scheduledDateTime,
+      course.startDate,
+      course.endDate
+    );
+
+    if (!validation.isValid) {
+      setLivestreamValidationError(validation.message);
+      return;
+    }
+
+    setSubmittingLivestream(true);
+    try {
+      // Ensure the date is properly converted to UTC
+      const livestreamData = {
+        ...createLivestreamFormState,
+        scheduledDateTime: createLivestreamFormState.scheduledDateTime
+      };
+      
+      const newLivestream = await livestreamApi.createLivestream(livestreamData);
+      setLivestreams(prev => [...prev, newLivestream]);
+      
+      // Reset form
+      setCreateLivestreamFormState({
+        courseId: courseId || "",
+        description: "",
+        scheduledDateTime: "",
+        durationMinutes: 60,
+      });
+      setIsCreateLivestreamModalVisible(false);
+      setLivestreamValidationError("");
+      
+      alert("Livestream created successfully!");
+    } catch (error) {
+      console.error("Error creating livestream:", error);
+      alert("Failed to create livestream. Please try again.");
+    } finally {
+      setSubmittingLivestream(false);
+    }
+  };
+
+  const handleDeleteLivestream = async (livestreamId: string) => {
+    try {
+      await livestreamApi.deleteLivestream(livestreamId);
+      setLivestreams(prev => prev.filter(ls => ls.livestreamId !== livestreamId));
+      alert("Livestream deleted successfully!");
+    } catch (error) {
+      console.error("Error deleting livestream:", error);
+      alert("Failed to delete livestream. Please try again.");
+    }
+  };
+
+  const showCreateTestModal = (lessonId: string) => {
+    setCurrentLessonForTest(lessonId);
+    setIsCreateTestModalVisible(true);
+  };
+
+  const handleTestCreated = () => {
+    // Refresh course data or show success message
+    alert("Test created successfully!");
+  };
+
 
   // --- Loading and Error States ---
   if (loading) {
@@ -748,6 +1012,62 @@ const CourseDetailPage: React.FC = () => {
                       min={0}
                     />
                   </div>
+                  <div>
+                    <label htmlFor="startDate" className="block text-sm font-medium text-gray-700 mb-1">Ngày bắt đầu (dd/mm/yyyy)</label>
+                    <DatePicker
+                      id="startDate"
+                      name="startDate"
+                      value={courseFormState.startDate ? dayjs(courseFormState.startDate) : null}
+                                             onChange={(date) => {
+                         if (date) {
+                           const isoString = date.toISOString();
+                           setCourseFormState(prev => ({ ...prev, startDate: isoString }));
+                           if (courseFormState.endDate) {
+                             const validation = validateCourseDates(isoString, courseFormState.endDate);
+                             setDateValidationError(validation.isValid ? "" : validation.message);
+                           }
+                         } else {
+                           setCourseFormState(prev => ({ ...prev, startDate: '' }));
+                           setDateValidationError("");
+                         }
+                       }}
+                      className={`w-full px-4 py-2 border rounded-lg focus:ring-green-500 focus:border-green-500 transition-colors ${
+                        dateValidationError ? 'border-red-500' : 'border-gray-300'
+                      }`}
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="endDate" className="block text-sm font-medium text-gray-700 mb-1">Ngày kết thúc (dd/mm/yyyy)</label>
+                    <DatePicker
+                      id="endDate"
+                      name="endDate"
+                      value={courseFormState.endDate ? dayjs(courseFormState.endDate) : null}
+                                             onChange={(date) => {
+                         if (date) {
+                           const isoString = date.toISOString();
+                           setCourseFormState(prev => ({ ...prev, endDate: isoString }));
+                           if (courseFormState.startDate) {
+                             const validation = validateCourseDates(courseFormState.startDate, isoString);
+                             setDateValidationError(validation.isValid ? "" : validation.message);
+                           }
+                         } else {
+                           setCourseFormState(prev => ({ ...prev, endDate: '' }));
+                           setDateValidationError("");
+                         }
+                       }}
+                      className={`w-full px-4 py-2 border rounded-lg focus:ring-green-500 focus:border-green-500 transition-colors ${
+                        dateValidationError ? 'border-red-500' : 'border-gray-300'
+                      }`}
+                    />
+                  </div>
+                  {dateValidationError && (
+                    <div className="col-span-2">
+                      <p className="text-red-600 text-sm mt-1 flex items-center">
+                        <FaExclamationCircle className="mr-1" />
+                        {dateValidationError}
+                      </p>
+                    </div>
+                  )}
                 </div>
 
                 <div>
@@ -801,12 +1121,16 @@ const CourseDetailPage: React.FC = () => {
                       .map((key) => {
                         const statusValue = CourseStatus[key as keyof typeof CourseStatus];
                         if (statusValue === course.status) return null;
+                        
+                        // Check if Published status should be disabled
+                        const isPublishedDisabled = statusValue === CourseStatus.Published && course.instructors.length === 0;
+                        
                         return (
                           <CustomPopconfirm
                             key={key}
-                            title={`Bạn có chắc muốn đổi trạng thái thành ${key}?`}
+                            title={isPublishedDisabled ? "Khóa học phải có ít nhất một giảng viên trước khi được xuất bản." : `Bạn có chắc muốn đổi trạng thái thành ${key}?`}
                             onConfirm={() => handleUpdateCourseStatus(statusValue)}
-                            disabled={submittingCourse}
+                            disabled={submittingCourse || isPublishedDisabled}
                           >
                             <button
                               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200
@@ -814,9 +1138,10 @@ const CourseDetailPage: React.FC = () => {
                                   statusValue === CourseStatus.Draft ? 'bg-blue-500 hover:bg-blue-600 text-white' :
                                   statusValue === CourseStatus.Archived ? 'bg-yellow-500 hover:bg-yellow-600 text-white' :
                                   statusValue === CourseStatus.Suspended ? 'bg-red-500 hover:bg-red-600 text-white' : 'bg-gray-200 hover:bg-gray-300 text-gray-800'}
-                                ${submittingCourse ? 'opacity-50 cursor-not-allowed' : ''}
+                                ${submittingCourse || isPublishedDisabled ? 'opacity-50 cursor-not-allowed' : ''}
                               `}
-                              disabled={submittingCourse}
+                              disabled={submittingCourse || isPublishedDisabled}
+                              title={isPublishedDisabled ? "Khóa học phải có ít nhất một giảng viên trước khi được xuất bản." : ""}
                             >
                               Đặt thành {key}
                             </button>
@@ -828,6 +1153,14 @@ const CourseDetailPage: React.FC = () => {
 
                 <div className="mt-8 border-t pt-6">
                   <h3 className="text-xl font-semibold text-gray-800 mb-4">Giảng viên</h3>
+                  {course.instructors.length === 0 && (
+                    <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                      <p className="text-yellow-800 text-sm flex items-center">
+                        <FaExclamationCircle className="mr-2" />
+                        Cảnh báo: Khóa học phải có ít nhất một giảng viên trước khi được xuất bản.
+                      </p>
+                    </div>
+                  )}
                   <button
                     onClick={() => setIsAddInstructorModalVisible(true)}
                     className="flex items-center px-5 py-2 rounded-lg bg-green-600 text-white shadow-md hover:bg-green-700 transition-colors duration-200 text-sm font-semibold mb-4"
@@ -923,6 +1256,13 @@ const CourseDetailPage: React.FC = () => {
                         >
                           <span className="font-medium text-gray-800">Bài học {lesson.lessonOrder}: {lesson.title}</span>
                           <div className="flex items-center gap-2">
+                            <button
+                              onClick={(e) => { e.stopPropagation(); showCreateTestModal(lesson.lessonId); }}
+                              className="text-gray-600 hover:text-purple-600 transition-colors p-1 rounded-full hover:bg-purple-100"
+                              title="Tạo test cho bài học"
+                            >
+                              <FaQuestionCircle size={16} />
+                            </button>
                             <button
                               onClick={(e) => { e.stopPropagation(); showUploadDocumentModal(lesson.lessonId); }}
                               className="text-gray-600 hover:text-green-600 transition-colors p-1 rounded-full hover:bg-gray-200"
@@ -1108,6 +1448,142 @@ const CourseDetailPage: React.FC = () => {
                   <FaTrash className="inline-block mr-2" /> Xóa tất cả bài học
                 </button>
               </CustomPopconfirm>
+
+              {/* Livestream Management Section */}
+              <div className="mt-8 border-t pt-6">
+                <h3 className="text-xl font-semibold text-gray-800 mb-4 flex items-center">
+                  <FaBroadcastTower className="mr-2 text-purple-600" />
+                  Quản lý Livestream
+                </h3>
+
+                {/* Create New Livestream Form */}
+                <div className="mb-6 p-5 border border-purple-200 rounded-xl bg-purple-50">
+                  <h4 className="text-lg font-semibold text-gray-800 mb-4">Tạo livestream mới</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label htmlFor="livestream-description" className="block text-sm font-medium text-gray-700 mb-1">Mô tả livestream</label>
+                      <input
+                        type="text"
+                        id="livestream-description"
+                        name="description"
+                        value={createLivestreamFormState.description}
+                        onChange={handleCreateLivestreamFormChange}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500 transition-colors"
+                        placeholder="Nhập mô tả livestream"
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="livestream-duration" className="block text-sm font-medium text-gray-700 mb-1">Thời lượng (phút)</label>
+                      <input
+                        type="number"
+                        id="livestream-duration"
+                        name="durationMinutes"
+                        value={createLivestreamFormState.durationMinutes}
+                        onChange={(e) => handleCreateLivestreamNumberChange('durationMinutes')(parseInt(e.target.value))}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500 transition-colors"
+                        min={15}
+                        max={480}
+                      />
+                    </div>
+                    <div className="md:col-span-2">
+                      <label htmlFor="livestream-schedule" className="block text-sm font-medium text-gray-700 mb-1">Thời gian lên lịch</label>
+                      <DatePicker
+                        id="livestream-schedule"
+                        name="scheduledDateTime"
+                        showTime={{ format: 'HH:mm' }}
+                        format="YYYY-MM-DD HH:mm"
+                        value={createLivestreamFormState.scheduledDateTime ? dayjs(createLivestreamFormState.scheduledDateTime) : null}
+                        onChange={(date) => {
+                          if (date) {
+                            const isoString = date.toISOString();
+                            setCreateLivestreamFormState(prev => ({ ...prev, scheduledDateTime: isoString }));
+                            if (course && course.startDate && course.endDate) {
+                              const validation = validateLivestreamSchedule(isoString, course.startDate, course.endDate);
+                              setLivestreamValidationError(validation.isValid ? "" : validation.message);
+                            }
+                          } else {
+                            setCreateLivestreamFormState(prev => ({ ...prev, scheduledDateTime: '' }));
+                            setLivestreamValidationError("");
+                          }
+                        }}
+                        className={`w-full px-4 py-2 border rounded-lg focus:ring-purple-500 focus:border-purple-500 transition-colors ${
+                          livestreamValidationError ? 'border-red-500' : 'border-gray-300'
+                        }`}
+                      />
+                      {livestreamValidationError && (
+                        <p className="text-red-600 text-sm mt-1 flex items-center">
+                          <FaExclamationCircle className="mr-1" />
+                          {livestreamValidationError}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleCreateLivestream}
+                    disabled={submittingLivestream}
+                    className={`flex items-center px-6 py-2 rounded-lg shadow-md transition-all duration-200 text-white font-semibold mt-4
+                      ${submittingLivestream ? 'bg-purple-400 cursor-not-allowed' : 'bg-purple-600 hover:bg-purple-700'}
+                    `}
+                  >
+                    <FaBroadcastTower className="mr-2" />
+                    {submittingLivestream ? "Đang tạo..." : "Tạo livestream"}
+                  </button>
+                </div>
+
+                {/* Existing Livestreams List */}
+                <h4 className="text-lg font-semibold text-gray-800 mb-4">Livestream hiện có</h4>
+                <div className="space-y-3">
+                  {livestreams.length === 0 ? (
+                    <p className="text-gray-600 text-sm">Chưa có livestream nào cho khóa học này.</p>
+                  ) : (
+                    livestreams.map((livestream) => (
+                      <div
+                        key={livestream.livestreamId}
+                        className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-2">
+                              <FaBroadcastTower className="text-purple-600" />
+                              <h5 className="font-semibold text-gray-800">{livestream.description || "Livestream không có mô tả"}</h5>
+                              <span className={`px-2 py-1 rounded-full text-xs font-medium
+                                ${livestream.status === LivestreamStatus.SCHEDULED ? 'bg-blue-100 text-blue-700' :
+                                  livestream.status === LivestreamStatus.LIVE ? 'bg-green-100 text-green-700' :
+                                  livestream.status === LivestreamStatus.COMPLETED ? 'bg-gray-100 text-gray-700' : 'bg-gray-100 text-gray-700'}
+                              `}>
+                                {livestream.status}
+                              </span>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-gray-600">
+                              <div className="flex items-center gap-1">
+                                <FaCalendarAlt className="text-gray-500" />
+                                <span>Thời gian: {new Date(livestream.scheduledDateTime).toLocaleString('vi-VN')}</span>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <FaClock className="text-gray-500" />
+                                <span>Thời lượng: {livestream.durationMinutes} phút</span>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <CustomPopconfirm
+                              title="Bạn có chắc muốn xóa livestream này?"
+                              onConfirm={() => handleDeleteLivestream(livestream.livestreamId)}
+                            >
+                              <button
+                                className="text-red-500 hover:text-red-700 transition-colors p-1 rounded-full hover:bg-red-100"
+                                title="Xóa livestream"
+                              >
+                                <FaTrash size={16} />
+                              </button>
+                            </CustomPopconfirm>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         </main>
@@ -1182,6 +1658,88 @@ const CourseDetailPage: React.FC = () => {
           )}
         </div>
       </CustomModal>
+
+      {/* Modal for creating livestream */}
+      <CustomModal
+        isOpen={isCreateLivestreamModalVisible}
+        onClose={() => {
+          setIsCreateLivestreamModalVisible(false);
+          setLivestreamValidationError("");
+        }}
+        title="Tạo Livestream mới"
+        onConfirm={handleCreateLivestream}
+        confirmLoading={submittingLivestream}
+        okText="Tạo"
+      >
+        <div className="space-y-4">
+          <div>
+            <label htmlFor="modal-livestream-description" className="block text-sm font-medium text-gray-700 mb-1">Mô tả livestream</label>
+            <input
+              type="text"
+              id="modal-livestream-description"
+              name="description"
+              value={createLivestreamFormState.description}
+              onChange={handleCreateLivestreamFormChange}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500 transition-colors"
+              placeholder="Nhập mô tả livestream"
+            />
+          </div>
+          <div>
+            <label htmlFor="modal-livestream-duration" className="block text-sm font-medium text-gray-700 mb-1">Thời lượng (phút)</label>
+            <input
+              type="number"
+              id="modal-livestream-duration"
+              name="durationMinutes"
+              value={createLivestreamFormState.durationMinutes}
+              onChange={(e) => handleCreateLivestreamNumberChange('durationMinutes')(parseInt(e.target.value))}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500 transition-colors"
+              min={15}
+              max={480}
+            />
+          </div>
+          <div>
+            <label htmlFor="modal-livestream-schedule" className="block text-sm font-medium text-gray-700 mb-1">Thời gian lên lịch</label>
+            <DatePicker
+              id="modal-livestream-schedule"
+              name="scheduledDateTime"
+              showTime={{ format: 'HH:mm' }}
+              format="YYYY-MM-DD HH:mm"
+              value={createLivestreamFormState.scheduledDateTime ? dayjs(createLivestreamFormState.scheduledDateTime) : null}
+              onChange={(date) => {
+                if (date) {
+                  const isoString = date.toISOString();
+                  setCreateLivestreamFormState(prev => ({ ...prev, scheduledDateTime: isoString }));
+                  if (course && course.startDate && course.endDate) {
+                    const validation = validateLivestreamSchedule(isoString, course.startDate, course.endDate);
+                    setLivestreamValidationError(validation.isValid ? "" : validation.message);
+                  }
+                } else {
+                  setCreateLivestreamFormState(prev => ({ ...prev, scheduledDateTime: '' }));
+                  setLivestreamValidationError("");
+                }
+              }}
+              className={`w-full px-4 py-2 border rounded-lg focus:ring-purple-500 focus:border-purple-500 transition-colors ${
+                livestreamValidationError ? 'border-red-500' : 'border-gray-300'
+              }`}
+            />
+            {livestreamValidationError && (
+              <p className="text-red-600 text-sm mt-1 flex items-center">
+                <FaExclamationCircle className="mr-1" />
+                {livestreamValidationError}
+              </p>
+            )}
+          </div>
+        </div>
+      </CustomModal>
+
+      {/* Modal for creating test */}
+      <CreateTestModal
+        isOpen={isCreateTestModalVisible}
+        onClose={() => setIsCreateTestModalVisible(false)}
+        lessonId={currentLessonForTest}
+        courseLevel={course?.level || CourseLevel.N5}
+        onTestCreated={handleTestCreated}
+      />
     </div>
   );
 };

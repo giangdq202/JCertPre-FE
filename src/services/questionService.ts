@@ -111,7 +111,7 @@ export interface Pagination<T> {
   items: T[];
 }
 
-const QUESTION_BASE_URL = `${BASE_URL}/Question`;
+const QUESTION_BASE_URL = `${BASE_URL}/questions`;
 
 // Get all questions (for staff - includes both active and inactive)
 export const getAllQuestions = async (): Promise<QuestionDto[]> => {
@@ -180,19 +180,19 @@ export const getQuestionsPagingDetails = async (params: GetQuestionsPagingDetail
 
 // Choice APIs
 export const getChoicesByQuestionId = async (questionId: string): Promise<ChoiceReadDto[]> => {
-  const response = await axiosInstance.get(`/choice/question/${questionId}`);
+  const response = await axiosInstance.get(`/choices/question/${questionId}`);
   return response.data;
 };
 
 export const createChoice = async (questionId: string, choiceDto: ChoiceCreateDto): Promise<ChoiceReadDto> => {
-  const response = await axiosInstance.post(`/choice/question/${questionId}`, choiceDto);
+  const response = await axiosInstance.post(`/choices/question/${questionId}`, choiceDto);
   return response.data;
 };
 
 export const updateChoice = async (choiceId: string, choiceDto: ChoiceUpdateDto): Promise<void> => {
-  await axiosInstance.put(`/choice/choice/${choiceId}`, choiceDto);
+  await axiosInstance.put(`/choices/choice/${choiceId}`, choiceDto);
 };
 
 export const deleteChoice = async (choiceId: string): Promise<void> => {
-  await axiosInstance.delete(`/choice/choice/${choiceId}`);
+  await axiosInstance.delete(`/choices/choice/${choiceId}`);
 }; 

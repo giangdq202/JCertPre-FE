@@ -1,6 +1,8 @@
 import React from "react";
-import { FaBookOpen, FaArrowRight } from "react-icons/fa";
+import { FaBookOpen, FaArrowRight, FaCheckCircle } from "react-icons/fa";
 import clsx from "clsx";
+import CertificateGenerator from "../CertificateGenerator";
+
 export type CourseTypeEnum = "Online" | "Offline" | "Hybrid";
 export type CourseStatusEnum = "Draft" | "Published" | "Archived" | "Suspended";
 
@@ -32,6 +34,8 @@ interface CourseCardProps {
     avatarUrl?: string;
     fullName: string;
   };
+  studentName?: string;
+  onCertificateDownload?: () => void;
 }
 
 const typeColorMap: Record<CourseTypeEnum, string> = {
@@ -51,8 +55,19 @@ const CourseCard: React.FC<CourseCardProps> = ({
   buttonText,
   onClick,
   instructor,
+  studentName,
+  onCertificateDownload,
 }) => {
   const isPurchased = progress !== undefined; // true nếu đã đăng ký
+  const isCompleted = progress !== undefined && progress >= 100;
+
+  const certificateData = {
+    studentName: studentName || "Học viên",
+    courseTitle: title,
+    completionDate: new Date().toLocaleDateString('vi-VN'),
+    courseLevel: level,
+    instructorName: instructor?.fullName,
+  };
 
   return (
     <div className="group relative block bg-white rounded-xl shadow-md hover:shadow-lg hover:ring-2 hover:ring-green-400 transition duration-300 overflow-hidden">
@@ -66,6 +81,16 @@ const CourseCard: React.FC<CourseCardProps> = ({
             )}
           >
             {CourseTypeLabel[courseType]}
+          </span>
+        </div>
+      )}
+
+      {/* Badge hoàn thành */}
+      {isCompleted && (
+        <div className="absolute top-3 right-3 z-10">
+          <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold uppercase tracking-wide bg-green-100 text-green-700">
+            <FaCheckCircle className="inline mr-1" />
+            Hoàn thành
           </span>
         </div>
       )}
@@ -122,25 +147,41 @@ const CourseCard: React.FC<CourseCardProps> = ({
               <div className="w-full bg-gray-200 rounded-full h-2">
                 <div
                   className="bg-green-500 h-2 rounded-full transition-all duration-300"
-                  style={{ width: `${progress}%` }}
+                  style={{ width: `${progress || 0}%` }}
                 ></div>
               </div>
               <p className="text-xs text-gray-600 mt-1">
-                Hoàn thành {progress}%
+                {progress === undefined ? "Đang tải..." : `Hoàn thành ${progress}%`}
               </p>
             </div>
           )}
         </div>
 
-        <button
-          onClick={onClick}
-          className="mt-6 flex items-center justify-center gap-2 bg-green-600 text-white text-sm font-semibold py-3 rounded-lg
-                     group-hover:bg-green-700 transition-colors duration-300 cursor-pointer select-none
-                     focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-2 w-full"
-        >
-          <span>{isPurchased ? "Tiếp tục học" : "Đăng ký"}</span>
-          <FaArrowRight className="w-4 h-4" />
-        </button>
+        {/* Button hoặc trạng thái hoàn thành */}
+        {isCompleted ? (
+          <div className="mt-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-green-600 font-semibold">
+                <FaCheckCircle className="w-5 h-5" />
+                <span>Đã hoàn thành</span>
+              </div>
+              <CertificateGenerator 
+                certificateData={certificateData}
+                onDownload={onCertificateDownload}
+              />
+            </div>
+          </div>
+        ) : (
+          <button
+            onClick={onClick}
+            className="mt-6 flex items-center justify-center gap-2 bg-green-600 text-white text-sm font-semibold py-3 rounded-lg
+                       group-hover:bg-green-700 transition-colors duration-300 cursor-pointer select-none
+                       focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-2 w-full"
+          >
+            <span>{buttonText || (isPurchased ? "Tiếp tục học" : "Đăng ký")}</span>
+            <FaArrowRight className="w-4 h-4" />
+          </button>
+        )}
       </div>
     </div>
   );

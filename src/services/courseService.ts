@@ -7,6 +7,8 @@ import {
   UPDATE_COURSE_STATUS_URL,
   ADD_INSTRUCTOR_TO_COURSE_URL,
   REMOVE_INSTRUCTOR_FROM_COURSE_URL,
+  GET_COURSE_INSTRUCTORS_URL,
+  GET_COURSE_INSTRUCTOR_HISTORY_URL,
 } from "../consts/apiUrl/baseUrl";
 import { Pagination } from "../types/pagination"; // Ensure this path is correct
 import { DocumentDto } from "./documentService"; // Ensure this path is correct (needed for LessonDto)
@@ -41,6 +43,8 @@ export interface CourseQueryParameters {
   status?: CourseStatus | null;
   level?: CourseLevel | null;
   courseType?: CourseType | null;
+  startDate?: string | null; // ISO 8601 date string
+  endDate?: string | null; // ISO 8601 date string
 }
 
 export interface InstructorInfoDto {
@@ -69,6 +73,8 @@ export interface CourseListDto {
   thumbnailUrl: string;
   status: CourseStatus;
   createdAt: string; // ISO 8601 string
+  startDate: string; // ISO 8601 string
+  endDate: string; // ISO 8601 string
   enrollmentsCount: number;
   instructorsCount: number;
 }
@@ -82,6 +88,8 @@ export interface CourseDto {
   thumbnailUrl: string;
   status: CourseStatus;
   createdAt: string; // ISO 8601 string
+  startDate: string; // ISO 8601 string
+  endDate: string; // ISO 8601 string
   lessonsCount: number;
   livestreamsCount: number;
   enrollmentsCount: number;
@@ -103,6 +111,8 @@ export interface CreateCourseDto {
   level: CourseLevel;
   courseType: CourseType;
   price: number; // Keep as number for frontend compatibility
+  startDate: string; // ISO 8601 string
+  endDate: string; // ISO 8601 string
   thumbnailFile?: File | null;
   thumbnailUrl?: string | null;
 }
@@ -113,6 +123,8 @@ export interface UpdateCourseDto {
   level?: CourseLevel | null;
   courseType?: CourseType | null;
   price?: number | null; // Keep as number for frontend compatibility
+  startDate?: string | null; // ISO 8601 string
+  endDate?: string | null; // ISO 8601 string
   thumbnailFile?: File | null;
   thumbnailUrl?: string | null;
   status?: CourseStatus | null;
@@ -153,6 +165,12 @@ export const getCourses = async (
     }
     if (queryParameters.courseType !== undefined && queryParameters.courseType !== null) {
       params.append("CourseType", queryParameters.courseType.toString()); // Send as number
+    }
+    if (queryParameters.startDate) {
+      params.append("StartDate", queryParameters.startDate);
+    }
+    if (queryParameters.endDate) {
+      params.append("EndDate", queryParameters.endDate);
     }
 
     // Gửi yêu cầu GET đến API khóa học
@@ -209,6 +227,8 @@ export const createCourse = async (
     formData.append("Level", createCourseDto.level.toString());
     formData.append("CourseType", createCourseDto.courseType.toString());
     formData.append("Price", createCourseDto.price.toString());
+    formData.append("StartDate", createCourseDto.startDate);
+    formData.append("EndDate", createCourseDto.endDate);
     if (createCourseDto.thumbnailFile) {
       formData.append("ThumbnailFile", createCourseDto.thumbnailFile);
     }
@@ -254,6 +274,12 @@ export const updateCourse = async (
     }
     if (updateCourseDto.thumbnailUrl) {
       formData.append("ThumbnailUrl", updateCourseDto.thumbnailUrl);
+    }
+    if (updateCourseDto.startDate !== undefined && updateCourseDto.startDate !== null) {
+      formData.append("StartDate", updateCourseDto.startDate);
+    }
+    if (updateCourseDto.endDate !== undefined && updateCourseDto.endDate !== null) {
+      formData.append("EndDate", updateCourseDto.endDate);
     }
     if (updateCourseDto.status !== undefined && updateCourseDto.status !== null) {
       formData.append("Status", updateCourseDto.status.toString());
@@ -324,7 +350,7 @@ export const getCourseInstructors = async (courseId: string): Promise<Instructor
       throw new Error('CourseId is empty or invalid');
     }
     
-    const url = `${GET_COURSE_BY_ID_URL(courseId)}/instructors`;
+    const url = GET_COURSE_INSTRUCTORS_URL(courseId);
     console.log(`Calling getCourseInstructors with URL: ${url}`);
     console.log(`CourseId: ${courseId}`);
     
@@ -341,6 +367,6 @@ export const getCourseInstructors = async (courseId: string): Promise<Instructor
 };
 
 export const getCourseInstructorHistory = async (courseId: string): Promise<CourseInstructorHistoryDto[]> => {
-  const { data } = await axiosInstance.get<CourseInstructorHistoryDto[]>(`${GET_COURSE_BY_ID_URL(courseId)}/instructors/history`);
+  const { data } = await axiosInstance.get<CourseInstructorHistoryDto[]>(GET_COURSE_INSTRUCTOR_HISTORY_URL(courseId));
   return data;
 };

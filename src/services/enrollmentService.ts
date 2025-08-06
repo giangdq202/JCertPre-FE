@@ -2,9 +2,14 @@
 
 import axiosInstance from "../consts/axios/axiosInstance"; // Đảm bảo đường dẫn này đúng
 import { Pagination } from "../types/pagination"; // Giả sử bạn có Pagination type chung
-
-// --- Constants for API URLs ---
-const BASE_ENROLLMENT_URL = "/enrollment";
+import {
+  ENROLLMENT_BASE_URL,
+  CHECK_ENROLLMENT_URL,
+  ENROLL_URL,
+  ENROLL_SELF_URL,
+  GET_MY_ENROLLMENTS_URL,
+  UNENROLL_URL,
+} from "../consts/apiUrl/baseUrl";
 
 // --- DTOs (Data Transfer Objects) ---
 
@@ -68,7 +73,7 @@ export const enrollUserInCourse = async (
 ): Promise<EnrollmentDetailDto> => {
   try {
     const response = await axiosInstance.post<EnrollmentDetailDto>(
-      `${BASE_ENROLLMENT_URL}/enroll`,
+      ENROLL_URL,
       request
     );
     return response.data;
@@ -89,7 +94,7 @@ export const enrollSelfInCourse = async (
 ): Promise<EnrollmentDetailDto> => {
   try {
     const response = await axiosInstance.post<EnrollmentDetailDto>(
-      `${BASE_ENROLLMENT_URL}/enroll-self`,
+      ENROLL_SELF_URL,
       request
     );
     return response.data;
@@ -110,7 +115,7 @@ export const checkEnrollmentStatus = async (
 ): Promise<CheckEnrollmentStatusResult> => {
   try {
     const response = await axiosInstance.get<CheckEnrollmentStatusResult>(
-      `${BASE_ENROLLMENT_URL}/check/${courseId}`
+      CHECK_ENROLLMENT_URL(courseId)
     );
     return response.data;
   } catch (error) {
@@ -127,7 +132,7 @@ export const checkEnrollmentStatus = async (
 export const getMyEnrollments = async (): Promise<EnrollmentDetailDto[]> => {
   try {
     const response = await axiosInstance.get<EnrollmentDetailDto[]>(
-      `${BASE_ENROLLMENT_URL}/my-enrollments`
+      GET_MY_ENROLLMENTS_URL
     );
     return response.data;
   } catch (error) {
@@ -147,7 +152,7 @@ export const unenrollFromCourse = async (
 ): Promise<UnenrollmentResult> => {
   try {
     const response = await axiosInstance.delete<UnenrollmentResult>(
-      `${BASE_ENROLLMENT_URL}/unenroll/${courseId}`
+      UNENROLL_URL(courseId)
     );
     return response.data;
   } catch (error) {

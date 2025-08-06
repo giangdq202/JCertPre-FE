@@ -5,10 +5,12 @@ import {
   FiSettings,
   FiChevronDown,
   FiChevronUp,
+  FiCreditCard,
 } from "react-icons/fi";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../auth/AuthContext";
-import paths from "../../routes/path"; 
+import paths from "../../routes/path";
+import CreditDisplay from "../CreditDisplay"; 
 
 const StudentHeader: React.FC = () => {
   const { userInfo, handleLogout } = useAuth(); 
@@ -28,6 +30,8 @@ const StudentHeader: React.FC = () => {
     navigate(paths.login, { replace: true });
   };
 
+
+
   return (
     <header className="bg-white shadow-md px-8 py-4 flex items-center justify-between sticky top-0 z-50 rounded-b-2xl border-b border-gray-100">
       {/* Search */}
@@ -40,6 +44,9 @@ const StudentHeader: React.FC = () => {
       </div>
 
       <div className="flex items-center gap-6">
+        {/* Credit Display */}
+        <CreditDisplay />
+
         {/* Notifications */}
         <button className="relative p-2 text-gray-600 hover:bg-green-100 hover:text-green-600 rounded-full transition duration-200">
           <FiBell className="h-5 w-5" />

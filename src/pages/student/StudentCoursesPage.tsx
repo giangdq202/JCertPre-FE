@@ -133,7 +133,7 @@ const StudentCoursesPage: React.FC = () => {
     return statusMap[status] || "Published";
   };
 
-  // Filter courses based on search term and selected level
+  // Filter courses based on search term and selected level, excluding enrolled courses
   const filteredCourses = useMemo(() => {
     return allCourses.filter((course) => {
       const matchesSearch = course.title
@@ -143,7 +143,10 @@ const StudentCoursesPage: React.FC = () => {
       
       const matchesLevel = selectedLevel === "" || course.level === selectedLevel;
       
-      return matchesSearch && matchesLevel;
+      // Only show courses that are NOT enrolled
+      const isNotEnrolled = !course.isEnrolled;
+      
+      return matchesSearch && matchesLevel && isNotEnrolled;
     });
   }, [allCourses, searchTerm, selectedLevel]);
 
@@ -157,15 +160,10 @@ const StudentCoursesPage: React.FC = () => {
     setSelectedLevel("");
   };
 
-  // Handle course click based on enrollment status
+  // Handle course click - since we only show non-enrolled courses, always navigate to course detail
   const handleCourseClick = (course: Course) => {
-    if (course.isEnrolled) {
-      // Navigate to learn course page (like in StudentHomePage)
-      navigate(`/learn-course/${course.id}`);
-    } else {
-      // Navigate to course detail page
-      navigate(`/student/course-detail/${course.id}`);
-    }
+    // Navigate to course detail page
+    navigate(`/student/course-detail/${course.id}`);
   };
 
   if (isLoading) {
@@ -262,7 +260,7 @@ const StudentCoursesPage: React.FC = () => {
                   level={course.level}
                   price={course.price}
                   courseType={course.courseType}
-                  buttonText={course.isEnrolled ? "Đã đăng ký" : "Đăng ký"}
+                  buttonText="Đăng ký"
                   onClick={() => handleCourseClick(course)}
                 />
               ))

@@ -6,6 +6,33 @@ import { getCourseById, CourseDto } from "../../services/courseService";
 import StudentHeader from "../../components/header/StudentHeader";
 import StudentSideBar from "../../components/sidebar/StudentSideBar";
 import { FaChevronRight, FaFilePdf, FaDownload, FaVideo } from "react-icons/fa";
+import { FiCheckCircle, FiCircle } from "react-icons/fi";
+import { useLessonProgress } from "../../hooks/useLessonProgress";
+import { VideoLessonPlayer } from "../../components/VideoLessonPlayer";
+import { useAuth } from "../../auth/AuthContext";
+
+// Add custom styles for video controls
+const videoStyles = `
+  .slider::-webkit-slider-thumb {
+    appearance: none;
+    height: 16px;
+    width: 16px;
+    border-radius: 50%;
+    background: #3b82f6;
+    cursor: pointer;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  }
+  
+  .slider::-moz-range-thumb {
+    height: 16px;
+    width: 16px;
+    border-radius: 50%;
+    background: #3b82f6;
+    cursor: pointer;
+    border: none;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  }
+`;
 
 const StudentLearnCoursePage: React.FC = () => {
   const { courseId } = useParams<{ courseId: string }>();
@@ -17,10 +44,17 @@ const StudentLearnCoursePage: React.FC = () => {
   const [loadingDocs, setLoadingDocs] = useState(false);
   const [videoDoc, setVideoDoc] = useState<DocumentDto | null>(null);
   const [pdfDoc, setPdfDoc] = useState<DocumentDto | null>(null);
+  const [lessonProgress, setLessonProgress] = useState<{ [key: string]: number }>({});
+  const [showCompletionMessage, setShowCompletionMessage] = useState(false);
+  const [completedLessonTitle, setCompletedLessonTitle] = useState('');
   const navigate = useNavigate();
+  
+  // Auth and lesson progress hooks
+  const { isLoading: authLoading } = useAuth();
+  const { getLessonCompletionRate, markLessonCompleted } = useLessonProgress();
 
   useEffect(() => {
-    if (!courseId) return;
+    if (!courseId || authLoading) return;
     setLoadingLessons(true);
     getCourseById(courseId)
       .then(setCourse)
@@ -29,9 +63,29 @@ const StudentLearnCoursePage: React.FC = () => {
       .then((res) => {
         setLessons(res.items);
         if (res.items.length > 0) setSelectedLessonId(res.items[0].lessonId);
+        
+        // Load progress for all lessons
+        const loadAllProgress = async () => {
+          const progressData: { [key: string]: number } = {};
+          for (const lesson of res.items) {
+            try {
+              const progress = await getLessonCompletionRate(lesson.lessonId);
+              progressData[lesson.lessonId] = progress;
+            } catch (error) {
+              console.error(`Failed to load progress for lesson ${lesson.lessonId}:`, error);
+              progressData[lesson.lessonId] = 0;
+            }
+          }
+          setLessonProgress(progressData);
+        };
+        
+        // Add a small delay to ensure userInfo is loaded
+        setTimeout(() => {
+          loadAllProgress();
+        }, 100);
       })
       .finally(() => setLoadingLessons(false));
-  }, [courseId]);
+  }, [courseId, getLessonCompletionRate, authLoading]);
 
   useEffect(() => {
     if (!selectedLessonId) return;
@@ -53,6 +107,33 @@ const StudentLearnCoursePage: React.FC = () => {
     setSelectedLessonId(lessonId);
   };
 
+  const handleLessonCompleted = async (lessonId: string) => {
+    try {
+      // Refresh progress from API
+      const progress = await getLessonCompletionRate(lessonId);
+      setLessonProgress(prev => ({
+        ...prev,
+        [lessonId]: progress
+      }));
+      
+      // Show completion message
+      const lessonTitle = lessons.find(l => l.lessonId === lessonId)?.title || '';
+      setCompletedLessonTitle(lessonTitle);
+      setShowCompletionMessage(true);
+      
+      // Hide message after 5 seconds
+      setTimeout(() => {
+        setShowCompletionMessage(false);
+      }, 5000);
+    } catch (error) {
+      console.error('Failed to refresh lesson progress:', error);
+    }
+  };
+
+  const isLessonCompleted = (lessonId: string) => {
+    return lessonProgress[lessonId] >= 100;
+  };
+
   const handleDocClick = (doc: DocumentDto) => {
     if (doc.fileUrl.includes("688ac2de002dc607c7e7")) {
       setPdfDoc(doc);
@@ -62,11 +143,34 @@ const StudentLearnCoursePage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-gray-100 to-gray-200 font-inter flex flex-col lg:flex-row">
-      <StudentSideBar />
+    <>
+      <style>{videoStyles}</style>
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-gray-100 to-gray-200 font-inter flex flex-col lg:flex-row">
+        <StudentSideBar />
       <div className="flex-1 flex flex-col overflow-hidden">
         <StudentHeader />
         <main className="flex-1 p-6 overflow-y-auto">
+          {/* Completion Message */}
+          {showCompletionMessage && (
+            <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg flex items-center gap-3">
+              <FiCheckCircle className="h-5 w-5 text-green-600 flex-shrink-0" />
+              <div className="flex-1">
+                <p className="text-sm font-medium text-green-800">
+                  Chúc mừng! Bạn đã hoàn thành bài học "{completedLessonTitle}"
+                </p>
+                <p className="text-xs text-green-600 mt-1">
+                  Tiếp tục với bài học tiếp theo để hoàn thành khóa học
+                </p>
+              </div>
+              <button
+                onClick={() => setShowCompletionMessage(false)}
+                className="text-green-600 hover:text-green-800"
+              >
+                ×
+              </button>
+            </div>
+          )}
+          
           {/* Breadcrumb */}
           <nav className="text-sm text-gray-500 mb-4 flex items-center gap-2">
             <span className="hover:underline cursor-pointer" onClick={() => navigate(-1)}>Khóa học</span>
@@ -78,8 +182,16 @@ const StudentLearnCoursePage: React.FC = () => {
             <div className="flex-1">
               <h2 className="text-2xl font-bold text-gray-800 mb-4">{selectedLessonId && lessons.find(l => l.lessonId === selectedLessonId)?.title}</h2>
               
-              {/* Video player - ưu tiên hiển thị ở màn hình chính */}
-              {videoDoc ? (
+                             {/* Video player with progress tracking */}
+               {videoDoc && selectedLessonId ? (
+                 <VideoLessonPlayer
+                   courseId={courseId!}
+                   lessonId={selectedLessonId}
+                   lessonTitle={lessons.find(l => l.lessonId === selectedLessonId)?.title || ''}
+                   videoUrl={videoDoc.fileUrl}
+                   onLessonCompleted={() => handleLessonCompleted(selectedLessonId)}
+                 />
+              ) : videoDoc ? (
                 <div className="bg-white rounded-xl shadow-xl p-6 mb-6">
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-lg font-semibold text-gray-800">Video bài học</h3>
@@ -120,6 +232,28 @@ const StudentLearnCoursePage: React.FC = () => {
             </div>
             {/* Sidebar lesson */}
             <aside className="w-80 min-w-[260px] bg-white rounded-2xl shadow-xl p-4 flex flex-col gap-2 h-fit sticky top-24">
+              {/* Course Progress Summary */}
+              <div className="mb-4 p-3 bg-gradient-to-r from-green-50 to-blue-50 rounded-lg border border-green-200">
+                <h4 className="text-sm font-semibold text-gray-800 mb-2">Tiến độ khóa học</h4>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs text-gray-600">Hoàn thành</span>
+                  <span className="text-sm font-bold text-green-600">
+                    {lessons.filter(l => isLessonCompleted(l.lessonId)).length}/{lessons.length} bài học
+                  </span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div
+                    className="h-2 bg-gradient-to-r from-green-500 to-blue-500 rounded-full transition-all duration-300"
+                    style={{ 
+                      width: `${lessons.length > 0 ? (lessons.filter(l => isLessonCompleted(l.lessonId)).length / lessons.length) * 100 : 0}%` 
+                    }}
+                  />
+                </div>
+                <div className="text-xs text-gray-500 mt-1">
+                  {Math.round(lessons.length > 0 ? (lessons.filter(l => isLessonCompleted(l.lessonId)).length / lessons.length) * 100 : 0)}% hoàn thành
+                </div>
+              </div>
+              
               <h3 className="text-lg font-bold text-gray-900 mb-2">Danh sách bài học</h3>
               {loadingLessons ? (
                 <div className="text-center text-gray-500">Đang tải...</div>
@@ -127,12 +261,39 @@ const StudentLearnCoursePage: React.FC = () => {
                 <ul className="flex flex-col gap-1">
                   {lessons.map((lesson) => (
                     <li key={lesson.lessonId}>
-                      <button
-                        className={`w-full text-left px-4 py-2 rounded-lg transition font-medium ${selectedLessonId === lesson.lessonId ? "bg-green-100 text-green-700" : "hover:bg-gray-100 text-gray-800"}`}
-                        onClick={() => handleLessonClick(lesson.lessonId)}
-                      >
-                        {lesson.title}
-                      </button>
+                                             <button
+                         className={`w-full text-left px-4 py-3 rounded-lg transition font-medium flex items-start justify-between ${
+                           selectedLessonId === lesson.lessonId 
+                             ? "bg-green-100 text-green-700 border border-green-200" 
+                             : "hover:bg-gray-100 text-gray-800"
+                         }`}
+                         onClick={() => handleLessonClick(lesson.lessonId)}
+                       >
+                         <div className="flex items-start gap-3 flex-1 min-w-0">
+                           {isLessonCompleted(lesson.lessonId) ? (
+                             <FiCheckCircle className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
+                           ) : (
+                             <FiCircle className="h-5 w-5 text-gray-400 flex-shrink-0 mt-0.5" />
+                           )}
+                           <span className="break-words leading-relaxed">{lesson.title}</span>
+                         </div>
+                         
+                         {/* Progress indicator */}
+                         {lessonProgress[lesson.lessonId] > 0 && !isLessonCompleted(lesson.lessonId) && (
+                           <div className="flex items-center gap-2 flex-shrink-0 ml-2">
+                             <div className="w-12 h-1 bg-gray-200 rounded-full">
+                               <div
+                                 className="h-1 bg-yellow-500 rounded-full transition-all duration-300"
+                                 style={{ width: `${lessonProgress[lesson.lessonId]}%` }}
+                               />
+                             </div>
+                             <span className="text-xs text-gray-500">
+                               {Math.round(lessonProgress[lesson.lessonId])}%
+                             </span>
+                           </div>
+                         )}
+                       </button>
+                      
                       {/* Dropdown tài liệu (ngoại trừ video chính) */}
                       {selectedLessonId === lesson.lessonId && documents.length > 0 && (
                         <ul className="ml-4 mt-2 flex flex-col gap-1">
@@ -164,6 +325,7 @@ const StudentLearnCoursePage: React.FC = () => {
         </main>
       </div>
     </div>
+    </>
   );
 };
 
