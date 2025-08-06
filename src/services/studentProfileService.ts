@@ -1,7 +1,9 @@
 import axiosInstance from "../consts/axios/axiosInstance";
 import {
-  BASE_STUDENT_PROFILE_URL,
+  GET_STUDENT_PROFILE_URL,
   CREATE_STUDENT_PROFILE_URL,
+  UPDATE_STUDENT_PROFILE_URL,
+  DELETE_STUDENT_PROFILE_URL,
 } from "../consts/apiUrl/baseUrl";
 export interface StudentProfileDto {
   userId: string; // Guid trong C# được biểu diễn bằng string trong TypeScript
@@ -28,7 +30,7 @@ export const getStudentProfile = async (
 ): Promise<StudentProfileDto | null> => {
   try {
     const response = await axiosInstance.get<StudentProfileDto>(
-      `${BASE_STUDENT_PROFILE_URL}/${userId}`
+      GET_STUDENT_PROFILE_URL(userId)
     );
     return response.data;
   } catch (error: any) {

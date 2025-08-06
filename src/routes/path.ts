@@ -15,6 +15,7 @@ const paths = {
   student_course: "/student/courses",
   student_my_courses: "/student/my-courses",
   student_course_detail: "/student/course-detail/:courseId",
+  student_livestream: "/student/livestream/:livestreamId",
   student_exam: "/student/exam-simulations",
   student_schedule: "/student/schedule",
   student_messages: "/student/messages",
@@ -29,6 +30,13 @@ const paths = {
   credit_purchase: "/credit-purchase",
   credit_history: "/credit-history",
   payment_callback: "/payment/callback",
+  // LiveKit routes
+  livekit_home: "/livekit",
+  livekit_join: "/livekit/join",
+  livekit_join_room: "/livekit/join/:roomName",
+  livekit_create: "/livekit/create",
+  livekit_manage: "/livekit/manage",
+  livekit_room: "/livekit/room/:roomName",
 };
 
 export default paths;

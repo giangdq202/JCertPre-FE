@@ -19,6 +19,7 @@ import StaffSub from "../pages/staff/SubContentManagementPage"; // Assuming this
 // import GoogleAuthCallback from "../components/Auth/GoogleAuthCallback";
 import paths from "./path";
 import StudentCourseDetailPage from "../pages/student/StudentCourseDetailPage";
+import StudentLivestreamPage from "../pages/student/StudentLivestreamPage";
 import StudentLearnCoursePage from "../pages/student/StudentLearnCoursePage";
 import QuestionManagementPage from "../pages/QuestionManagementPage";
 import CreateQuestionPage from "../pages/CreateQuestionPage";
@@ -29,6 +30,11 @@ import CreditHistoryPage from "../pages/student/CreditHistoryPage";
 import PaymentCallbackPage from "../pages/PaymentCallbackPage";
 import MessagesPage from "../pages/student/MessagesPage";
 import VocabularyPage from "../pages/student/VocabularyPage";
+// LiveKit imports
+import LiveKitHomePage from "../pages/livekit/LiveKitHomePage";
+import PreJoin from "../components/livekit/PreJoin";
+import VideoConference from "../components/livekit/VideoConference";
+import RoomManager from "../components/livekit/RoomManager";
 
 const AppRoutes: React.FC = () => {
   console.log("AppRoutes: Rendering routes");
@@ -73,6 +79,14 @@ const AppRoutes: React.FC = () => {
           element={
             <ProtectedRoute allowedRoles={["STUDENT"]}>
               <StudentCourseDetailPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path={paths.student_livestream}
+          element={
+            <ProtectedRoute allowedRoles={["STUDENT"]}>
+              <StudentLivestreamPage />
             </ProtectedRoute>
           }
         />
@@ -218,6 +232,55 @@ const AppRoutes: React.FC = () => {
         <Route
           path={paths.payment_callback}
           element={<PaymentCallbackPage />}
+        />
+        {/* LiveKit routes */}
+        <Route
+          path={paths.livekit_home}
+          element={
+            <ProtectedRoute allowedRoles={["STUDENT", "ACADEMIC_MANAGER"]}>
+              <LiveKitHomePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path={paths.livekit_join}
+          element={
+            <ProtectedRoute allowedRoles={["STUDENT", "ACADEMIC_MANAGER"]}>
+              <PreJoin />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path={paths.livekit_join_room}
+          element={
+            <ProtectedRoute allowedRoles={["STUDENT", "ACADEMIC_MANAGER"]}>
+              <PreJoin />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path={paths.livekit_create}
+          element={
+            <ProtectedRoute allowedRoles={["ACADEMIC_MANAGER"]}>
+              <RoomManager />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path={paths.livekit_manage}
+          element={
+            <ProtectedRoute allowedRoles={["ACADEMIC_MANAGER"]}>
+              <RoomManager />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path={paths.livekit_room}
+          element={
+            <ProtectedRoute allowedRoles={["STUDENT", "ACADEMIC_MANAGER"]}>
+              <VideoConference />
+            </ProtectedRoute>
+          }
         />
         {/* Route 404 */}
         {/* <Route path="*" element={<Navigate to="/" replace />} /> */}

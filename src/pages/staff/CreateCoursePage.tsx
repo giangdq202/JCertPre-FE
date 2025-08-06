@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Form, Input, InputNumber, Select, Button, Spin, message, Card, Space } from "antd";
+import { Form, Input, InputNumber, Select, Button, Spin, message, Card, Space, DatePicker } from "antd";
 import { SaveOutlined, RollbackOutlined } from "@ant-design/icons";
 import { useNavigate } from "react-router-dom";
 import ThumbnailUploader from "../../components/forms/ThumbnailUploader"; // Import your thumbnail uploader component
@@ -12,6 +12,7 @@ import {
   CourseType,
 } from "../../services/courseService"; // Đảm bảo đường dẫn đúng
 import paths from "../../routes/path";
+import dayjs from "dayjs";
 
 const { Option } = Select;
 const { TextArea } = Input;
@@ -32,6 +33,8 @@ const CreateCoursePage: React.FC = () => {
         level: values.level,
         courseType: CourseType.Online, // Default to Online (0)
         price: values.price,
+        startDate: values.startDate.toISOString(),
+        endDate: values.endDate.toISOString(),
         thumbnailFile: thumbnailFile, // Use the file from state
       };
 
@@ -125,6 +128,30 @@ const CreateCoursePage: React.FC = () => {
                   formatter={value => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
                   parser={value => value!.replace(/\$\s?|(,*)/g, '') as any}
                   placeholder="e.g., 1500000 (Set to 0 for free courses)"
+                  className="rounded-lg px-4 py-2 border border-gray-300 focus:ring-orange-500 focus:border-orange-500"
+                />
+              </Form.Item>
+
+              <Form.Item
+                name="startDate"
+                label={<span className="text-gray-700 font-medium">Start Date</span>}
+                rules={[{ required: true, message: "Please select the course start date!" }]}
+              >
+                <DatePicker
+                  style={{ width: "100%" }}
+                  placeholder="Select start date"
+                  className="rounded-lg px-4 py-2 border border-gray-300 focus:ring-orange-500 focus:border-orange-500"
+                />
+              </Form.Item>
+
+              <Form.Item
+                name="endDate"
+                label={<span className="text-gray-700 font-medium">End Date</span>}
+                rules={[{ required: true, message: "Please select the course end date!" }]}
+              >
+                <DatePicker
+                  style={{ width: "100%" }}
+                  placeholder="Select end date"
                   className="rounded-lg px-4 py-2 border border-gray-300 focus:ring-orange-500 focus:border-orange-500"
                 />
               </Form.Item>
