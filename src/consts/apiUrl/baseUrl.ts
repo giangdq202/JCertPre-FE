@@ -234,14 +234,14 @@ export const CONFIRM_WEBHOOK_URL = `${PAYMENT_BASE_URL}/confirm-webhook`;
 export const PAYMENT_RETURN_URL = `${PAYMENT_BASE_URL}/return`;
 export const PAYMENT_CANCEL_URL = `${PAYMENT_BASE_URL}/cancel`;
 
-// ===== LEGACY CLOUDINARY ENDPOINTS (for backward compatibility) =====
-const CLOUDINARY_BASE_URL = "https://be.zd-dev.xyz/api/cloudinary-test";
-export const CLOUDINARY_UPLOAD_IMAGE_URL = `${CLOUDINARY_BASE_URL}/upload-image`;
-export const CLOUDINARY_UPLOAD_VIDEO_URL = `${CLOUDINARY_BASE_URL}/upload-video`;
-export const CLOUDINARY_UPLOAD_DOCUMENT_URL = `${CLOUDINARY_BASE_URL}/upload-document`;
-export const CLOUDINARY_DELETE_IMAGE_URL = `${CLOUDINARY_BASE_URL}/delete-image`;
-export const CLOUDINARY_DELETE_VIDEO_URL = `${CLOUDINARY_BASE_URL}/delete-video`;
-export const CLOUDINARY_DELETE_DOCUMENT_URL = `${CLOUDINARY_BASE_URL}/delete-document`;
+// // ===== LEGACY CLOUDINARY ENDPOINTS (for backward compatibility) =====
+// const CLOUDINARY_BASE_URL = "https://be.zd-dev.xyz/api/cloudinary-test";
+// export const CLOUDINARY_UPLOAD_IMAGE_URL = `${CLOUDINARY_BASE_URL}/upload-image`;
+// export const CLOUDINARY_UPLOAD_VIDEO_URL = `${CLOUDINARY_BASE_URL}/upload-video`;
+// export const CLOUDINARY_UPLOAD_DOCUMENT_URL = `${CLOUDINARY_BASE_URL}/upload-document`;
+// export const CLOUDINARY_DELETE_IMAGE_URL = `${CLOUDINARY_BASE_URL}/delete-image`;
+// export const CLOUDINARY_DELETE_VIDEO_URL = `${CLOUDINARY_BASE_URL}/delete-video`;
+// export const CLOUDINARY_DELETE_DOCUMENT_URL = `${CLOUDINARY_BASE_URL}/delete-document`;
 
 // WebSocket server URL for LiveKit
 export const LIVEKIT_WS_URL = "wss://livekit.zd-dev.xyz";
