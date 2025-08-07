@@ -53,7 +53,6 @@ import {
   CenterFocusStrong as FocusIcon,
   ViewCarousel as CarouselIcon,
   Send,
-  RemoveCircle,
   VolumeOff,
   Close as CloseIcon,
   Settings as SettingsIcon,
@@ -64,7 +63,8 @@ import {
   MoreVert as MoreVertIcon,
 } from '@mui/icons-material';
 import '@livekit/components-styles';
-import { livekitApi } from '../../services/livekitService';
+import { LIVEKIT_WS_URL } from '../../consts/apiUrl/baseUrl';
+import { livestreamApi } from '../../services/livestreamService';
 
 interface ChatMessage {
   id: string;
@@ -251,7 +251,7 @@ const VideoConferenceRoom: React.FC<VideoConferenceRoomProps> = ({
   return (
     <LiveKitRoom
       token={token}
-      serverUrl={import.meta.env.VITE_LIVEKIT_URL || 'wss://your-livekit-server.com'}
+      serverUrl={LIVEKIT_WS_URL}
       connect={true}
       video={true}
       audio={true}
@@ -277,6 +277,7 @@ interface MyVideoConferenceProps {
   onToggleParticipants: () => void;
   showChat: boolean;
   showParticipants: boolean;
+  livestreamId?: string;
 }
 
 const MyVideoConference: React.FC<MyVideoConferenceProps> = ({
@@ -287,6 +288,7 @@ const MyVideoConference: React.FC<MyVideoConferenceProps> = ({
   onToggleParticipants,
   showChat,
   showParticipants,
+  livestreamId,
 }) => {
   const theme = useTheme();
   const [layout, setLayout] = useState<'grid' | 'focus' | 'carousel'>('grid');
@@ -298,18 +300,14 @@ const MyVideoConference: React.FC<MyVideoConferenceProps> = ({
   const { localParticipant } = useLocalParticipant();
 
   const handleMuteParticipant = async (participantIdentity: string) => {
+    if (!livestreamId) {
+      console.error('Livestream ID not available for mute operation');
+      return;
+    }
     try {
-      await livekitApi.muteParticipant(roomName, participantIdentity);
+      await livestreamApi.muteParticipant(livestreamId, participantIdentity, { mute: true });
     } catch (error) {
       console.error('Failed to mute participant:', error);
-    }
-  };
-
-  const handleKickParticipant = async (participantIdentity: string) => {
-    try {
-      await livekitApi.removeParticipant(roomName, participantIdentity);
-    } catch (error) {
-      console.error('Failed to kick participant:', error);
     }
   };
 
@@ -548,26 +546,15 @@ const MyVideoConference: React.FC<MyVideoConferenceProps> = ({
                           />
                           {userRole === 'Instructor' && !participant.isLocal && (
                             <ListItemSecondaryAction>
-                              <div className="flex gap-1">
-                                <Tooltip title="Mute">
-                                  <IconButton
-                                    size="small"
-                                    onClick={() => handleMuteParticipant(participant.identity)}
-                                    sx={{ color: theme.palette.warning.main }}
-                                  >
-                                    <MicOffIcon fontSize="small" />
-                                  </IconButton>
-                                </Tooltip>
-                                <Tooltip title="Remove">
-                                  <IconButton
-                                    size="small"
-                                    onClick={() => handleKickParticipant(participant.identity)}
-                                    sx={{ color: theme.palette.error.main }}
-                                  >
-                                    <RemoveCircle fontSize="small" />
-                                  </IconButton>
-                                </Tooltip>
-                              </div>
+                              <Tooltip title="Mute">
+                                <IconButton
+                                  size="small"
+                                  onClick={() => handleMuteParticipant(participant.identity)}
+                                  sx={{ color: theme.palette.warning.main }}
+                                >
+                                  <MicOffIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
                             </ListItemSecondaryAction>
                           )}
                         </ListItem>
