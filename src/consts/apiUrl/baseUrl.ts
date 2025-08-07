@@ -218,22 +218,6 @@ export const DELETE_LIVESTREAM_URL = (id: string) => `${LIVESTREAM_BASE_URL}/${i
 export const CHECK_CAN_JOIN_LIVESTREAM_URL = (id: string) => `${LIVESTREAM_BASE_URL}/${id}/can-join`;
 export const GET_LIVESTREAM_JOIN_TOKEN_URL = (id: string) => `${LIVESTREAM_BASE_URL}/${id}/join-token`;
 
-// ===== LIVEKIT ENDPOINTS =====
-export const LIVEKIT_BASE_URL = `${BASE_URL}/livekit`;
-export const GET_LIVEKIT_ADMIN_TOKEN_URL = `${LIVEKIT_BASE_URL}/admin-token`;
-export const GET_LIVEKIT_TOKEN_URL = `${LIVEKIT_BASE_URL}/token`;
-export const CREATE_LIVEKIT_ROOM_URL = `${LIVEKIT_BASE_URL}/rooms`;
-export const GET_LIVEKIT_ROOMS_URL = `${LIVEKIT_BASE_URL}/rooms`;
-export const GET_LIVEKIT_ROOM_URL = (roomName: string) => `${LIVEKIT_BASE_URL}/rooms/${roomName}`;
-export const DELETE_LIVEKIT_ROOM_URL = (roomName: string) => `${LIVEKIT_BASE_URL}/rooms/${roomName}`;
-export const BROADCAST_LIVEKIT_ROOM_URL = (roomName: string) => `${LIVEKIT_BASE_URL}/rooms/${roomName}/broadcast`;
-export const GET_LIVEKIT_ROOM_PARTICIPANTS_URL = (roomName: string) => `${LIVEKIT_BASE_URL}/rooms/${roomName}/participants`;
-export const REMOVE_LIVEKIT_PARTICIPANT_URL = (roomName: string, identity: string) => `${LIVEKIT_BASE_URL}/rooms/${roomName}/participants/${identity}`;
-export const DEMOTE_LIVEKIT_PARTICIPANT_URL = (roomName: string, identity: string) => `${LIVEKIT_BASE_URL}/rooms/${roomName}/participants/${identity}/demote`;
-export const MUTE_LIVEKIT_PARTICIPANT_URL = (roomName: string, identity: string) => `${LIVEKIT_BASE_URL}/rooms/${roomName}/participants/${identity}/mute`;
-export const PROMOTE_LIVEKIT_PARTICIPANT_URL = (roomName: string, identity: string) => `${LIVEKIT_BASE_URL}/rooms/${roomName}/participants/${identity}/promote`;
-export const GET_LIVEKIT_ROOM_STATISTICS_URL = (roomName: string) => `${LIVEKIT_BASE_URL}/rooms/${roomName}/statistics`;
-export const LIVEKIT_WEBHOOK_URL = `${LIVEKIT_BASE_URL}/webhook`;
 
 // ===== CACHE ENDPOINTS =====
 export const CACHE_BASE_URL = `${BASE_URL}/cache`;
@@ -258,3 +242,6 @@ export const CLOUDINARY_UPLOAD_DOCUMENT_URL = `${CLOUDINARY_BASE_URL}/upload-doc
 export const CLOUDINARY_DELETE_IMAGE_URL = `${CLOUDINARY_BASE_URL}/delete-image`;
 export const CLOUDINARY_DELETE_VIDEO_URL = `${CLOUDINARY_BASE_URL}/delete-video`;
 export const CLOUDINARY_DELETE_DOCUMENT_URL = `${CLOUDINARY_BASE_URL}/delete-document`;
+
+// WebSocket server URL for LiveKit
+export const LIVEKIT_WS_URL = "wss://livekit.zd-dev.xyz";

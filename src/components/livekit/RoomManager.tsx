@@ -6,95 +6,54 @@ import {
   Card,
   CardContent,
   Button,
-  TextField,
   Box,
   Alert,
-  Chip,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  IconButton,
-  Grid,
 } from '@mui/material';
 import {
-  Add as AddIcon,
   Refresh as RefreshIcon,
-  People as PeopleIcon,
   AccessTime as TimeIcon,
   ContentCopy as CopyIcon,
   VideoCall as VideoCallIcon,
 } from '@mui/icons-material';
-import { livekitApi, type Room, type CreateRoomRequest } from '../../services/livekitService';
+import { livestreamApi, type LivestreamDto } from '../../services/livestreamService';
 
 const RoomManager: React.FC = () => {
-  const [rooms, setRooms] = useState<Room[]>([]);
+  const [livestreams, setLivestreams] = useState<(LivestreamDto | any)[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
-  const [createDialogOpen, setCreateDialogOpen] = useState<boolean>(false);
   const navigate = useNavigate();
 
-  // Form states for creating new room
-  const [newRoomName, setNewRoomName] = useState<string>('');
-  const [maxParticipants, setMaxParticipants] = useState<number>(100);
-  const [emptyTimeout, setEmptyTimeout] = useState<number>(5);
-  const [metadata, setMetadata] = useState<string>('');
-
   useEffect(() => {
-    fetchRooms();
+    fetchLivestreams();
   }, []);
 
-  const fetchRooms = async () => {
+  const fetchLivestreams = async () => {
     setLoading(true);
     setError('');
     try {
-      const roomsList = await livekitApi.getRooms();
-      setRooms(roomsList);
+      const response = await livestreamApi.getLivestreams();
+      // Handle different response formats
+      if (Array.isArray(response)) {
+        setLivestreams(response);
+      } else if (response && 'data' in response) {
+        setLivestreams(response.data as any[]);
+      } else {
+        setLivestreams([]);
+      }
     } catch (err) {
-      setError(`Failed to fetch rooms: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      setError(`Failed to fetch livestreams: ${err instanceof Error ? err.message : 'Unknown error'}`);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleCreateRoom = async () => {
-    if (!newRoomName.trim()) {
-      setError('Room name is required');
-      return;
-    }
-
-    try {
-      const request: RoomCreateRequest = {
-        roomName: newRoomName,
-        maxParticipants,
-        emptyTimeoutMinutes: emptyTimeout,
-        metadata,
-      };
-
-      await livekitApi.createRoom(request);
-      
-      // Reset form
-      setNewRoomName('');
-      setMaxParticipants(100);
-      setEmptyTimeout(5);
-      setMetadata('');
-      setCreateDialogOpen(false);
-      
-      // Refresh rooms list
-      await fetchRooms();
-    } catch (err) {
-      setError(`Failed to create room: ${err instanceof Error ? err.message : 'Unknown error'}`);
-    }
+  const joinLivestream = (livestreamId: string) => {
+    navigate(`/livekit/join/${encodeURIComponent(livestreamId)}`);
   };
 
-  const copyJoinLink = (roomName: string) => {
-    const joinUrl = `${window.location.origin}/livekit/join/${encodeURIComponent(roomName)}`;
+  const copyJoinLink = (livestreamId: string) => {
+    const joinUrl = `${window.location.origin}/livekit/join/${encodeURIComponent(livestreamId)}`;
     navigator.clipboard.writeText(joinUrl);
-    // Could show success message
-  };
-
-  const joinRoom = (roomName: string) => {
-    navigate(`/livekit/join/${encodeURIComponent(roomName)}`);
   };
 
   return (
@@ -102,14 +61,14 @@ const RoomManager: React.FC = () => {
       <Box sx={{ mt: 4, mb: 4 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
           <Typography variant="h4" component="h1">
-            LiveKit Room Manager
+            Available Livestreams
           </Typography>
           <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={() => setCreateDialogOpen(true)}
+            variant="outlined"
+            startIcon={<RefreshIcon />}
+            onClick={fetchLivestreams}
           >
-            Create Room
+            Refresh
           </Button>
         </Box>
 
@@ -119,123 +78,69 @@ const RoomManager: React.FC = () => {
           </Alert>
         )}
 
-        <Grid container spacing={3}>
-          {rooms.map((room) => (
-            <Grid item xs={12} sm={6} md={4} key={room.name}>
-              <Card>
-                <CardContent>
-                  <Typography variant="h6" gutterBottom>
-                    {room.name}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '16px' }}>
+          {livestreams.map((livestream) => (
+            <Card key={livestream.livestreamId}>
+              <CardContent>
+                <Typography variant="h6" gutterBottom>
+                  {livestream.courseName || `Course ${livestream.courseId}`}
+                </Typography>
+                
+                <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                  <TimeIcon sx={{ mr: 1, fontSize: 'small' }} />
+                  <Typography variant="body2">
+                    {new Date(livestream.scheduledDateTime).toLocaleString()}
                   </Typography>
-                  
-                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                    <PeopleIcon sx={{ mr: 1, fontSize: 'small' }} />
-                    <Typography variant="body2">
-                      {room.numParticipants} participants
-                    </Typography>
-                  </Box>
-                  
-                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                    <TimeIcon sx={{ mr: 1, fontSize: 'small' }} />
-                    <Typography variant="body2">
-                      Created: {new Date(room.creationTime).toLocaleDateString()}
-                    </Typography>
-                  </Box>
+                </Box>
+                
+                <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                  <Typography variant="body2">
+                    Duration: {livestream.durationMinutes} minutes
+                  </Typography>
+                </Box>
 
-                  {room.metadata && (
-                    <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
-                      {room.metadata}
-                    </Typography>
-                  )}
+                {livestream.description && (
+                  <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
+                    {livestream.description}
+                  </Typography>
+                )}
 
-                  <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                    <Button
-                      variant="outlined"
-                      size="small"
-                      startIcon={<VideoCallIcon />}
-                      onClick={() => joinRoom(room.name)}
-                    >
-                      Join
-                    </Button>
-                    <Button
-                      variant="outlined"
-                      size="small"
-                      startIcon={<CopyIcon />}
-                      onClick={() => copyJoinLink(room.name)}
-                    >
-                      Copy Link
-                    </Button>
-                  </Box>
-                </CardContent>
-              </Card>
-            </Grid>
+                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    startIcon={<VideoCallIcon />}
+                    onClick={() => joinLivestream(livestream.livestreamId)}
+                  >
+                    Join
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    startIcon={<CopyIcon />}
+                    onClick={() => copyJoinLink(livestream.livestreamId)}
+                  >
+                    Copy Link
+                  </Button>
+                </Box>
+              </CardContent>
+            </Card>
           ))}
-        </Grid>
+        </div>
 
-        {rooms.length === 0 && !loading && (
+        {livestreams.length === 0 && !loading && (
           <Card>
             <CardContent>
               <Typography variant="h6" align="center" color="textSecondary">
-                No rooms available
+                No livestreams available
               </Typography>
               <Typography variant="body2" align="center" color="textSecondary">
-                Create a new room to get started
+                Check back later for scheduled livestreams
               </Typography>
             </CardContent>
           </Card>
         )}
       </Box>
-
-      {/* Create Room Dialog */}
-      <Dialog open={createDialogOpen} onClose={() => setCreateDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Create New Room</DialogTitle>
-        <DialogContent>
-          <TextField
-            fullWidth
-            label="Room Name"
-            value={newRoomName}
-            onChange={(e) => setNewRoomName(e.target.value)}
-            margin="normal"
-            required
-          />
-          
-          <TextField
-            fullWidth
-            label="Max Participants"
-            type="number"
-            value={maxParticipants}
-            onChange={(e) => setMaxParticipants(Number(e.target.value))}
-            margin="normal"
-            inputProps={{ min: 1, max: 1000 }}
-          />
-          
-          <TextField
-            fullWidth
-            label="Empty Timeout (minutes)"
-            type="number"
-            value={emptyTimeout}
-            onChange={(e) => setEmptyTimeout(Number(e.target.value))}
-            margin="normal"
-            inputProps={{ min: 1, max: 60 }}
-          />
-          
-          <TextField
-            fullWidth
-            label="Metadata (optional)"
-            value={metadata}
-            onChange={(e) => setMetadata(e.target.value)}
-            margin="normal"
-            multiline
-            rows={3}
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setCreateDialogOpen(false)}>Cancel</Button>
-          <Button onClick={handleCreateRoom} variant="contained">
-            Create Room
-          </Button>
-        </DialogActions>
-      </Dialog>
     </Container>
   );
 };

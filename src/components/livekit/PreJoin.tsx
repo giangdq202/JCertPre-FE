@@ -9,34 +9,33 @@ import {
   Button,
   Box,
   Alert,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  Paper,
 } from '@mui/material';
-import { livekitApi } from '../../services/livekitService';
+import { livestreamApi } from '../../services/livestreamService';
 
 interface PreJoinProps {
-  roomName?: string;
+  livestreamId?: string;
+  userId?: string;
   onJoin?: (config: {
     roomName: string;
     participantName: string;
     token: string;
-    role: string;
+    title: string;
+    scheduledDateTime: string;
+    description?: string;
+    durationMinutes: number;
   }) => void;
 }
 
-const PreJoin: React.FC<PreJoinProps> = ({ roomName: propRoomName, onJoin }) => {
+const PreJoin: React.FC<PreJoinProps> = ({ livestreamId, userId, onJoin }) => {
   const navigate = useNavigate();
-  const [roomName, setRoomName] = useState(propRoomName || '');
+  const [inputLivestreamId, setInputLivestreamId] = useState(livestreamId || '');
+  const [inputUserId, setInputUserId] = useState(userId || '');
   const [participantName, setParticipantName] = useState('');
-  const [role, setRole] = useState<'Student' | 'Instructor' | 'Admin'>('Student');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   const handleJoin = async () => {
-    if (!roomName.trim() || !participantName.trim()) {
+    if (!inputLivestreamId.trim() || !inputUserId.trim() || !participantName.trim()) {
       setError('Please fill in all required fields');
       return;
     }
@@ -45,17 +44,19 @@ const PreJoin: React.FC<PreJoinProps> = ({ roomName: propRoomName, onJoin }) => 
     setError('');
 
     try {
-      const token = await livekitApi.getToken({
-        roomName: roomName.trim(),
-        participantName: participantName.trim(),
-        role,
-      });
+      const tokenResponse = await livestreamApi.getJoinToken(
+        inputLivestreamId.trim(),
+        inputUserId.trim()
+      );
 
       const config = {
-        roomName: roomName.trim(),
+        roomName: tokenResponse.roomName,
         participantName: participantName.trim(),
-        token,
-        role,
+        token: tokenResponse.token,
+        title: tokenResponse.title,
+        scheduledDateTime: tokenResponse.scheduledDateTime,
+        description: tokenResponse.description,
+        durationMinutes: tokenResponse.durationMinutes,
       };
 
       // Store config in sessionStorage for the video conference component
@@ -65,7 +66,7 @@ const PreJoin: React.FC<PreJoinProps> = ({ roomName: propRoomName, onJoin }) => 
         onJoin(config);
       } else {
         // Navigate to the video conference page
-        navigate(`/livekit/room/${encodeURIComponent(roomName.trim())}`);
+        navigate(`/livekit/room/${encodeURIComponent(tokenResponse.roomName)}`);
       }
     } catch (err) {
       setError(`Failed to join room: ${err instanceof Error ? err.message : 'Unknown error'}`);
@@ -86,12 +87,22 @@ const PreJoin: React.FC<PreJoinProps> = ({ roomName: propRoomName, onJoin }) => 
             <Box component="form" sx={{ mt: 2 }}>
               <TextField
                 fullWidth
-                label="Room Name"
-                value={roomName}
-                onChange={(e) => setRoomName(e.target.value)}
+                label="Livestream ID"
+                value={inputLivestreamId}
+                onChange={(e) => setInputLivestreamId(e.target.value)}
                 margin="normal"
                 required
-                disabled={!!propRoomName}
+                disabled={!!livestreamId}
+              />
+              
+              <TextField
+                fullWidth
+                label="User ID"
+                value={inputUserId}
+                onChange={(e) => setInputUserId(e.target.value)}
+                margin="normal"
+                required
+                disabled={!!userId}
               />
               
               <TextField
@@ -102,19 +113,6 @@ const PreJoin: React.FC<PreJoinProps> = ({ roomName: propRoomName, onJoin }) => 
                 margin="normal"
                 required
               />
-              
-              <FormControl fullWidth margin="normal">
-                <InputLabel>Role</InputLabel>
-                <Select
-                  value={role}
-                  label="Role"
-                  onChange={(e) => setRole(e.target.value as 'Student' | 'Instructor' | 'Admin')}
-                >
-                  <MenuItem value="Student">Student</MenuItem>
-                  <MenuItem value="Instructor">Instructor</MenuItem>
-                  <MenuItem value="Admin">Admin</MenuItem>
-                </Select>
-              </FormControl>
 
               {error && (
                 <Alert severity="error" sx={{ mt: 2 }}>
@@ -126,10 +124,10 @@ const PreJoin: React.FC<PreJoinProps> = ({ roomName: propRoomName, onJoin }) => 
                 fullWidth
                 variant="contained"
                 onClick={handleJoin}
-                disabled={loading || !roomName.trim() || !participantName.trim()}
+                disabled={loading || !inputLivestreamId.trim() || !inputUserId.trim() || !participantName.trim()}
                 sx={{ mt: 3 }}
               >
-                {loading ? 'Joining...' : 'Join Room'}
+                {loading ? 'Joining...' : 'Join Livestream'}
               </Button>
             </Box>
           </CardContent>
