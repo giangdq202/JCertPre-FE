@@ -21,13 +21,6 @@ interface AuthSuccessResponse {
   user: UserInfoResponse;
 }
 
-interface RegisterPayload {
-  email: string;
-  password: string;
-  fullName: string;
-  phone?: string | null;
-  avatarUrl?: string | null;
-}
 interface LoginPayload {
   email: string;
   password: string;
@@ -41,11 +34,13 @@ interface RefreshTokenPayload {
   accessToken: string;
   refreshToken: string;
 }
-export const register = async (registerData: RegisterPayload) => {
+export const register = async (registerData: FormData) => {
   try {
+    // Send multipart/form-data for registration (includes optional phone and avatar file)
     const response = await axiosInstance.post<AuthSuccessResponse>(
       REGISTER_URL,
-      registerData
+      registerData,
+      { headers: { 'Content-Type': 'multipart/form-data' } }
     );
 
     // Lưu trữ token sau khi đăng ký thành công (giống như đăng nhập)
