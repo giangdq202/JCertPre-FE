@@ -8,7 +8,10 @@ export const setOnLogoutCallback = (callback: () => void) => {
 };
 
 const axiosInstance = axios.create({
-    baseURL: BASE_URL
+    baseURL: BASE_URL,
+    headers: {
+        'Content-Type': 'application/json'
+    }
 });
 axiosInstance.interceptors.request.use(
     (config) => {

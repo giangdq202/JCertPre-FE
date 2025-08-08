@@ -26,6 +26,8 @@ import {
   FaCalendarAlt, // For date/time icon
   FaClock, // For duration icon
   FaQuestionCircle, // For test icon
+  FaEye, // For open test
+  FaEyeSlash, // For close test
 } from "react-icons/fa";
 
 // Import services and types
@@ -67,8 +69,10 @@ import {
   LivestreamDto, 
   LivestreamStatus 
 } from "../../services/livestreamService";
+import { getByLessonId, TestDto, TestStatus, updateTestStatus } from "../../services/testService";
 import paths from "../../routes/path";
 import CreateTestModal from "../../components/modals/CreateTestModal";
+import EditTestModal from "../../components/modals/EditTestModal";
 
 // Utility functions for date formatting
 const formatDateToDisplay = (isoDate: string): string => {
@@ -299,7 +303,13 @@ const CourseDetailPage: React.FC = () => {
 
   // Test creation state
   const [isCreateTestModalVisible, setIsCreateTestModalVisible] = useState(false);
+  const [isEditTestModalVisible, setIsEditTestModalVisible] = useState(false);
   const [currentLessonForTest, setCurrentLessonForTest] = useState<string>("");
+  const [currentTestForEdit, setCurrentTestForEdit] = useState<TestDto | null>(null);
+  
+  // Test management state
+  const [lessonTests, setLessonTests] = useState<{ [key: string]: TestDto | null }>({});
+  const [loadingTests, setLoadingTests] = useState<{ [key: string]: boolean }>({});
 
   // Validation functions
   const validateCourseDates = (startDate: string, endDate: string): { isValid: boolean; message: string } => {
@@ -910,6 +920,58 @@ const CourseDetailPage: React.FC = () => {
     alert("Test created successfully!");
   };
 
+  const showEditTestModal = (test: TestDto) => {
+    setCurrentTestForEdit(test);
+    setIsEditTestModalVisible(true);
+  };
+
+  const handleTestUpdated = () => {
+    // Refresh test data
+    if (currentTestForEdit?.lessonId) {
+      loadLessonTest(currentTestForEdit.lessonId);
+    }
+    setIsEditTestModalVisible(false);
+    setCurrentTestForEdit(null);
+    alert("Test updated successfully!");
+  };
+
+
+
+  const loadLessonTest = async (lessonId: string) => {
+    setLoadingTests(prev => ({ ...prev, [lessonId]: true }));
+    try {
+      const test = await getByLessonId(lessonId);
+      setLessonTests(prev => ({ ...prev, [lessonId]: test }));
+    } catch (error) {
+      console.error(`Failed to load test for lesson ${lessonId}:`, error);
+      setLessonTests(prev => ({ ...prev, [lessonId]: null }));
+    } finally {
+      setLoadingTests(prev => ({ ...prev, [lessonId]: false }));
+    }
+  };
+
+  const handleTestStatusToggle = async (lessonId: string) => {
+    const test = lessonTests[lessonId];
+    if (!test) return;
+
+    try {
+      const newStatus = test.status === TestStatus.Open ? TestStatus.Close : TestStatus.Open;
+      const updatedTest = await updateTestStatus(test.testId, newStatus);
+      setLessonTests(prev => ({ ...prev, [lessonId]: updatedTest }));
+    } catch (error) {
+      console.error(`Failed to update test status for lesson ${lessonId}:`, error);
+    }
+  };
+
+  const handleLessonPanelToggle = (lessonId: string) => {
+    setActiveLessonPanel(activeLessonPanel === lessonId ? [] : lessonId);
+    
+    // Load test for this lesson if not already loaded
+    if (!lessonTests[lessonId] && !loadingTests[lessonId]) {
+      loadLessonTest(lessonId);
+    }
+  };
+
 
   // --- Loading and Error States ---
   if (loading) {
@@ -966,7 +1028,10 @@ const CourseDetailPage: React.FC = () => {
                     name="title"
                     value={courseFormState.title || ''}
                     onChange={handleCourseFormChange}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500 transition-colors"
+                    disabled={course.status === CourseStatus.Archived}
+                    className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500 transition-colors ${
+                      course.status === CourseStatus.Archived ? 'bg-gray-100 cursor-not-allowed' : ''
+                    }`}
                   />
                 </div>
                 <div>
@@ -977,11 +1042,14 @@ const CourseDetailPage: React.FC = () => {
                     rows={3}
                     value={courseFormState.description || ''}
                     onChange={handleCourseFormChange}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500 transition-colors"
+                    disabled={course.status === CourseStatus.Archived}
+                    className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500 transition-colors ${
+                      course.status === CourseStatus.Archived ? 'bg-gray-100 cursor-not-allowed' : ''
+                    }`}
                   ></textarea>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div>
                     <label htmlFor="level" className="block text-sm font-medium text-gray-700 mb-1">Cấp độ</label>
                     <select
@@ -989,7 +1057,10 @@ const CourseDetailPage: React.FC = () => {
                       name="level"
                       value={courseFormState.level ?? ''}
                       onChange={(e) => handleCourseSelectChange('level')(Number(e.target.value))}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500 transition-colors bg-white"
+                      disabled={course.status === CourseStatus.Archived}
+                      className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500 transition-colors bg-white ${
+                        course.status === CourseStatus.Archived ? 'bg-gray-100 cursor-not-allowed' : ''
+                      }`}
                     >
                       {Object.keys(CourseLevel)
                         .filter((key) => isNaN(Number(key)))
@@ -1001,6 +1072,22 @@ const CourseDetailPage: React.FC = () => {
                     </select>
                   </div>
                   <div>
+                    <label htmlFor="courseType" className="block text-sm font-medium text-gray-700 mb-1">Loại khóa học</label>
+                    <select
+                      id="courseType"
+                      name="courseType"
+                      value={courseFormState.courseType ?? ''}
+                      onChange={(e) => handleCourseSelectChange('courseType')(Number(e.target.value))}
+                      disabled={course.status === CourseStatus.Archived}
+                      className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500 transition-colors bg-white ${
+                        course.status === CourseStatus.Archived ? 'bg-gray-100 cursor-not-allowed' : ''
+                      }`}
+                    >
+                      <option value={CourseType.Personal}>Cá nhân</option>
+                      <option value={CourseType.Public}>Công khai</option>
+                    </select>
+                  </div>
+                  <div>
                     <label htmlFor="price" className="block text-sm font-medium text-gray-700 mb-1">Giá (VND)</label>
                     <input
                       type="number"
@@ -1008,32 +1095,39 @@ const CourseDetailPage: React.FC = () => {
                       name="price"
                       value={courseFormState.price || 0}
                       onChange={handleCourseFormChange}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500 transition-colors"
+                      disabled={course.status === CourseStatus.Archived}
+                      className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500 transition-colors ${
+                        course.status === CourseStatus.Archived ? 'bg-gray-100 cursor-not-allowed' : ''
+                      }`}
                       min={0}
                     />
                   </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label htmlFor="startDate" className="block text-sm font-medium text-gray-700 mb-1">Ngày bắt đầu (dd/mm/yyyy)</label>
                     <DatePicker
                       id="startDate"
                       name="startDate"
                       value={courseFormState.startDate ? dayjs(courseFormState.startDate) : null}
-                                             onChange={(date) => {
-                         if (date) {
-                           const isoString = date.toISOString();
-                           setCourseFormState(prev => ({ ...prev, startDate: isoString }));
-                           if (courseFormState.endDate) {
-                             const validation = validateCourseDates(isoString, courseFormState.endDate);
-                             setDateValidationError(validation.isValid ? "" : validation.message);
-                           }
-                         } else {
-                           setCourseFormState(prev => ({ ...prev, startDate: '' }));
-                           setDateValidationError("");
-                         }
-                       }}
+                      onChange={(date) => {
+                        if (date) {
+                          const isoString = date.toISOString();
+                          setCourseFormState(prev => ({ ...prev, startDate: isoString }));
+                          if (courseFormState.endDate) {
+                            const validation = validateCourseDates(isoString, courseFormState.endDate);
+                            setDateValidationError(validation.isValid ? "" : validation.message);
+                          }
+                        } else {
+                          setCourseFormState(prev => ({ ...prev, startDate: '' }));
+                          setDateValidationError("");
+                        }
+                      }}
+                      disabled={course.status === CourseStatus.Archived}
                       className={`w-full px-4 py-2 border rounded-lg focus:ring-green-500 focus:border-green-500 transition-colors ${
                         dateValidationError ? 'border-red-500' : 'border-gray-300'
-                      }`}
+                      } ${course.status === CourseStatus.Archived ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                     />
                   </div>
                   <div>
@@ -1042,33 +1136,34 @@ const CourseDetailPage: React.FC = () => {
                       id="endDate"
                       name="endDate"
                       value={courseFormState.endDate ? dayjs(courseFormState.endDate) : null}
-                                             onChange={(date) => {
-                         if (date) {
-                           const isoString = date.toISOString();
-                           setCourseFormState(prev => ({ ...prev, endDate: isoString }));
-                           if (courseFormState.startDate) {
-                             const validation = validateCourseDates(courseFormState.startDate, isoString);
-                             setDateValidationError(validation.isValid ? "" : validation.message);
-                           }
-                         } else {
-                           setCourseFormState(prev => ({ ...prev, endDate: '' }));
-                           setDateValidationError("");
-                         }
-                       }}
+                      onChange={(date) => {
+                        if (date) {
+                          const isoString = date.toISOString();
+                          setCourseFormState(prev => ({ ...prev, endDate: isoString }));
+                          if (courseFormState.startDate) {
+                            const validation = validateCourseDates(courseFormState.startDate, isoString);
+                            setDateValidationError(validation.isValid ? "" : validation.message);
+                          }
+                        } else {
+                          setCourseFormState(prev => ({ ...prev, endDate: '' }));
+                          setDateValidationError("");
+                        }
+                      }}
+                      disabled={course.status === CourseStatus.Archived}
                       className={`w-full px-4 py-2 border rounded-lg focus:ring-green-500 focus:border-green-500 transition-colors ${
                         dateValidationError ? 'border-red-500' : 'border-gray-300'
-                      }`}
+                      } ${course.status === CourseStatus.Archived ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                     />
                   </div>
-                  {dateValidationError && (
-                    <div className="col-span-2">
-                      <p className="text-red-600 text-sm mt-1 flex items-center">
-                        <FaExclamationCircle className="mr-1" />
-                        {dateValidationError}
-                      </p>
-                    </div>
-                  )}
                 </div>
+                {dateValidationError && (
+                  <div>
+                    <p className="text-red-600 text-sm mt-1 flex items-center">
+                      <FaExclamationCircle className="mr-1" />
+                      {dateValidationError}
+                    </p>
+                  </div>
+                )}
 
                 <div>
                   <label htmlFor="thumbnailUrl" className="block text-sm font-medium text-gray-700 mb-1">Ảnh đại diện</label>
@@ -1085,13 +1180,13 @@ const CourseDetailPage: React.FC = () => {
                 <div className="flex gap-3 mt-6">
                   <button
                     onClick={onFinishCourse}
-                    disabled={submittingCourse}
+                    disabled={submittingCourse || course.status === CourseStatus.Archived}
                     className={`flex items-center px-6 py-2 rounded-lg shadow-md transition-all duration-200 text-white font-semibold
-                      ${submittingCourse ? 'bg-green-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'}
+                      ${submittingCourse || course.status === CourseStatus.Archived ? 'bg-green-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'}
                     `}
                   >
                     <FaSave className="mr-2" />
-                    {submittingCourse ? "Đang lưu..." : "Lưu thay đổi khóa học"}
+                    {submittingCourse ? "Đang lưu..." : course.status === CourseStatus.Archived ? "Không thể chỉnh sửa khóa học đã lưu trữ" : "Lưu thay đổi khóa học"}
                   </button>
                   <button
                     onClick={handleCancelCourseEdit}
@@ -1109,12 +1204,21 @@ const CourseDetailPage: React.FC = () => {
                     <span className={`px-3 py-1 rounded-full text-sm font-medium
                       ${course.status === CourseStatus.Published ? 'bg-green-100 text-green-700' :
                         course.status === CourseStatus.Draft ? 'bg-blue-100 text-blue-700' :
-                        course.status === CourseStatus.Archived ? 'bg-yellow-100 text-yellow-700' :
-                        course.status === CourseStatus.Suspended ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-700'}
+                        course.status === CourseStatus.Archived ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-700'}
                     `}>
                       {CourseStatus[course.status].toUpperCase()}
                     </span>
                   </p>
+                  
+                  {/* Show message for archived courses */}
+                  {course.status === CourseStatus.Archived && (
+                    <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                      <p className="text-yellow-800 text-sm flex items-center">
+                        <FaExclamationCircle className="mr-2" />
+                        Khóa học đã được lưu trữ tự động khi qua ngày kết thúc. Không thể thay đổi trạng thái của khóa học đã lưu trữ.
+                      </p>
+                    </div>
+                  )}
                   <div className="flex flex-wrap gap-2">
                     {Object.keys(CourseStatus)
                       .filter((key) => isNaN(Number(key)))
@@ -1122,26 +1226,37 @@ const CourseDetailPage: React.FC = () => {
                         const statusValue = CourseStatus[key as keyof typeof CourseStatus];
                         if (statusValue === course.status) return null;
                         
+                        // Don't show "Set as Archived" button since it's handled by background service
+                        if (statusValue === CourseStatus.Archived) return null;
+                        
                         // Check if Published status should be disabled
                         const isPublishedDisabled = statusValue === CourseStatus.Published && course.instructors.length === 0;
+                        
+                        // Check if course is archived - if so, disable all status changes
+                        const isArchivedDisabled = course.status === CourseStatus.Archived;
                         
                         return (
                           <CustomPopconfirm
                             key={key}
-                            title={isPublishedDisabled ? "Khóa học phải có ít nhất một giảng viên trước khi được xuất bản." : `Bạn có chắc muốn đổi trạng thái thành ${key}?`}
+                            title={
+                              isArchivedDisabled ? "Không thể thay đổi trạng thái của khóa học đã lưu trữ." :
+                              isPublishedDisabled ? "Khóa học phải có ít nhất một giảng viên trước khi được xuất bản." : 
+                              `Bạn có chắc muốn đổi trạng thái thành ${key}?`
+                            }
                             onConfirm={() => handleUpdateCourseStatus(statusValue)}
-                            disabled={submittingCourse || isPublishedDisabled}
+                            disabled={submittingCourse || isPublishedDisabled || isArchivedDisabled}
                           >
                             <button
                               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200
                                 ${statusValue === CourseStatus.Published ? 'bg-green-500 hover:bg-green-600 text-white' :
-                                  statusValue === CourseStatus.Draft ? 'bg-blue-500 hover:bg-blue-600 text-white' :
-                                  statusValue === CourseStatus.Archived ? 'bg-yellow-500 hover:bg-yellow-600 text-white' :
-                                  statusValue === CourseStatus.Suspended ? 'bg-red-500 hover:bg-red-600 text-white' : 'bg-gray-200 hover:bg-gray-300 text-gray-800'}
-                                ${submittingCourse || isPublishedDisabled ? 'opacity-50 cursor-not-allowed' : ''}
+                                  statusValue === CourseStatus.Draft ? 'bg-blue-500 hover:bg-blue-600 text-white' : 'bg-gray-200 hover:bg-gray-300 text-gray-800'}
+                                ${submittingCourse || isPublishedDisabled || isArchivedDisabled ? 'opacity-50 cursor-not-allowed' : ''}
                               `}
-                              disabled={submittingCourse || isPublishedDisabled}
-                              title={isPublishedDisabled ? "Khóa học phải có ít nhất một giảng viên trước khi được xuất bản." : ""}
+                              disabled={submittingCourse || isPublishedDisabled || isArchivedDisabled}
+                              title={
+                                isArchivedDisabled ? "Không thể thay đổi trạng thái của khóa học đã lưu trữ." :
+                                isPublishedDisabled ? "Khóa học phải có ít nhất một giảng viên trước khi được xuất bản." : ""
+                              }
                             >
                               Đặt thành {key}
                             </button>
@@ -1252,14 +1367,19 @@ const CourseDetailPage: React.FC = () => {
                       >
                         <div
                           className="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-100 transition-colors"
-                          onClick={() => setActiveLessonPanel(activeLessonPanel === lesson.lessonId ? [] : lesson.lessonId)}
+                          onClick={() => handleLessonPanelToggle(lesson.lessonId)}
                         >
                           <span className="font-medium text-gray-800">Bài học {lesson.lessonOrder}: {lesson.title}</span>
                           <div className="flex items-center gap-2">
                             <button
                               onClick={(e) => { e.stopPropagation(); showCreateTestModal(lesson.lessonId); }}
-                              className="text-gray-600 hover:text-purple-600 transition-colors p-1 rounded-full hover:bg-purple-100"
-                              title="Tạo test cho bài học"
+                              disabled={lessonTests[lesson.lessonId] !== null}
+                              className={`transition-colors p-1 rounded-full ${
+                                lessonTests[lesson.lessonId] !== null
+                                  ? 'text-gray-400 cursor-not-allowed'
+                                  : 'text-gray-600 hover:text-purple-600 hover:bg-purple-100'
+                              }`}
+                              title={lessonTests[lesson.lessonId] !== null ? 'Lesson này đã có test' : 'Tạo test cho bài học'}
                             >
                               <FaQuestionCircle size={16} />
                             </button>
@@ -1364,6 +1484,59 @@ const CourseDetailPage: React.FC = () => {
                                   <span className="font-semibold">Nội dung:</span> {lesson.content}
                                 </p>
 
+                                {/* Tests Section for this lesson */}
+                                <h4 className="text-lg font-semibold text-gray-700 mt-5 mb-3 border-t pt-4">Bài kiểm tra</h4>
+                                {loadingTests[lesson.lessonId] ? (
+                                  <div className="text-center text-gray-500 py-4">Đang tải...</div>
+                                ) : lessonTests[lesson.lessonId] ? (
+                                  <div className="flex items-center justify-between bg-blue-50 p-3 rounded-lg border border-blue-200 mb-4">
+                                    <div className="flex items-center gap-3">
+                                      <FaQuestionCircle className="text-blue-600" size={20} />
+                                      <div className="flex-1">
+                                        <span className="text-sm font-medium text-gray-800 block">
+                                          {lessonTests[lesson.lessonId]?.title}
+                                        </span>
+                                        <span className="text-xs text-gray-500">
+                                          {lessonTests[lesson.lessonId]?.description}
+                                        </span>
+                                      </div>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <button
+                                        onClick={() => showEditTestModal(lessonTests[lesson.lessonId]!)}
+                                        className="flex items-center gap-1 px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                                        title="Chỉnh sửa test"
+                                      >
+                                        <FaEdit className="text-xs" />
+                                        Sửa
+                                      </button>
+                                      <button
+                                        onClick={() => handleTestStatusToggle(lesson.lessonId)}
+                                        className={`flex items-center gap-1 px-3 py-1 text-xs rounded transition-colors ${
+                                          lessonTests[lesson.lessonId]?.status === TestStatus.Open
+                                            ? 'bg-green-600 text-white hover:bg-green-700'
+                                            : 'bg-gray-600 text-white hover:bg-gray-700'
+                                        }`}
+                                        title={lessonTests[lesson.lessonId]?.status === TestStatus.Open ? 'Đóng test' : 'Mở test'}
+                                      >
+                                        {lessonTests[lesson.lessonId]?.status === TestStatus.Open ? (
+                                          <>
+                                            <FaEyeSlash className="text-xs" />
+                                            Đóng
+                                          </>
+                                        ) : (
+                                          <>
+                                            <FaEye className="text-xs" />
+                                            Mở
+                                          </>
+                                        )}
+                                      </button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div className="text-gray-500 text-sm mb-4">Chưa có bài kiểm tra nào.</div>
+                                )}
+
                                 {/* Documents Section for this lesson */}
                                 <h4 className="text-lg font-semibold text-gray-700 mt-5 mb-3 border-t pt-4">Tài liệu bài học</h4>
                                 {lesson.documents && lesson.documents.length > 0 ? (
@@ -1456,79 +1629,91 @@ const CourseDetailPage: React.FC = () => {
                   Quản lý Livestream
                 </h3>
 
-                {/* Create New Livestream Form */}
-                <div className="mb-6 p-5 border border-purple-200 rounded-xl bg-purple-50">
-                  <h4 className="text-lg font-semibold text-gray-800 mb-4">Tạo livestream mới</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label htmlFor="livestream-description" className="block text-sm font-medium text-gray-700 mb-1">Mô tả livestream</label>
-                      <input
-                        type="text"
-                        id="livestream-description"
-                        name="description"
-                        value={createLivestreamFormState.description}
-                        onChange={handleCreateLivestreamFormChange}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500 transition-colors"
-                        placeholder="Nhập mô tả livestream"
-                      />
-                    </div>
-                    <div>
-                      <label htmlFor="livestream-duration" className="block text-sm font-medium text-gray-700 mb-1">Thời lượng (phút)</label>
-                      <input
-                        type="number"
-                        id="livestream-duration"
-                        name="durationMinutes"
-                        value={createLivestreamFormState.durationMinutes}
-                        onChange={(e) => handleCreateLivestreamNumberChange('durationMinutes')(parseInt(e.target.value))}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500 transition-colors"
-                        min={15}
-                        max={480}
-                      />
-                    </div>
-                    <div className="md:col-span-2">
-                      <label htmlFor="livestream-schedule" className="block text-sm font-medium text-gray-700 mb-1">Thời gian lên lịch</label>
-                      <DatePicker
-                        id="livestream-schedule"
-                        name="scheduledDateTime"
-                        showTime={{ format: 'HH:mm' }}
-                        format="YYYY-MM-DD HH:mm"
-                        value={createLivestreamFormState.scheduledDateTime ? dayjs(createLivestreamFormState.scheduledDateTime) : null}
-                        onChange={(date) => {
-                          if (date) {
-                            const isoString = date.toISOString();
-                            setCreateLivestreamFormState(prev => ({ ...prev, scheduledDateTime: isoString }));
-                            if (course && course.startDate && course.endDate) {
-                              const validation = validateLivestreamSchedule(isoString, course.startDate, course.endDate);
-                              setLivestreamValidationError(validation.isValid ? "" : validation.message);
-                            }
-                          } else {
-                            setCreateLivestreamFormState(prev => ({ ...prev, scheduledDateTime: '' }));
-                            setLivestreamValidationError("");
-                          }
-                        }}
-                        className={`w-full px-4 py-2 border rounded-lg focus:ring-purple-500 focus:border-purple-500 transition-colors ${
-                          livestreamValidationError ? 'border-red-500' : 'border-gray-300'
-                        }`}
-                      />
-                      {livestreamValidationError && (
-                        <p className="text-red-600 text-sm mt-1 flex items-center">
-                          <FaExclamationCircle className="mr-1" />
-                          {livestreamValidationError}
-                        </p>
-                      )}
-                    </div>
+                {/* Show warning for archived courses */}
+                {course.status === CourseStatus.Archived && (
+                  <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                    <p className="text-yellow-800 text-sm flex items-center">
+                      <FaExclamationCircle className="mr-2" />
+                      Không thể tạo livestream mới cho khóa học đã được lưu trữ (ARCHIVED).
+                    </p>
                   </div>
-                  <button
-                    onClick={handleCreateLivestream}
-                    disabled={submittingLivestream}
-                    className={`flex items-center px-6 py-2 rounded-lg shadow-md transition-all duration-200 text-white font-semibold mt-4
-                      ${submittingLivestream ? 'bg-purple-400 cursor-not-allowed' : 'bg-purple-600 hover:bg-purple-700'}
-                    `}
-                  >
-                    <FaBroadcastTower className="mr-2" />
-                    {submittingLivestream ? "Đang tạo..." : "Tạo livestream"}
-                  </button>
-                </div>
+                )}
+
+                {/* Create New Livestream Form - Only show if course is not archived */}
+                {course.status !== CourseStatus.Archived && (
+                  <div className="mb-6 p-5 border border-purple-200 rounded-xl bg-purple-50">
+                    <h4 className="text-lg font-semibold text-gray-800 mb-4">Tạo livestream mới</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label htmlFor="livestream-description" className="block text-sm font-medium text-gray-700 mb-1">Mô tả livestream</label>
+                        <input
+                          type="text"
+                          id="livestream-description"
+                          name="description"
+                          value={createLivestreamFormState.description}
+                          onChange={handleCreateLivestreamFormChange}
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500 transition-colors"
+                          placeholder="Nhập mô tả livestream"
+                        />
+                      </div>
+                      <div>
+                        <label htmlFor="livestream-duration" className="block text-sm font-medium text-gray-700 mb-1">Thời lượng (phút)</label>
+                        <input
+                          type="number"
+                          id="livestream-duration"
+                          name="durationMinutes"
+                          value={createLivestreamFormState.durationMinutes}
+                          onChange={(e) => handleCreateLivestreamNumberChange('durationMinutes')(parseInt(e.target.value))}
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500 transition-colors"
+                          min={15}
+                          max={480}
+                        />
+                      </div>
+                      <div className="md:col-span-2">
+                        <label htmlFor="livestream-schedule" className="block text-sm font-medium text-gray-700 mb-1">Thời gian lên lịch</label>
+                        <DatePicker
+                          id="livestream-schedule"
+                          name="scheduledDateTime"
+                          showTime={{ format: 'HH:mm' }}
+                          format="YYYY-MM-DD HH:mm"
+                          value={createLivestreamFormState.scheduledDateTime ? dayjs(createLivestreamFormState.scheduledDateTime) : null}
+                          onChange={(date) => {
+                            if (date) {
+                              const isoString = date.toISOString();
+                              setCreateLivestreamFormState(prev => ({ ...prev, scheduledDateTime: isoString }));
+                              if (course && course.startDate && course.endDate) {
+                                const validation = validateLivestreamSchedule(isoString, course.startDate, course.endDate);
+                                setLivestreamValidationError(validation.isValid ? "" : validation.message);
+                              }
+                            } else {
+                              setCreateLivestreamFormState(prev => ({ ...prev, scheduledDateTime: '' }));
+                              setLivestreamValidationError("");
+                            }
+                          }}
+                          className={`w-full px-4 py-2 border rounded-lg focus:ring-purple-500 focus:border-purple-500 transition-colors ${
+                            livestreamValidationError ? 'border-red-500' : 'border-gray-300'
+                          }`}
+                        />
+                        {livestreamValidationError && (
+                          <p className="text-red-600 text-sm mt-1 flex items-center">
+                            <FaExclamationCircle className="mr-1" />
+                            {livestreamValidationError}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <button
+                      onClick={handleCreateLivestream}
+                      disabled={submittingLivestream}
+                      className={`flex items-center px-6 py-2 rounded-lg shadow-md transition-all duration-200 text-white font-semibold mt-4
+                        ${submittingLivestream ? 'bg-purple-400 cursor-not-allowed' : 'bg-purple-600 hover:bg-purple-700'}
+                      `}
+                    >
+                      <FaBroadcastTower className="mr-2" />
+                      {submittingLivestream ? "Đang tạo..." : "Tạo livestream"}
+                    </button>
+                  </div>
+                )}
 
                 {/* Existing Livestreams List */}
                 <h4 className="text-lg font-semibold text-gray-800 mb-4">Livestream hiện có</h4>
@@ -1738,8 +1923,25 @@ const CourseDetailPage: React.FC = () => {
         onClose={() => setIsCreateTestModalVisible(false)}
         lessonId={currentLessonForTest}
         courseLevel={course?.level || CourseLevel.N5}
+        courseStartDate={course?.startDate || ""}
+        courseEndDate={course?.endDate || ""}
         onTestCreated={handleTestCreated}
       />
+
+      {/* Modal for editing test */}
+      <EditTestModal
+        isOpen={isEditTestModalVisible}
+        onClose={() => {
+          setIsEditTestModalVisible(false);
+          setCurrentTestForEdit(null);
+        }}
+        test={currentTestForEdit}
+        courseStartDate={course?.startDate}
+        courseEndDate={course?.endDate}
+        onTestUpdated={handleTestUpdated}
+      />
+
+
     </div>
   );
 };

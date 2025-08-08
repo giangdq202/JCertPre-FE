@@ -14,6 +14,7 @@ import StaffHomePage from "../pages/staff/StaffHomePage";
 import StaffCourseManagementPage from "../pages/staff/StaffCourseManagementPage";
 import CourseDetailPage from "../pages/staff/CourseDetailPage";
 import CreateCoursePage from "../pages/staff/CreateCoursePage";
+import TestTemplateTypeManagementPage from "../pages/staff/TestTemplateTypeManagementPage";
 import ProfilePage from "../pages/student/ProfilePage";
 import StaffSub from "../pages/staff/SubContentManagementPage"; // Assuming this is the correct import for your sub-content management page
 // import GoogleAuthCallback from "../components/Auth/GoogleAuthCallback";
@@ -191,6 +192,14 @@ const AppRoutes: React.FC = () => {
           element={
             <ProtectedRoute allowedRoles={["ACADEMIC_MANAGER"]}>
               <StaffSub />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path={paths.staff_test_template_types}
+          element={
+            <ProtectedRoute allowedRoles={["ACADEMIC_MANAGER"]}>
+              <TestTemplateTypeManagementPage />
             </ProtectedRoute>
           }
         />

@@ -16,11 +16,10 @@ import {
 import {
   getCourses,
   CourseListDto,
-  CourseQueryParameters,
   CourseStatus,
   CourseLevel,
-  CourseType, // Still imported for enum definition, but filter removed
-} from "../../services/courseService"; // Đảm bảo đường dẫn đúng
+  CourseQueryParameters,
+} from "../../services/courseService";
 
 const StaffCourseManagementPage: React.FC = () => {
   const navigate = useNavigate();
@@ -36,10 +35,12 @@ const StaffCourseManagementPage: React.FC = () => {
     pageNumber: 1,
     pageSize: 10,
     searchTerm: null,
-    instructorId: null, // This filter is not implemented in UI, but kept in query params
+    instructorId: null,
     status: null,
     level: null,
-    courseType: null, // Default to Online as per new rule
+    courseType: null, // Default to Personal as per new rule
+    startDate: null,
+    endDate: null,
   });
 
   // Hàm để fetch dữ liệu khóa học từ API
@@ -243,8 +244,7 @@ const StaffCourseManagementPage: React.FC = () => {
                         <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full
                           ${course.status === CourseStatus.Published ? 'bg-green-100 text-green-800' :
                             course.status === CourseStatus.Draft ? 'bg-blue-100 text-blue-800' :
-                            course.status === CourseStatus.Archived ? 'bg-yellow-100 text-yellow-800' :
-                            course.status === CourseStatus.Suspended ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800'}
+                            course.status === CourseStatus.Archived ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-800'}
                         `}>
                           {CourseStatus[course.status].toUpperCase()}
                         </span>

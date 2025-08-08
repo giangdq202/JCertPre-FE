@@ -16,9 +16,10 @@ export enum CourseLevel {
 }
 
 export enum TestType {
-  CustomManual = 0,
-  CustomAuto = 1,
-  JLPTAuto = 2,
+  JLPTAuto = 0,
+  EntryAuto = 1,
+  CustomManual = 2,
+  CustomAuto = 3,
 }
 
 export interface CreateTestTemplateTypeDto {

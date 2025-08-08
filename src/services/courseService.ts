@@ -18,7 +18,6 @@ export enum CourseStatus {
   Draft = 0,
   Published = 1,
   Archived = 2,
-  Suspended = 3,
 }
 
 export enum CourseLevel {
@@ -30,9 +29,8 @@ export enum CourseLevel {
 }
 
 export enum CourseType {
-  Online = 0,
-  Offline = 1,
-  Hybrid = 2,
+  Personal = 0,
+  Public = 1,
 }
 
 export interface CourseQueryParameters {

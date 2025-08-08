@@ -128,6 +128,7 @@ export const DELETE_TEST_URL = (testId: string) => `${TEST_BASE_URL}/${testId}`;
 export const UPDATE_TEST_STATUS_URL = (testId: string) => `${TEST_BASE_URL}/${testId}/status`;
 export const GET_TEST_BY_LESSON_URL = (lessonId: string) => `${TEST_BASE_URL}/by-lesson/${lessonId}`;
 export const CREATE_TEST_BY_LESSON_URL = (lessonId: string) => `${TEST_BASE_URL}/by-lesson/${lessonId}`;
+export const AUTO_CREATE_TEST_URL = (userId: string) => `${TEST_BASE_URL}/auto-create?userId=${userId}`;
 export const GET_TESTS_BY_USER_URL = (userId: string) => `${TEST_BASE_URL}/by-user/${userId}`;
 
 // ===== TEST ATTEMPT ENDPOINTS =====
@@ -145,6 +146,7 @@ export const GET_QUESTIONS_FROM_TEST_URL = (testId: string) => `${TEST_QUESTION_
 export const DELETE_QUESTION_FROM_TEST_URL = (testQuestionId: string) => `${TEST_QUESTION_BASE_URL}/${testQuestionId}`;
 export const ADD_CUSTOM_MANUAL_QUESTIONS_URL = `${TEST_QUESTION_BASE_URL}/custom-manual/add`;
 export const ADD_QUESTIONS_JLPT_AUTO_URL = (testId: string) => `${TEST_QUESTION_BASE_URL}/jlpt-auto/${testId}`;
+export const DELETE_ALL_TEST_QUESTIONS_URL = (testId: string) => `${TEST_QUESTION_BASE_URL}/all/${testId}`;
 
 // ===== ATTEMPT ANSWER ENDPOINTS =====
 export const ATTEMPT_ANSWER_BASE_URL = `${BASE_URL}/attempt-answers`;

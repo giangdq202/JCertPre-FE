@@ -115,17 +115,26 @@ export const getAllSubContents = async (
   pageSize: number = 10
 ): Promise<Pagination<SubContentDto>> => {
   try {
-    const params = {
-      search,
+    const params: any = {
       pageIndex,
       pageSize,
-      // Khi gửi lên query string, thường thì backend C# có thể tự parse tên chuỗi của enum.
-      // Vì vậy, chúng ta sẽ chuyển từ số sang tên chuỗi ở đây.
-      // Nếu backend mong đợi số trong query string, hãy bỏ `Enum[value]` và chỉ gửi `value`.
-      level: level !== undefined ? CourseLevel[level] : undefined,
-      contentName: contentName !== undefined ? ContentName[contentName] : undefined,
-      subContentName: subContentName !== undefined ? SubContentName[subContentName] : undefined,
     };
+    
+    // Only add search parameter if it's not undefined
+    if (search !== undefined) {
+      params.search = search;
+    }
+    
+    // Only add enum parameters if they are defined
+    if (level !== undefined) {
+      params.level = CourseLevel[level];
+    }
+    if (contentName !== undefined) {
+      params.contentName = ContentName[contentName];
+    }
+    if (subContentName !== undefined) {
+      params.subContentName = SubContentName[subContentName];
+    }
 
     const response = await axiosInstance.get<Pagination<SubContentDto>>(
       BASE_SUB_CONTENTS_URL,

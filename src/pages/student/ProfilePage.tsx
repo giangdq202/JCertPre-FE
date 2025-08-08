@@ -1,13 +1,14 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useAuth } from "../../auth/AuthContext";
 import { updateUserAvatar, updateUser } from "../../services/userService";
-import { toast } from "react-toastify";
+import { useNotification } from "../../components/notifications";
 import background from "../../assets/background_benefit.jpg";
 import BackButton from "../../components/BackButton";
 
 const ProfilePage: React.FC = () => {
   // Giả định useAuth cung cấp cả hàm để cập nhật userInfo trong context
   const { userInfo, setUserInfo } = useAuth();
+  const { success, error } = useNotification();
 
   const [isEditing, setIsEditing] = useState(false);
   const [isUploading, setIsUploading] = useState(false); // State cho trạng thái upload
@@ -48,10 +49,10 @@ const ProfilePage: React.FC = () => {
       setUserInfo(updatedUserInfo);
 
       console.log("Cập nhật avatar thành công!");
-      toast.success("Cập nhật avatar thành công!");
+      success("Cập nhật thành công!", "Avatar của bạn đã được cập nhật");
     } catch (error) {
       console.error("Lỗi khi upload avatar:", error);
-      toast.error("Upload avatar thất bại. Vui lòng thử lại.");
+      error("Lỗi upload avatar", "Upload avatar thất bại. Vui lòng thử lại.");
     } finally {
       setIsUploading(false);
     }
@@ -83,11 +84,11 @@ const ProfilePage: React.FC = () => {
       setUserInfo(updatedUserInfo);
 
       console.log("Thông tin đã được lưu thành công!");
-      toast.success("Cập nhật thông tin thành công!");
+      success("Cập nhật thành công!", "Thông tin cá nhân của bạn đã được lưu");
       setIsEditing(false);
     } catch (error) {
       console.error("Lỗi khi cập nhật thông tin:", error);
-      toast.error("Cập nhật thông tin thất bại. Vui lòng thử lại.");
+      error("Lỗi cập nhật", "Cập nhật thông tin thất bại. Vui lòng thử lại.");
     } finally {
       setIsSaving(false);
     }

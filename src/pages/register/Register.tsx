@@ -19,6 +19,8 @@ interface RegisterFormState {
 }
 
 const Register: React.FC = () => {
+  const navigate = useNavigate();
+  const { success, error } = useNotification();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [avatar, setAvatar] = useState<File | null>(null);
@@ -49,7 +51,7 @@ const Register: React.FC = () => {
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (formData.password !== formData.confirmPassword) {
-      toast.error("Mật khẩu và xác nhận mật khẩu không khớp!");
+      error("Mật khẩu không khớp", "Mật khẩu và xác nhận mật khẩu không khớp!");
       return;
     }
     setLoading(true);

@@ -3,12 +3,14 @@ import { useParams, useNavigate } from "react-router-dom";
 import { getLessonsByCourseId, LessonDto } from "../../services/lessonService";
 import { getDocumentsByLessonId, DocumentDto } from "../../services/documentService";
 import { getCourseById, CourseDto } from "../../services/courseService";
+import { getByLessonId, TestDto, TestStatus } from "../../services/testService";
 import StudentHeader from "../../components/header/StudentHeader";
 import StudentSideBar from "../../components/sidebar/StudentSideBar";
-import { FaChevronRight, FaFilePdf, FaDownload, FaVideo } from "react-icons/fa";
+import { FaChevronRight, FaFilePdf, FaDownload, FaVideo, FaEdit, FaEye, FaEyeSlash } from "react-icons/fa";
 import { FiCheckCircle, FiCircle } from "react-icons/fi";
 import { useLessonProgress } from "../../hooks/useLessonProgress";
 import { VideoLessonPlayer } from "../../components/VideoLessonPlayer";
+import { TestInterface } from "../../components/TestInterface";
 import { useAuth } from "../../auth/AuthContext";
 
 // Add custom styles for video controls
@@ -47,6 +49,10 @@ const StudentLearnCoursePage: React.FC = () => {
   const [lessonProgress, setLessonProgress] = useState<{ [key: string]: number }>({});
   const [showCompletionMessage, setShowCompletionMessage] = useState(false);
   const [completedLessonTitle, setCompletedLessonTitle] = useState('');
+  const [lessonTests, setLessonTests] = useState<{ [key: string]: TestDto | null }>({});
+  const [loadingTests, setLoadingTests] = useState<{ [key: string]: boolean }>({});
+  const [activeTest, setActiveTest] = useState<TestDto | null>(null);
+  const [showTestInterface, setShowTestInterface] = useState(false);
   const navigate = useNavigate();
   
   // Auth and lesson progress hooks
@@ -98,6 +104,11 @@ const StudentLearnCoursePage: React.FC = () => {
         setVideoDoc(video || null);
         // Ưu tiên pdf đầu tiên nếu có
         const pdf = docs.find((d) => d.fileUrl.includes("688ac2de002dc607c7e7"));
+        
+        // Load test for this lesson if not already loaded
+        if (!lessonTests[selectedLessonId] && !loadingTests[selectedLessonId]) {
+          loadLessonTest(selectedLessonId);
+        }
         setPdfDoc(pdf || null);
       })
       .finally(() => setLoadingDocs(false));
@@ -105,7 +116,25 @@ const StudentLearnCoursePage: React.FC = () => {
 
   const handleLessonClick = (lessonId: string) => {
     setSelectedLessonId(lessonId);
+    // Load test for this lesson if not already loaded
+    if (!lessonTests[lessonId] && !loadingTests[lessonId]) {
+      loadLessonTest(lessonId);
+    }
   };
+
+  const loadLessonTest = async (lessonId: string) => {
+    setLoadingTests(prev => ({ ...prev, [lessonId]: true }));
+    try {
+      const test = await getByLessonId(lessonId);
+      setLessonTests(prev => ({ ...prev, [lessonId]: test }));
+    } catch (error) {
+      console.error(`Failed to load test for lesson ${lessonId}:`, error);
+      setLessonTests(prev => ({ ...prev, [lessonId]: null }));
+    } finally {
+      setLoadingTests(prev => ({ ...prev, [lessonId]: false }));
+    }
+  };
+
 
   const handleLessonCompleted = async (lessonId: string) => {
     try {
@@ -140,6 +169,16 @@ const StudentLearnCoursePage: React.FC = () => {
     } else {
       window.open(doc.fileUrl, "_blank");
     }
+  };
+
+  const handleStartTest = (test: TestDto) => {
+    setActiveTest(test);
+    setShowTestInterface(true);
+  };
+
+  const handleBackFromTest = () => {
+    setShowTestInterface(false);
+    setActiveTest(null);
   };
 
   return (
@@ -180,7 +219,11 @@ const StudentLearnCoursePage: React.FC = () => {
           <div className="flex flex-row gap-8">
             {/* Main Content */}
             <div className="flex-1">
-              <h2 className="text-2xl font-bold text-gray-800 mb-4">{selectedLessonId && lessons.find(l => l.lessonId === selectedLessonId)?.title}</h2>
+              {showTestInterface && activeTest ? (
+                <TestInterface test={activeTest} onBack={handleBackFromTest} />
+              ) : (
+                <>
+                  <h2 className="text-2xl font-bold text-gray-800 mb-4">{selectedLessonId && lessons.find(l => l.lessonId === selectedLessonId)?.title}</h2>
               
                              {/* Video player with progress tracking */}
                {videoDoc && selectedLessonId ? (
@@ -228,6 +271,8 @@ const StudentLearnCoursePage: React.FC = () => {
                     />
                   </div>
                 </div>
+              )}
+                </>
               )}
             </div>
             {/* Sidebar lesson */}
@@ -294,27 +339,77 @@ const StudentLearnCoursePage: React.FC = () => {
                          )}
                        </button>
                       
-                      {/* Dropdown tài liệu (ngoại trừ video chính) */}
-                      {selectedLessonId === lesson.lessonId && documents.length > 0 && (
-                        <ul className="ml-4 mt-2 flex flex-col gap-1">
-                          {documents.filter(d => !d.fileUrl.includes("688ac2cc0012a1f4136d")).map((doc, index) => (
-                            <li key={doc.documentId} className="flex items-center justify-between gap-2 p-2 rounded-lg hover:bg-gray-50">
-                              <div className="flex items-center gap-2 flex-1">
-                                {doc.fileUrl.endsWith(".pdf") ? <FaFilePdf className="text-red-500" /> : <FaDownload className="text-gray-500" />}
-                                <span className="text-sm text-gray-700 truncate">
-                                  Tài liệu_Bài {index + 1}
-                                </span>
+                      {/* Dropdown tài liệu và tests */}
+                      {selectedLessonId === lesson.lessonId && (
+                        <div className="ml-4 mt-2 flex flex-col gap-2">
+                          {/* Tests */}
+                          <div className="border-l-2 border-blue-200 pl-3">
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-sm font-medium text-gray-700">Bài kiểm tra</span>
+                              {loadingTests[lesson.lessonId] && (
+                                <span className="text-xs text-gray-500">Đang tải...</span>
+                              )}
+                            </div>
+                            
+                            {lessonTests[lesson.lessonId] ? (
+                              <div className="flex flex-col gap-2">
+                                <div className="flex items-center justify-between gap-2 p-2 rounded-lg bg-blue-50 border border-blue-200">
+                                  <div className="flex items-center gap-2 flex-1">
+                                    <FaEdit className="text-blue-600" />
+                                    <div className="flex-1">
+                                      <span className="text-sm font-medium text-gray-800 block">
+                                        {lessonTests[lesson.lessonId]?.title}
+                                      </span>
+                                      <span className="text-xs text-gray-500">
+                                        {lessonTests[lesson.lessonId]?.description}
+                                      </span>
+                                    </div>
+                                  </div>
+
+                                </div>
+                                {lessonTests[lesson.lessonId]?.status === TestStatus.Open && (
+                                  <button
+                                    onClick={() => handleStartTest(lessonTests[lesson.lessonId]!)}
+                                    className="w-full flex items-center justify-center gap-2 p-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
+                                  >
+                                    <FaEdit />
+                                    Làm bài test
+                                  </button>
+                                )}
                               </div>
-                              <button
-                                onClick={() => window.open(doc.fileUrl, '_blank')}
-                                className="flex items-center gap-1 px-2 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700 transition-colors"
-                              >
-                                <FaDownload className="text-xs" />
-                                Tải
-                              </button>
-                            </li>
-                          ))}
-                        </ul>
+                            ) : !loadingTests[lesson.lessonId] && (
+                              <div className="text-xs text-gray-500 p-2">
+                                Chưa có bài kiểm tra
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Documents */}
+                          {documents.length > 0 && (
+                            <div className="border-l-2 border-green-200 pl-3">
+                              <span className="text-sm font-medium text-gray-700 block mb-2">Tài liệu</span>
+                              <ul className="flex flex-col gap-1">
+                                {documents.filter(d => !d.fileUrl.includes("688ac2cc0012a1f4136d")).map((doc, index) => (
+                                  <li key={doc.documentId} className="flex items-center justify-between gap-2 p-2 rounded-lg hover:bg-gray-50">
+                                    <div className="flex items-center gap-2 flex-1">
+                                      {doc.fileUrl.endsWith(".pdf") ? <FaFilePdf className="text-red-500" /> : <FaDownload className="text-gray-500" />}
+                                      <span className="text-sm text-gray-700 truncate">
+                                        Tài liệu_Bài {index + 1}
+                                      </span>
+                                    </div>
+                                    <button
+                                      onClick={() => window.open(doc.fileUrl, '_blank')}
+                                      className="flex items-center gap-1 px-2 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700 transition-colors"
+                                    >
+                                      <FaDownload className="text-xs" />
+                                      Tải
+                                    </button>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                        </div>
                       )}
                     </li>
                   ))}

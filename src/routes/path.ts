@@ -23,6 +23,7 @@ const paths = {
   staff_sub_content_management: "/staff/sub-content-management",
   question_management: "/question-management",
   create_question: "/create-question",
+  staff_test_template_types: "/staff/test-template-types",
   // Staff chat routes
   staff_inquiries: "/staff/inquiries",
   staff_messages: "/staff/messages/:inquiryId",
