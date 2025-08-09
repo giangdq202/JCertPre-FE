@@ -5,83 +5,61 @@ import StaffSidebar from '../../components/sidebar/StaffSidebar';
 import { 
   HiOutlineChatBubbleLeftRight,
   HiOutlineClock,
-  HiOutlineUser,
   HiOutlineArrowRight
 } from 'react-icons/hi2';
-
-interface Inquiry {
-  id: string;
-  studentName: string;
-  studentEmail: string;
-  lastMessage: string;
-  lastMessageTime: Date;
-  unreadCount: number;
-  status: 'new' | 'in_progress' | 'resolved';
-}
+import { getMyConversations, ConversationDto } from '../../services/conversationService';
+import { useAuth } from '../../auth/AuthContext';
+import { toast } from 'react-toastify';
 
 const StaffInquiriesPage: React.FC = () => {
   const navigate = useNavigate();
-  const [inquiries, setInquiries] = useState<Inquiry[]>([]);
+  const { userInfo } = useAuth();
+  const [conversations, setConversations] = useState<ConversationDto[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Mock data for demonstration
+  // Load conversations for staff
   useEffect(() => {
-    const mockInquiries: Inquiry[] = [
-      {
-        id: '1',
-        studentName: 'Nguyễn Văn An',
-        studentEmail: 'nguyenvanan@email.com',
-        lastMessage: 'Em muốn hỏi về khóa học N1, em có thể học được không?',
-        lastMessageTime: new Date(Date.now() - 1000 * 60 * 30), // 30 minutes ago
-        unreadCount: 2,
-        status: 'new'
-      },
-      {
-        id: '2',
-        studentName: 'Trần Thị Bình',
-        studentEmail: 'tranthibinh@email.com',
-        lastMessage: 'Tôi muốn đăng ký thi thử vào tuần tới',
-        lastMessageTime: new Date(Date.now() - 1000 * 60 * 60 * 2), // 2 hours ago
-        unreadCount: 1,
-        status: 'in_progress'
-      },
-      {
-        id: '3',
-        studentName: 'Lê Văn Cường',
-        studentEmail: 'levancuong@email.com',
-        lastMessage: 'Bạn có thể gợi ý phương pháp học từ vựng hiệu quả không?',
-        lastMessageTime: new Date(Date.now() - 1000 * 60 * 60 * 24), // 1 day ago
-        unreadCount: 0,
-        status: 'resolved'
-      },
-      {
-        id: '4',
-        studentName: 'Phạm Thị Dung',
-        studentEmail: 'phamthidung@email.com',
-        lastMessage: 'Em cần tư vấn về lịch học online',
-        lastMessageTime: new Date(Date.now() - 1000 * 60 * 60 * 3), // 3 hours ago
-        unreadCount: 3,
-        status: 'new'
-      },
-      {
-        id: '5',
-        studentName: 'Hoàng Văn Em',
-        studentEmail: 'hoangvanem@email.com',
-        lastMessage: 'Cảm ơn bạn đã tư vấn!',
-        lastMessageTime: new Date(Date.now() - 1000 * 60 * 60 * 5), // 5 hours ago
-        unreadCount: 0,
-        status: 'resolved'
+    const loadConversations = async () => {
+      if (!userInfo?.id) return;
+
+      setLoading(true);
+      setError(null);
+
+      try {
+        const staffConversations = await getMyConversations(userInfo.id);
+        
+        // Sắp xếp conversations theo thời gian cập nhật gần nhất
+        const sortedConversations = staffConversations.sort((a, b) => {
+          const aLastMessage = a.messages?.[a.messages.length - 1];
+          const bLastMessage = b.messages?.[b.messages.length - 1];
+          
+          if (!aLastMessage && !bLastMessage) return 0;
+          if (!aLastMessage) return 1;
+          if (!bLastMessage) return -1;
+          
+          return new Date(bLastMessage.sentAt).getTime() - new Date(aLastMessage.sentAt).getTime();
+        });
+
+        setConversations(sortedConversations);
+      } catch (err) {
+        console.error('Failed to load conversations:', err);
+        setError('Không thể tải danh sách cuộc hội thoại');
+        toast.error('Không thể tải danh sách cuộc hội thoại');
+      } finally {
+        setLoading(false);
       }
-    ];
+    };
 
-    // Simulate API call
-    setTimeout(() => {
-      setInquiries(mockInquiries);
-      setLoading(false);
-    }, 1000);
-  }, []);
+    loadConversations();
 
-  const formatTime = (date: Date) => {
+    // Auto-refresh every 10 minutes
+    const interval = setInterval(loadConversations, 600000);
+    return () => clearInterval(interval);
+  }, [userInfo?.id]);
+
+  const formatTime = (dateString: string) => {
+    const date = new Date(dateString);
     const now = new Date();
     const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60);
     
@@ -95,34 +73,16 @@ const StaffInquiriesPage: React.FC = () => {
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'new':
-        return 'bg-red-100 text-red-800';
-      case 'in_progress':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'resolved':
-        return 'bg-green-100 text-green-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
+  const getStudentFromConversation = (conversation: ConversationDto) => {
+    // Tìm participant không phải là staff hiện tại
+    return conversation.participants?.find(p => 
+      p.id !== userInfo?.id && 
+      (p.roleName === 'STUDENT' || p.roleName === null)
+    );
   };
 
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case 'new':
-        return 'Mới';
-      case 'in_progress':
-        return 'Đang xử lý';
-      case 'resolved':
-        return 'Đã giải quyết';
-      default:
-        return 'Không xác định';
-    }
-  };
-
-  const handleViewChat = (inquiryId: string) => {
-    navigate(`/staff/messages/${inquiryId}`);
+  const handleViewChat = (conversationId: string) => {
+    navigate(`/staff/messages/${conversationId}`);
   };
 
   if (loading) {
@@ -152,112 +112,94 @@ const StaffInquiriesPage: React.FC = () => {
           {/* Header */}
           <div className="mb-8">
             <h1 className="text-3xl font-bold text-gray-800 mb-2">
-              Yêu cầu tư vấn
+              Cuộc hội thoại tư vấn
             </h1>
             <p className="text-gray-600">
-              Quản lý các yêu cầu tư vấn từ học viên
+              Quản lý các cuộc hội thoại tư vấn với học viên ({conversations.length} cuộc hội thoại)
             </p>
           </div>
 
-          {/* Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <div className="bg-white rounded-xl shadow-lg p-6">
-              <h3 className="text-lg font-semibold text-gray-800 mb-2">
-                Yêu cầu mới
-              </h3>
-              <p className="text-3xl font-bold text-red-600 mb-4">
-                {inquiries.filter(i => i.status === 'new').length}
-              </p>
-              <button className="w-full bg-red-500 text-white py-2 px-4 rounded-lg hover:bg-red-600 transition-colors">
-                Xem yêu cầu
-              </button>
+          {/* Error Display */}
+          {error && (
+            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+              <p className="text-sm text-red-600">{error}</p>
             </div>
+          )}
 
-            <div className="bg-white rounded-xl shadow-lg p-6">
-              <h3 className="text-lg font-semibold text-gray-800 mb-2">
-                Đang xử lý
-              </h3>
-              <p className="text-3xl font-bold text-yellow-600 mb-4">
-                {inquiries.filter(i => i.status === 'in_progress').length}
-              </p>
-              <button className="w-full bg-yellow-500 text-white py-2 px-4 rounded-lg hover:bg-yellow-600 transition-colors">
-                Xem chi tiết
-              </button>
-            </div>
-
-            <div className="bg-white rounded-xl shadow-lg p-6">
-              <h3 className="text-lg font-semibold text-gray-800 mb-2">
-                Đã giải quyết
-              </h3>
-              <p className="text-3xl font-bold text-green-600 mb-4">
-                {inquiries.filter(i => i.status === 'resolved').length}
-              </p>
-              <button className="w-full bg-green-500 text-white py-2 px-4 rounded-lg hover:bg-green-600 transition-colors">
-                Xem báo cáo
-              </button>
-            </div>
-          </div>
-
-          {/* Inquiries Grid */}
+          {/* Conversations Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {inquiries.map((inquiry) => (
-              <div key={inquiry.id} className="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-shadow">
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-orange-500 rounded-full flex items-center justify-center">
-                      <HiOutlineUser className="text-white" />
+            {conversations.map((conversation) => {
+              const student = getStudentFromConversation(conversation);
+              const lastMessage = conversation.messages?.[conversation.messages.length - 1];
+              
+              return (
+                <div key={conversation.conversationId} className="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-shadow">
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-orange-500 rounded-full flex items-center justify-center">
+                        <span className="text-white text-sm font-medium">
+                          {student?.fullName?.charAt(0) || 'S'}
+                        </span>
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-gray-800">
+                          {student?.fullName || 'Học viên'}
+                        </h3>
+                        <p className="text-sm text-gray-500">
+                          {student?.email || 'Không có email'}
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <h3 className="font-semibold text-gray-800">
-                        {inquiry.studentName}
-                      </h3>
-                      <p className="text-sm text-gray-500">
-                        {inquiry.studentEmail}
-                      </p>
-                    </div>
-                  </div>
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(inquiry.status)}`}>
-                    {getStatusText(inquiry.status)}
-                  </span>
-                </div>
-
-                <div className="mb-4">
-                  <p className="text-sm text-gray-600 line-clamp-2">
-                    {inquiry.lastMessage}
-                  </p>
-                </div>
-
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-1 text-xs text-gray-500">
-                    <HiOutlineClock className="w-3 h-3" />
-                    {formatTime(inquiry.lastMessageTime)}
-                  </div>
-                  {inquiry.unreadCount > 0 && (
-                    <span className="bg-orange-500 text-white text-xs rounded-full px-2 py-1">
-                      {inquiry.unreadCount} tin nhắn mới
+                    <span className="px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                      {conversation.messages?.length || 0} tin nhắn
                     </span>
-                  )}
-                </div>
+                  </div>
 
-                <button
-                  onClick={() => handleViewChat(inquiry.id)}
-                  className="w-full bg-orange-500 text-white py-2 px-4 rounded-lg hover:bg-orange-600 transition-colors flex items-center justify-center gap-2"
-                >
-                  <span>Đi đến cuộc trò chuyện</span>
-                  <HiOutlineArrowRight className="w-4 h-4" />
-                </button>
-              </div>
-            ))}
+                  <div className="mb-4">
+                    <h4 className="text-sm font-medium text-gray-700 mb-2">
+                      {conversation.conversationName}
+                    </h4>
+                    {lastMessage && (
+                      <p className="text-sm text-gray-600 line-clamp-2">
+                        <span className="font-medium">
+                          {lastMessage.senderId === userInfo?.id ? 'Bạn' : lastMessage.senderName}:
+                        </span> {lastMessage.content}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="flex items-center justify-between mb-4">
+                    {lastMessage && (
+                      <div className="flex items-center gap-1 text-xs text-gray-500">
+                        <HiOutlineClock className="w-3 h-3" />
+                        {formatTime(lastMessage.sentAt)}
+                      </div>
+                    )}
+                    <span className="text-xs text-gray-500">
+                      Tạo: {formatTime(conversation.createdAt)}
+                    </span>
+                  </div>
+
+                  <button
+                    onClick={() => handleViewChat(conversation.conversationId)}
+                    className="w-full bg-orange-500 text-white py-2 px-4 rounded-lg hover:bg-orange-600 transition-colors flex items-center justify-center gap-2"
+                  >
+                    <span>Đi đến cuộc trò chuyện</span>
+                    <HiOutlineArrowRight className="w-4 h-4" />
+                  </button>
+                </div>
+              );
+            })}
           </div>
 
-          {inquiries.length === 0 && (
+          {conversations.length === 0 && !loading && (
             <div className="text-center py-12">
               <HiOutlineChatBubbleLeftRight className="mx-auto text-6xl text-gray-300 mb-4" />
               <h3 className="text-xl font-semibold text-gray-600 mb-2">
-                Không có yêu cầu tư vấn
+                Không có cuộc hội thoại nào
               </h3>
               <p className="text-gray-500">
-                Hiện tại chưa có yêu cầu tư vấn nào từ học viên
+                Hiện tại chưa có cuộc hội thoại tư vấn nào từ học viên
               </p>
             </div>
           )}
