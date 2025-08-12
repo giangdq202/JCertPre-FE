@@ -210,7 +210,13 @@ const StudentCourseDetailPage = () => {
             });
         } catch (error: any) {
             console.error("Error joining livestream:", error);
-            showError("Lỗi tham gia livestream", "Không thể tham gia buổi livestream. Vui lòng thử lại.");
+            if (error.response?.status === 415) {
+                showError("Lỗi định dạng dữ liệu", "Server không hỗ trợ định dạng dữ liệu được gửi. Có thể là lỗi hệ thống với API Course Update - không liên quan đến livestream.");
+            } else if (error.response?.data?.message) {
+                showError("Lỗi tham gia livestream", error.response.data.message);
+            } else {
+                showError("Lỗi tham gia livestream", "Không thể tham gia buổi livestream. Vui lòng thử lại.");
+            }
         }
     };
 

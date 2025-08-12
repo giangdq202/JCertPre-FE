@@ -352,10 +352,18 @@ const QuestionManagementPage: React.FC = () => {
       ));
       
       success(`Câu hỏi đã được ${updatedQuestion.isActive ? 'kích hoạt' : 'vô hiệu hóa'} thành công!`);
-          } catch (err) {
-        console.error("Error toggling question status:", err);
+    } catch (err: any) {
+      console.error("Error toggling question status:", err);
+      
+      // Enhanced error handling
+      if (err?.response?.status === 415) {
+        error("Lỗi định dạng dữ liệu", "Server không hỗ trợ định dạng dữ liệu được gửi");
+      } else if (err?.response?.data?.message) {
+        error("Lỗi", err.response.data.message);
+      } else {
         error("Có lỗi xảy ra khi thay đổi trạng thái câu hỏi");
       }
+    }
   };
 
   // Quiz mode functions (for Student role)
