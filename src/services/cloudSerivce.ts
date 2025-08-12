@@ -63,8 +63,7 @@ export const uploadImage = async (imageFile: File): Promise<UploadImageResponseD
   try {
     const response = await axiosInstance.post<UploadImageResponseDto>('/cloudinary-test/upload-image', formData, {
       headers: {
-        // Axios tự động set 'Content-Type': 'multipart/form-data' khi body là FormData
-        // nên không cần khai báo explicit
+        'Content-Type': 'multipart/form-data',
       }
     });
     return response.data;
@@ -85,7 +84,11 @@ export const uploadVideo = async (videoFile: File): Promise<UploadVideoResponseD
   formData.append('videoFile', videoFile);
 
   try {
-    const response = await axiosInstance.post<UploadVideoResponseDto>('/cloudinary-test/upload-video', formData);
+    const response = await axiosInstance.post<UploadVideoResponseDto>('/cloudinary-test/upload-video', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      }
+    });
     return response.data;
   } catch (error) {
     console.error("UploadVideo API error:", error);
@@ -104,7 +107,11 @@ export const uploadDocument = async (documentFile: File): Promise<UploadDocument
     formData.append('rawFile', documentFile);
 
     try {
-      const response = await axiosInstance.post<UploadDocumentResponseDto>('/cloudinary-test/upload-document', formData);
+      const response = await axiosInstance.post<UploadDocumentResponseDto>('/cloudinary-test/upload-document', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        }
+      });
       return response.data;
     } catch (error) {
       console.error("UploadDocument API error:", error);

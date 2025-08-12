@@ -237,7 +237,12 @@ export const createCourse = async (
     // Gửi yêu cầu POST đến API khóa học
     const response = await axiosInstance.post<CourseDto>(
       CREATE_COURSE_URL,
-      formData
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      }
     );
     return response.data;
   } catch (error) {
@@ -283,15 +288,20 @@ export const updateCourse = async (
       formData.append("Status", updateCourseDto.status.toString());
     }
 
-    // Gửi yêu cầu PUT đến API khóa học với ID cụ thể, sử dụng URL từ baseUrl.ts
+    // Remove the detailed logging to match working version
     const response = await axiosInstance.put<CourseDto>(
       UPDATE_COURSE_URL(id),
-      formData
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      }
     );
     return response.data;
-  } catch (error) {
+  } catch (error: any) {
     console.error(`UpdateCourse API error for ID ${id}:`, error);
-    throw error; // Ném lỗi để component gọi có thể bắt và xử lý
+    throw error;
   }
 };
 
