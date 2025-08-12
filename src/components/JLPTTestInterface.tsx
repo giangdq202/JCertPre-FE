@@ -94,6 +94,9 @@ const JLPTTestInterface: React.FC<JLPTTestInterfaceProps> = ({
       return;
     }
 
+    console.log('JLPTTestInterface - testType:', testType, 'Type of:', typeof testType);
+    console.log('JLPTTestInterface - courseLevel:', courseLevel, 'Type of:', typeof courseLevel);
+
     setLoading(true);
     try {
       // Step 1: Create auto test
@@ -101,6 +104,8 @@ const JLPTTestInterface: React.FC<JLPTTestInterfaceProps> = ({
         testType,
         courseLevel
       };
+      
+      console.log('CreateAutoTestInput:', autoTestInput);
       
       const createdTestResult = await createAutoTest(autoTestInput, userInfo.id);
       // Convert CreateAutoTestResult to TestDto format

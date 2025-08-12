@@ -1,17 +1,63 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import InstructorSidebar from "../../components/sidebar/InstructorSidebar";
 import InstructorHeader from "../../components/header/InstructorHeader";
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from "../../auth/AuthContext";
+import { getCourses, CourseQueryParameters } from "../../services/courseService";
+import { livestreamApi, LivestreamTimetableDto } from "../../services/livestreamService";
 import paths from "../../routes/path";
+import dayjs from "dayjs";
+import { toast } from 'react-toastify';
 
 // Lottie animation import
 import Lottie from "lottie-react";
 import studyAnimation from "../../animations/study.json";
 import { MdOutlineSchedule } from "react-icons/md";
-import { FaChalkboardTeacher } from "react-icons/fa";
+import { FaChalkboardTeacher, FaSpinner } from "react-icons/fa";
 
 const InstructorDashboardContent = () => {
     const navigate = useNavigate();
+    const { userInfo } = useAuth();
+    const [totalCourses, setTotalCourses] = useState(0);
+    const [todayLivestreams, setTodayLivestreams] = useState(0);
+    const [loading, setLoading] = useState(true);
+
+    // Fetch instructor's total courses
+    useEffect(() => {
+        const fetchInstructorData = async () => {
+            if (!userInfo?.id) return;
+
+            setLoading(true);
+            try {
+                // Fetch total courses assigned to instructor
+                const courseParams: CourseQueryParameters = {
+                    pageNumber: 1,
+                    pageSize: 1000, // Large number to get total count
+                    instructorId: userInfo.id
+                };
+                const coursesResponse = await getCourses(courseParams);
+                setTotalCourses(coursesResponse.totalItemsCount);
+
+                // Fetch today's livestreams
+                const today = dayjs().format('YYYY-MM-DD');
+                const timetableData = await livestreamApi.getLivestreamTimetableByUser(userInfo.id);
+                
+                // Filter livestreams for today
+                const todayStreams = timetableData.filter((stream: LivestreamTimetableDto) => 
+                    dayjs(stream.scheduledDateTime).format('YYYY-MM-DD') === today
+                );
+                setTodayLivestreams(todayStreams.length);
+
+            } catch (error) {
+                console.error("Error fetching instructor dashboard data:", error);
+                toast.error("Không thể tải dữ liệu dashboard. Vui lòng thử lại sau.");
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchInstructorData();
+    }, [userInfo?.id]);
 
     return (
         <div className="p-6">
@@ -56,7 +102,14 @@ const InstructorDashboardContent = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
                 <div className="bg-white p-6 rounded-xl shadow-lg">
                     <h3 className="text-lg font-semibold text-gray-800 mb-4">Livestream hôm nay</h3>
-                    <p className="text-gray-600">Bạn có <strong>3</strong> buổi livestream hôm nay.</p>
+                    {loading ? (
+                        <div className="flex items-center">
+                            <FaSpinner className="animate-spin mr-2" />
+                            <p className="text-gray-600">Đang tải...</p>
+                        </div>
+                    ) : (
+                        <p className="text-gray-600">Bạn có <strong>{todayLivestreams}</strong> buổi livestream hôm nay.</p>
+                    )}
                     <button
                         onClick={() => navigate(paths.instructor_schedule)}
                         className="mt-4 bg-blue-500 text-white py-2 px-4 rounded-lg hover:bg-blue-600 transition-colors duration-200"
@@ -66,7 +119,14 @@ const InstructorDashboardContent = () => {
                 </div>
                 <div className="bg-white p-6 rounded-xl shadow-lg">
                     <h3 className="text-lg font-semibold text-gray-800 mb-4">Khóa học được giao</h3>
-                    <p className="text-gray-600">Hiện có <strong>5</strong> khóa học bạn đang dạy.</p>
+                    {loading ? (
+                        <div className="flex items-center">
+                            <FaSpinner className="animate-spin mr-2" />
+                            <p className="text-gray-600">Đang tải...</p>
+                        </div>
+                    ) : (
+                        <p className="text-gray-600">Hiện có <strong>{totalCourses}</strong> khóa học bạn đang dạy.</p>
+                    )}
                     <button
                         onClick={() => navigate(paths.instructor_courses)}
                         className="mt-4 bg-blue-500 text-white py-2 px-4 rounded-lg hover:bg-blue-600 transition-colors duration-200"
@@ -74,7 +134,7 @@ const InstructorDashboardContent = () => {
                         Quản lý khóa học
                     </button>
                 </div>
-                <div className="bg-white p-6 rounded-xl shadow-lg">
+                {/* <div className="bg-white p-6 rounded-xl shadow-lg">
                     <h3 className="text-lg font-semibold text-gray-800 mb-4">Bài kiểm tra cần tạo</h3>
                     <p className="text-gray-600">Có <strong>7</strong> bài học chưa có bài kiểm tra.</p>
                     <button
@@ -83,7 +143,7 @@ const InstructorDashboardContent = () => {
                     >
                         Tạo bài kiểm tra
                     </button>
-                </div>
+                </div> */}
             </div>
         </div>
     );

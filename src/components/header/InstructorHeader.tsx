@@ -1,8 +1,10 @@
 import React, { useState, useRef, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../auth/AuthContext";
 import { FaUserCircle, FaSignOutAlt, FaUser } from "react-icons/fa";
 
 const InstructorHeader: React.FC = () => {
+  const navigate = useNavigate();
   const { userInfo, handleLogout } = useAuth();
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -12,6 +14,7 @@ const InstructorHeader: React.FC = () => {
   const handleLogoutClick = () => {
     handleLogout();
     setIsProfileDropdownOpen(false);
+    navigate("/login"); // Navigate to login page after logout
   };
 
   // Close dropdown when clicking outside

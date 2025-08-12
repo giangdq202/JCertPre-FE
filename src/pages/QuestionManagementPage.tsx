@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { getAllQuestions, getActiveQuestions, getQuestionsPagingDetails, toggleQuestionActiveStatus, getQuestionById, getChoicesByQuestionId } from "../services/questionService";
-import { QuestionDto, QuestionDifficulty, ContentName, SubContentName, CourseLevel } from "../types/question.types";
+import { QuestionDto, QuestionDifficulty, ContentName, CourseLevel } from "../types/question.types";
 import { ChoiceReadDto } from "../types/choice.types";
-import { getAllSubContents, SubContentDto } from "../services/subContentService";
+
 import { FaArrowLeft, FaPlus, FaTimes } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
 import { useNotification } from "../components/notifications";
@@ -31,8 +31,6 @@ const QuestionManagementPage: React.FC = () => {
   const [difficulty, setDifficulty] = useState<QuestionDifficulty[]>([]);
   const [contentName, setContentName] = useState<ContentName[]>([]);
   const [courseLevel, setCourseLevel] = useState<CourseLevel[]>([]);
-  const [subContentName, setSubContentName] = useState<SubContentName[]>([]);
-  const [subContents, setSubContents] = useState<SubContentDto[]>([]);
   const [sidebarVisible, setSidebarVisible] = useState(false);
   
   // Edit states - no longer needed for inline editing
@@ -70,152 +68,22 @@ const QuestionManagementPage: React.FC = () => {
     [ContentName.Listening]: "Nghe Hiểu",
   };
 
-  // Mapping ContentName to SubContentName
-  const CONTENT_SUBCONTENT_MAPPING: Record<ContentName, SubContentName[]> = {
-    [ContentName.Kanji]: [SubContentName.Mondai1, SubContentName.Mondai2],
-    [ContentName.Vocabulary]: [SubContentName.Mondai3, SubContentName.Mondai4],
-    [ContentName.Grammar]: [SubContentName.Mondai5, SubContentName.Mondai6, SubContentName.Mondai7],
-    [ContentName.Reading]: [SubContentName.Mondai8, SubContentName.Mondai9, SubContentName.Mondai10],
-    [ContentName.Listening]: [SubContentName.Mondai11, SubContentName.Mondai12, SubContentName.Mondai13, SubContentName.Mondai14]
-  };
-
-  // SubContentName labels
-  const SUBCONTENT_NAME_LABELS: Record<SubContentName, string> = {
-    [SubContentName.Mondai1]: "Đọc chữ Hán",
-    [SubContentName.Mondai2]: "Nhớ chữ Hán",
-    [SubContentName.Mondai3]: "Chọn từ phù hợp với câu",
-    [SubContentName.Mondai4]: "Tìm câu có cách diễn đạt giống",
-    [SubContentName.Mondai5]: "Chọn ngữ pháp phù hợp với câu",
-    [SubContentName.Mondai6]: "Sắp xếp câu",
-    [SubContentName.Mondai7]: "Tìm đáp án đúng để hoàn thành đoạn văn",
-    [SubContentName.Mondai8]: "Đoạn văn ngắn",
-    [SubContentName.Mondai9]: "Trung văn",
-    [SubContentName.Mondai10]: "Tìm kiếm thông tin",
-    [SubContentName.Mondai11]: "Hiểu đề bài",
-    [SubContentName.Mondai12]: "Hiểu điểm chính",
-    [SubContentName.Mondai13]: "Diễn đạt bằng lời nói",
-    [SubContentName.Mondai14]: "Phản hồi tức thời"
-  };
-
   // Helper function to safely get content name label
-  const getContentNameLabel = (contentNameEnum: ContentName): string => {
+  const getContentNameLabel = (contentNameEnum: ContentName | number): string => {
     try {
-      return CONTENT_NAME_LABELS[contentNameEnum] || contentNameEnum.toString();
-    } catch {
-      return contentNameEnum.toString();
-    }
-  };
-
-  // Helper function to safely get subcontent name label
-  const getSubContentNameLabel = (subContentNameEnum: SubContentName): string => {
-    try {
-      return SUBCONTENT_NAME_LABELS[subContentNameEnum] || subContentNameEnum.toString();
-    } catch {
-      return subContentNameEnum.toString();
-    }
-  };
-
-  // Helper function to convert string to ContentName enum
-  const stringToContentName = (str: string): ContentName => {
-    const key = Object.keys(ContentName).find(k => k === str);
-    if (key) {
-      return ContentName[key as keyof typeof ContentName];
-    }
-    // Fallback mapping
-    switch (str) {
-      case "0": return ContentName.Kanji;
-      case "1": return ContentName.Vocabulary;
-      case "2": return ContentName.Grammar;
-      case "3": return ContentName.Reading;
-      case "4": return ContentName.Listening;
-      default: return ContentName.Kanji;
-    }
-  };
-
-  // Helper function to convert string to CourseLevel enum
-  const stringToCourseLevel = (str: string): CourseLevel => {
-    const key = Object.keys(CourseLevel).find(k => k === str);
-    if (key) {
-      return CourseLevel[key as keyof typeof CourseLevel];
-    }
-    // Fallback mapping
-    switch (str) {
-      case "0": return CourseLevel.N5;
-      case "1": return CourseLevel.N4;
-      case "2": return CourseLevel.N3;
-      case "3": return CourseLevel.N2;
-      case "4": return CourseLevel.N1;
-      default: return CourseLevel.N5;
-    }
-  };
-
-  // Helper function to convert string to SubContentName enum
-  const stringToSubContentName = (str: string): SubContentName => {
-    const key = Object.keys(SubContentName).find(k => k === str);
-    if (key) {
-      return SubContentName[key as keyof typeof SubContentName];
-    }
-    // Fallback mapping
-    switch (str) {
-      case "0": return SubContentName.Mondai1;
-      case "1": return SubContentName.Mondai2;
-      case "2": return SubContentName.Mondai3;
-      case "3": return SubContentName.Mondai4;
-      case "4": return SubContentName.Mondai5;
-      case "5": return SubContentName.Mondai6;
-      case "6": return SubContentName.Mondai7;
-      case "7": return SubContentName.Mondai8;
-      case "8": return SubContentName.Mondai9;
-      case "9": return SubContentName.Mondai10;
-      case "10": return SubContentName.Mondai11;
-      case "11": return SubContentName.Mondai12;
-      case "12": return SubContentName.Mondai13;
-      case "13": return SubContentName.Mondai14;
-      default: return SubContentName.Mondai1;
-    }
-  };
-
-  // Fetch subContents
-  useEffect(() => {
-    const fetchSubContents = async () => {
-      try {
-        const data = await getAllSubContents();
-        setSubContents(data.items || []);
-      } catch (err) {
-        console.error("Error fetching subContents:", err);
+      // Handle both enum and number inputs
+      const enumValue = typeof contentNameEnum === 'number' ? contentNameEnum : Number(contentNameEnum);
+      
+      // Check if it's a valid enum value
+      if (isNaN(enumValue) || enumValue < 0 || enumValue > 4) {
+        console.warn("Invalid contentName value:", contentNameEnum);
+        return "Unknown";
       }
-    };
-    fetchSubContents();
-  }, []);
-
-  // Get subContent options for edit form
-  const getSubContentOptionsForEdit = (contentNameEnum: ContentName, levelEnum: CourseLevel) => {
-    if (!contentNameEnum || !levelEnum) return [];
-    
-    try {
-      // Filter subContents by contentName and level
-      const filteredSubContents = subContents.filter(sc => {
-        // Convert string values to numbers for comparison
-        const scContentName = parseInt(sc.contentName);
-        const scLevel = parseInt(sc.level);
-        const scSubContentName = parseInt(sc.subContentName);
-        
-        return scContentName === contentNameEnum && scLevel === levelEnum;
-      });
       
-      // Create options from filtered subContents
-      const options = filteredSubContents.map(sc => {
-        const subContentNameEnum = parseInt(sc.subContentName) as SubContentName;
-        return {
-          value: subContentNameEnum.toString(),
-          label: `${CONTENT_NAME_LABELS[contentNameEnum]} - ${getSubContentNameLabel(subContentNameEnum)}`
-        };
-      });
-      
-      return options;
+      return CONTENT_NAME_LABELS[enumValue as ContentName] || "Unknown";
     } catch (error) {
-      console.error("Error getting subContent options for edit:", error);
-      return [];
+      console.error("Error in getContentNameLabel:", error, contentNameEnum);
+      return "Unknown";
     }
   };
 
@@ -232,26 +100,18 @@ const QuestionManagementPage: React.FC = () => {
         // Students only see active questions, staff see all questions
         const fetchFunction = isStaff ? getAllQuestions : getActiveQuestions;
         
-        // Nếu không có filter nào được chọn, lấy tất cả
-        if (difficulty.length === 0 && subContentName.length === 0 && courseLevel.length === 0 && contentName.length === 0) {
-          const data = await fetchFunction();
-          // Fetch attachments for each question
-          const questionsWithAttachments = await Promise.all(
-            data.map(async (question) => {
-              try {
-                const questionWithAttachments = await getQuestionById(question.id);
-                return questionWithAttachments;
-              } catch (error) {
-                console.error(`Error fetching attachments for question ${question.id}:`, error);
-                return question; // Return original question if attachment fetch fails
-              }
-            })
-          );
-          setQuestions(questionsWithAttachments);
-        } else {
-          // Nếu có filter, sử dụng client-side filtering
-          const allQuestions = await fetchFunction();
-          let filteredQuestions = allQuestions;
+        // Lấy tất cả câu hỏi trước
+        const allQuestions = await fetchFunction();
+        
+        // Debug: Log first question to check data structure
+        if (allQuestions.length > 0) {
+          console.log("Sample question data:", allQuestions[0]);
+        }
+        
+        let filteredQuestions = allQuestions;
+        
+        // Áp dụng filter nếu có
+        if (difficulty.length > 0 || courseLevel.length > 0 || contentName.length > 0) {
           
           // Filter theo difficulty
           if (difficulty.length > 0) {
@@ -272,42 +132,49 @@ const QuestionManagementPage: React.FC = () => {
           // Filter theo contentName
           if (contentName.length > 0) {
             filteredQuestions = filteredQuestions.filter(q => {
-              // So sánh với string value từ API (không phân biệt hoa thường)
               return contentName.some(cn => {
                 const contentStr = CONTENT_NAME_LABELS[cn];
-                // q.contentName từ API là string, không phải enum value
-                return contentStr.toLowerCase() === q.contentName?.toString().toLowerCase();
+                
+                // So sánh với enum number value
+                if (typeof q.contentName === 'number' && q.contentName === cn) {
+                  return true;
+                }
+                
+                // So sánh với string description (case insensitive)
+                if (typeof q.contentName === 'string') {
+                  const questionContentName = q.contentName as string;
+                  // Check exact description match
+                  if (contentStr.toLowerCase() === questionContentName.toLowerCase()) {
+                    return true;
+                  }
+                  
+                  // Check if it's a parsed number
+                  const parsed = parseInt(questionContentName);
+                  if (!isNaN(parsed) && parsed === cn) {
+                    return true;
+                  }
+                }
+                
+                return false;
               });
             });
           }
-          
-          // Filter theo subContentName
-          if (subContentName.length > 0) {
-            filteredQuestions = filteredQuestions.filter(q => {
-              // So sánh với string value từ API (không phân biệt hoa thường)
-              return subContentName.some(scn => {
-                const subContentStr = SUBCONTENT_NAME_LABELS[scn];
-                // q.subContentName từ API là string, không phải enum value
-                return subContentStr.toLowerCase() === q.subContentName?.toString().toLowerCase();
-              });
-            });
-          }
-          
-          // Fetch attachments for filtered questions
-          const questionsWithAttachments = await Promise.all(
-            filteredQuestions.map(async (question) => {
-              try {
-                const questionWithAttachments = await getQuestionById(question.id);
-                return questionWithAttachments;
-              } catch (error) {
-                console.error(`Error fetching attachments for question ${question.id}:`, error);
-                return question; // Return original question if attachment fetch fails
-              }
-            })
-          );
-          
-          setQuestions(questionsWithAttachments);
         }
+        
+        // Fetch attachments cho tất cả câu hỏi (đã filter hoặc chưa filter)
+        const questionsWithAttachments = await Promise.all(
+          filteredQuestions.map(async (question) => {
+            try {
+              const questionWithAttachments = await getQuestionById(question.id);
+              return questionWithAttachments;
+            } catch (error) {
+              console.error(`Error fetching attachments for question ${question.id}:`, error);
+              return question; // Return original question if attachment fetch fails
+            }
+          })
+        );
+        
+        setQuestions(questionsWithAttachments);
       } catch (error) {
         console.error("Error fetching questions:", error);
         setQuestions([]);
@@ -316,10 +183,7 @@ const QuestionManagementPage: React.FC = () => {
       }
     };
     fetchQuestions();
-  }, [difficulty, subContentName, courseLevel, contentName, isStaff]);
-
-  // Filtered subcontent chỉ lấy unique subContentName
-  const filteredSubContents = Array.from(new Map(subContents.map(sc => [sc.subContentName, sc])).values());
+  }, [difficulty, courseLevel, contentName, isStaff]);
 
   const handleCreateQuestion = () => {
     navigate(paths.create_question);
@@ -329,16 +193,6 @@ const QuestionManagementPage: React.FC = () => {
   const handleEditQuestion = async (question: QuestionDto) => {
     // Navigate to edit question page using paths
     navigate(`/edit-question/${question.id}`);
-  };
-
-  // Edit functions - no longer needed for inline editing
-  // const handleCancelEdit = () => { ... };
-  // const handleSaveEdit = async () => { ... };
-  // const updateEditingChoice = (index: number, field: string, value: any) => { ... };
-
-  const handleDeleteQuestion = (questionId: string) => {
-    // TODO: Implement delete question
-    console.log("Delete question:", questionId);
   };
 
   const handleToggleActiveStatus = async (questionId: string, currentStatus: boolean) => {
@@ -504,12 +358,11 @@ const QuestionManagementPage: React.FC = () => {
             </label>
           </div>
           <h4 className="text-md font-semibold mb-2 text-gray-700">Lọc theo nội dung</h4>
-          {/* ContentName filter với SubContentName con */}
+          {/* ContentName filter - chỉ hiển thị contentName, không có subcontent */}
           {Object.keys(ContentName)
             .filter(k => isNaN(Number(k)))
             .map((key) => {
               const value = ContentName[key as keyof typeof ContentName] as unknown as ContentName;
-              const subContentsForThisContent = CONTENT_SUBCONTENT_MAPPING[value];
               const isContentSelected = contentName.includes(value);
               
               return (
@@ -518,36 +371,27 @@ const QuestionManagementPage: React.FC = () => {
                     <input
                       type="checkbox"
                       checked={isContentSelected}
-                      onChange={() => setContentName(contentName.includes(value) ? contentName.filter(c => c !== value) : [...contentName, value])}
+                      onChange={() => {
+                        if (contentName.includes(value)) {
+                          setContentName(contentName.filter(c => c !== value));
+                        } else {
+                          setContentName([...contentName, value]);
+                        }
+                      }}
                     />
                     <span>{CONTENT_NAME_LABELS[value]}</span>
                   </label>
-                  
-                  {/* SubContentName con */}
-                  {isContentSelected && (
-                    <div className="ml-6 mt-2 space-y-1">
-                      {subContentsForThisContent.map((subContent) => {
-                        const subContentLabel = SUBCONTENT_NAME_LABELS[subContent];
-                        return (
-                          <label key={subContent} className="flex items-center gap-2 cursor-pointer text-sm">
-                            <input
-                              type="checkbox"
-                              checked={subContentName.includes(subContent)}
-                              onChange={() => setSubContentName(subContentName.includes(subContent)
-                                ? subContentName.filter(s => s !== subContent)
-                                : [...subContentName, subContent])}
-                            />
-                            <span>{subContentLabel}</span>
-                          </label>
-                        );
-                      })}
-                    </div>
-                  )}
                 </div>
               );
             })}
           <label className="flex items-center gap-2 cursor-pointer">
-            <input type="checkbox" checked={contentName.length === 0} onChange={() => setContentName([])} />
+            <input 
+              type="checkbox" 
+              checked={contentName.length === 0} 
+              onChange={() => {
+                setContentName([]);
+              }} 
+            />
             <span>Tất cả</span>
           </label>
         </div>
@@ -617,15 +461,40 @@ const QuestionManagementPage: React.FC = () => {
                     <td className="py-2 px-3">{DIFFICULTY_LABELS[q.difficulty]}</td>
                     <td className="py-2 px-3">
                       {(() => {
-                        // Ensure contentName is properly converted to Vietnamese
-                        if (typeof q.contentName === 'number') {
+                        // API có thể trả về description string thay vì enum number
+                        // Nếu contentName là string description, map ngược lại
+                        if (typeof q.contentName === 'string') {
+                          // Check if it's already a description
+                          const reverseMapping: Record<string, string> = {
+                            "Chữ Hán": "Chữ Hán",
+                            "Từ Vựng": "Từ Vựng", 
+                            "Ngữ Pháp": "Ngữ Pháp",
+                            "Đọc Hiểu": "Đọc Hiểu",
+                            "Nghe Hiểu": "Nghe Hiểu",
+                            "Kanji": "Chữ Hán",
+                            "Vocabulary": "Từ Vựng",
+                            "Grammar": "Ngữ Pháp", 
+                            "Reading": "Đọc Hiểu",
+                            "Listening": "Nghe Hiểu"
+                          };
+                          
+                          if (reverseMapping[q.contentName]) {
+                            return reverseMapping[q.contentName];
+                          }
+                          
+                          // If not found in mapping, try parsing as number
+                          const parsed = parseInt(q.contentName);
+                          if (!isNaN(parsed)) {
+                            return getContentNameLabel(parsed as ContentName);
+                          }
+                          
+                          // Return as-is if nothing works
+                          return q.contentName;
+                        } else if (typeof q.contentName === 'number') {
                           return getContentNameLabel(q.contentName as ContentName);
-                        } else if (typeof q.contentName === 'string') {
-                          // Convert string to enum if needed
-                          const contentNameEnum = stringToContentName(q.contentName);
-                          return getContentNameLabel(contentNameEnum);
                         }
-                        return getContentNameLabel(q.contentName as ContentName);
+                        
+                        return "Unknown";
                       })()}
                     </td>
                     <td className="py-2 px-3">{q.points}</td>

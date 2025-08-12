@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FaEdit, FaTrash, FaSave, FaTimes, FaPlus, FaMinus, FaCheck, FaExclamationCircle } from 'react-icons/fa';
+import { FaEdit, FaTrash, FaSave, FaTimes, FaPlus, FaMinus, FaCheck, FaExclamationCircle, FaSearch } from 'react-icons/fa';
 import { 
   updateQuestion,
   deleteQuestion,
@@ -9,6 +9,7 @@ import {
   getQuestionById,
   getChoicesByQuestionId,
   createQuestion,
+  getQuestionsPagingDetails,
 } from '../../services/questionService';
 import {
   QuestionDifficulty, 
@@ -47,19 +48,6 @@ interface EditTestFormState {
   durationMinutes: number;
   maxAttempts: number;
   passingPercentage: number;
-}
-
-interface QuestionWithChoices {
-  content: string;
-  explanation: string;
-  points: number;
-  difficulty: QuestionDifficulty;
-  isActive: boolean;
-  contentName: ContentName;
-  level: CourseLevel;
-  subContentName?: SubContentName;
-  choices?: ChoiceCreateDto[];
-  audioFile?: File;
 }
 
 interface ExistingQuestionWithChoices extends QuestionDto {
@@ -603,22 +591,6 @@ const EditTestModal: React.FC<EditTestModalProps> = ({
     maxAttempts: 3,
     passingPercentage: 70
   });
-  const [questions, setQuestions] = useState<QuestionWithChoices[]>([]);
-  const [currentQuestion, setCurrentQuestion] = useState<QuestionWithChoices>({
-    content: '',
-    explanation: '',
-    points: 1,
-    difficulty: QuestionDifficulty.Easy,
-    isActive: true,
-    contentName: ContentName.Kanji,
-    level: CourseLevel.N5
-  });
-  const [choices, setChoices] = useState<{ content: string; isCorrect: boolean }[]>([
-    { content: '', isCorrect: false },
-    { content: '', isCorrect: false },
-    { content: '', isCorrect: false },
-    { content: '', isCorrect: false }
-  ]);
   const [subContents, setSubContents] = useState<SubContentDto[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>('');
@@ -632,6 +604,14 @@ const EditTestModal: React.FC<EditTestModalProps> = ({
   const [editingQuestionId, setEditingQuestionId] = useState<string | null>(null);
   const [loadingQuestions, setLoadingQuestions] = useState(false);
 
+  // Question search states
+  const [availableQuestions, setAvailableQuestions] = useState<QuestionDto[]>([]);
+  const [selectedQuestionIds, setSelectedQuestionIds] = useState<string[]>([]);
+  const [loadingAvailableQuestions, setLoadingAvailableQuestions] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterContentName, setFilterContentName] = useState<ContentName | ''>('');
+  const [filterSubContentName, setFilterSubContentName] = useState<SubContentName | ''>('');
+
   // Initialize form when test data changes
   useEffect(() => {
     if (test) {
@@ -642,6 +622,7 @@ const EditTestModal: React.FC<EditTestModalProps> = ({
         maxAttempts: test.maxAttempts || 3,
         passingPercentage: 70 // Default value since it's not in TestDto
       });
+      
       setError('');
       loadSubContents();
     }
@@ -654,17 +635,11 @@ const EditTestModal: React.FC<EditTestModalProps> = ({
     }
   }, [test, isOpen]);
 
-  // Load subcontents when contentName changes
-  useEffect(() => {
-    if (test && currentQuestion.contentName !== undefined) {
-      loadSubContents();
-    }
-  }, [test, currentQuestion.contentName]);
-
   const loadSubContents = async () => {
-    if (!test || currentQuestion.contentName === undefined) return;
+    if (!test) return;
     try {
-      const data = await getAllSubContents(undefined, test.courseLevel, currentQuestion.contentName);
+      // Load all subcontents for the test's course level
+      const data = await getAllSubContents(undefined, test.courseLevel);
       setSubContents(data.items);
     } catch (error) {
       console.error('Failed to load subcontents:', error);
@@ -697,6 +672,84 @@ const EditTestModal: React.FC<EditTestModalProps> = ({
     }
   };
 
+  // Search for available questions
+  const searchAvailableQuestions = async () => {
+    if (!test) return;
+    
+    try {
+      setLoadingAvailableQuestions(true);
+      const searchParams = {
+        pageIndex: 1,
+        pageSize: 50,
+        search: searchTerm.trim() || undefined,
+        contentName: filterContentName ? filterContentName.toString() : undefined, 
+        subContentName: filterSubContentName ? filterSubContentName.toString() : undefined,
+        courseLevel: [test.courseLevel], // Filter by course level of the test
+        isActive: true // Only get active questions
+      };
+
+      const response = await getQuestionsPagingDetails(searchParams);
+      if (response && response.items) {
+        // Filter out questions that are already in the test
+        const existingQuestionIds = new Set(existingQuestions.map(q => q.id));
+        const newQuestions = response.items.filter((q: QuestionDto) => !existingQuestionIds.has(q.id));
+        setAvailableQuestions(newQuestions);
+      }
+    } catch (error) {
+      console.error('Error searching questions:', error);
+      setError('Không thể tìm kiếm câu hỏi');
+    } finally {
+      setLoadingAvailableQuestions(false);
+    }
+  };
+
+  // Toggle question selection
+  const toggleQuestionSelection = (questionId: string) => {
+    setSelectedQuestionIds(prev => 
+      prev.includes(questionId) 
+        ? prev.filter(id => id !== questionId)
+        : [...prev, questionId]
+    );
+  };
+
+  // Add selected questions to test
+  const addSelectedQuestions = async () => {
+    if (!test || selectedQuestionIds.length === 0) {
+      setError('Vui lòng chọn ít nhất một câu hỏi');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      
+      // Prepare test-question pairs for the API
+      const testQuestionPairs = selectedQuestionIds.map(questionId => ({
+        testId: test.testId,
+        questionId: questionId
+      }));
+      
+      // Add questions to test using the service
+      await addQuestionsCustomManual(testQuestionPairs);
+      
+      // Reload existing questions to reflect changes
+      await loadExistingQuestions();
+      
+      // Clear selections and reset search
+      setSelectedQuestionIds([]);
+      setAvailableQuestions([]);
+      setSearchTerm('');
+      setFilterContentName('');
+      setFilterSubContentName('');
+      
+      showNotification('Thành công', 'Đã thêm câu hỏi vào bài test', 'success');
+    } catch (error) {
+      console.error('Error adding questions to test:', error);
+      setError('Không thể thêm câu hỏi vào bài test');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormState(prev => ({
@@ -710,91 +763,6 @@ const EditTestModal: React.FC<EditTestModalProps> = ({
       ...prev,
       [name]: value
     }));
-  };
-
-  const handleQuestionChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    console.log("handleQuestionChange:", { name, value, type: typeof value });
-    setCurrentQuestion(prev => {
-      let parsedValue: any = value;
-      if (name === 'points' || name === 'difficulty' || name === 'contentName') {
-        parsedValue = parseInt(value);
-      } else if (name === 'subContentName') {
-        parsedValue = value === "" ? undefined : value;
-      }
-      const updated = { ...prev, [name]: parsedValue };
-      
-      // Reset subContentName when contentName changes
-      if (name === 'contentName') {
-        updated.subContentName = undefined;
-      }
-      
-      console.log("Updated currentQuestion:", updated);
-      return updated;
-    });
-  };
-
-  const handleChoiceChange = (index: number, field: 'content' | 'isCorrect', value: string | boolean) => {
-    setChoices(prev => prev.map((choice, i) => 
-      i === index ? { ...choice, [field]: value } : choice
-    ));
-  };
-
-  const addChoice = () => {
-    setChoices(prev => [...prev, { content: '', isCorrect: false }]);
-  };
-
-  const removeChoice = (index: number) => {
-    if (choices.length > 4) {
-      setChoices(prev => prev.filter((_, i) => i !== index));
-    }
-  };
-
-  const addQuestion = () => {
-    if (!currentQuestion.content.trim()) {
-      setError('Nội dung câu hỏi không được để trống');
-      return;
-    }
-    if (choices.length < 4) {
-      setError('Phải có ít nhất 4 lựa chọn');
-      return;
-    }
-    if (!choices.some(choice => choice.isCorrect)) {
-      setError('Phải có ít nhất 1 đáp án đúng');
-      return;
-    }
-    if (!choices.every(choice => choice.content.trim())) {
-      setError('Tất cả lựa chọn phải có nội dung');
-      return;
-    }
-
-    const questionWithChoices = {
-      ...currentQuestion,
-      choices: [...choices]
-    };
-
-    setQuestions(prev => [...prev, questionWithChoices]);
-    setCurrentQuestion({
-      content: '',
-      explanation: '',
-      points: 1,
-      difficulty: QuestionDifficulty.Easy,
-      isActive: true,
-      contentName: ContentName.Kanji,
-      level: CourseLevel.N5,
-      audioFile: undefined
-    });
-    setChoices([
-      { content: '', isCorrect: false },
-      { content: '', isCorrect: false },
-      { content: '', isCorrect: false },
-      { content: '', isCorrect: false }
-    ]);
-    setError('');
-  };
-
-  const removeQuestion = (index: number) => {
-    setQuestions(prev => prev.filter((_, i) => i !== index));
   };
 
   const handleDeleteExistingQuestion = async (testQuestionId: string) => {
@@ -841,15 +809,6 @@ const EditTestModal: React.FC<EditTestModalProps> = ({
     }
   };
 
-  const getSubContentOptions = () => {
-    if (test?.courseLevel === undefined || currentQuestion.contentName === undefined) return [];
-    
-    return subContents.map(sc => ({
-      value: sc.subContentName,
-      label: `${sc.contentNameDescription} - ${sc.subContentNameDescription}`
-    }));
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!test) return;
@@ -878,7 +837,6 @@ const EditTestModal: React.FC<EditTestModalProps> = ({
       }
 
       // Check if test has existing questions to determine what can be updated
-      const hasExistingQuestions = existingQuestions.length > 0;
       
       // Prepare update data based on business rules
       const updateData: any = {
@@ -925,70 +883,12 @@ const EditTestModal: React.FC<EditTestModalProps> = ({
         testType: test.testType,
         status: test.status,
         courseLevel: test.courseLevel,
-        hasExistingQuestions
       });
-      console.log('Form state:', JSON.stringify(formState, null, 2));
-      console.log('Existing questions count:', existingQuestions.length);
       console.log('==============================');
 
       // Update test
       await updateTest(test.testId, updateData);
 
-      // Create questions if any
-      if (questions.length > 0) {
-        const questionIds: string[] = [];
-
-        // Create questions and choices
-        for (const question of questions) {
-          try {
-                    if (question.subContentName === undefined || question.subContentName === null || (typeof question.subContentName === 'number' && isNaN(question.subContentName))) {
-          console.error("Invalid subContentName:", { value: question.subContentName, type: typeof question.subContentName });
-          throw new Error("subContentName is required and must be a valid enum value. Please select a valid subcontent option.");
-        }
-
-            const questionData: CreateQuestionDto = {
-              content: question.content,
-              explanation: question.explanation || "",
-              points: question.points,
-              difficulty: question.difficulty,
-              isActive: question.isActive,
-              contentName: question.contentName,
-              level: question.level,
-              subContentName: question.subContentName as SubContentName,
-              audioFile: question.audioFile
-            };
-
-            console.log("Creating question:", questionData);
-            const createdQuestion = await createQuestion(questionData);
-            questionIds.push(createdQuestion.id);
-
-            // Create choices for this question
-            if (question.choices) {
-              for (const choice of question.choices) {
-                await createChoice(createdQuestion.id, {
-                  content: choice.content,
-                  isCorrect: choice.isCorrect
-                });
-              }
-            }
-          } catch (error: any) {
-            console.error('Error creating question:', error);
-            throw new Error(`Lỗi tạo câu hỏi: ${error.response?.data?.message || error.message}`);
-          }
-        }
-
-        // Add questions to test
-        const testQuestionPairs = questionIds.map(questionId => ({
-          testId: test.testId,
-          questionId: questionId
-        }));
-        await addQuestionsCustomManual(testQuestionPairs);
-      }
-
-      // Reload existing questions to show newly added ones
-      if (questions.length > 0) {
-        loadExistingQuestions();
-      }
       onTestUpdated();
     } catch (error: any) {
       console.error('Error updating test:', error);
@@ -1047,15 +947,7 @@ const EditTestModal: React.FC<EditTestModalProps> = ({
           <div className="bg-gray-50 p-4 rounded-lg">
             <h3 className="font-semibold text-gray-800 mb-2">Thông tin Test</h3>
             <div className="grid grid-cols-2 gap-4 text-sm">
-              <div>
-                <span className="font-medium">Loại test:</span>
-                <span className="ml-2 text-gray-600">
-                  {test.testType === TestType.JLPTAuto ? 'JLPT Auto' :
-                   test.testType === TestType.EntryAuto ? 'Entry Auto' :
-                   test.testType === TestType.CustomManual ? 'Custom Manual' :
-                   test.testType === TestType.CustomAuto ? 'Custom Auto' : 'Unknown'}
-                </span>
-              </div>
+              {/* Removed Test Type display - fixed to CustomManual */}
               <div>
                 <span className="font-medium">Cấp độ:</span>
                 <span className="ml-2 text-gray-600">
@@ -1078,9 +970,7 @@ const EditTestModal: React.FC<EditTestModalProps> = ({
             <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
               <h4 className="text-xs font-medium text-blue-800 mb-1">Lưu ý về chỉnh sửa:</h4>
               <ul className="text-xs text-blue-700 space-y-1">
-                <li>• Thời gian làm bài chỉ có thể sửa với loại "Custom Manual"</li>
                 <li>• Tỷ lệ đạt chỉ có thể sửa khi test đã đóng</li>
-                <li>• Không thể thay đổi loại test khi đã có câu hỏi</li>
               </ul>
             </div>
           </div>
@@ -1225,17 +1115,23 @@ const EditTestModal: React.FC<EditTestModalProps> = ({
               </div>
             ) : (
               <div className="space-y-4 max-h-96 overflow-y-auto">
-                {existingQuestions.map((question) => (
-                  <ExistingQuestionItem
-                    key={question.id}
-                    question={question}
-                    isEditing={editingQuestionId === question.id}
-                    onEdit={() => setEditingQuestionId(question.id)}
-                    onCancelEdit={() => setEditingQuestionId(null)}
-                    onSave={(updates) => handleUpdateExistingQuestion(question.id, updates)}
-                    onDelete={() => handleDeleteExistingQuestion(question.testQuestionId)}
-                    showNotification={showNotification}
-                  />
+                {existingQuestions.map((question, index) => (
+                  <div key={question.id} className="flex items-start gap-3">
+                    <div className="flex-shrink-0 w-8 h-8 bg-blue-500 text-white rounded-full flex items-center justify-center text-sm font-semibold mt-1">
+                      {index + 1}
+                    </div>
+                    <div className="flex-1">
+                      <ExistingQuestionItem
+                        question={question}
+                        isEditing={editingQuestionId === question.id}
+                        onEdit={() => setEditingQuestionId(question.id)}
+                        onCancelEdit={() => setEditingQuestionId(null)}
+                        onSave={(updates) => handleUpdateExistingQuestion(question.id, updates)}
+                        onDelete={() => handleDeleteExistingQuestion(question.testQuestionId)}
+                        showNotification={showNotification}
+                      />
+                    </div>
+                  </div>
                 ))}
               </div>
             )}
@@ -1243,228 +1139,169 @@ const EditTestModal: React.FC<EditTestModalProps> = ({
 
           {/* Add Questions Section */}
           <div className="border-t border-gray-200 pt-6">
-             <h3 className="text-lg font-semibold text-gray-800 mb-4">Thêm Câu hỏi Mới (Tùy chọn)</h3>
-             <p className="text-sm text-gray-600 mb-4">Bạn có thể cập nhật test mà không cần thêm câu hỏi mới. Chỉ điền thông tin dưới đây nếu muốn thêm câu hỏi.</p>
-             
-             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-               {/* Question Content */}
-               <div className="md:col-span-2">
-                 <label htmlFor="content" className="block text-sm font-medium text-gray-700 mb-2">
-                   Nội dung câu hỏi
-                 </label>
-                 <textarea
-                   id="content"
-                   name="content"
-                   value={currentQuestion.content}
-                   onChange={handleQuestionChange}
-                   rows={3}
-                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500"
-                   placeholder="Nhập nội dung câu hỏi"
-                 />
-               </div>
+            <div className="mb-6">
+              <h4 className="text-lg font-semibold text-gray-800 mb-4">Thêm Câu hỏi</h4>
+              <div className="bg-gray-50 p-4 rounded-lg">
+                {/* Search and Filter Controls */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Tìm kiếm câu hỏi</label>
+                    <input
+                      type="text"
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500"
+                      placeholder="Nhập nội dung câu hỏi để tìm kiếm... (tùy chọn)"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Loại nội dung</label>
+                    <select
+                      value={filterContentName}
+                      onChange={(e) => setFilterContentName(e.target.value as ContentName | '')}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500"
+                    >
+                      <option value="">Tất cả loại nội dung</option>
+                      <option value={ContentName.Vocabulary}>Từ vựng</option>
+                      <option value={ContentName.Grammar}>Ngữ pháp</option>
+                      <option value={ContentName.Reading}>Đọc hiểu</option>
+                      <option value={ContentName.Listening}>Nghe hiểu</option>
+                      <option value={ContentName.Kanji}>Chữ Hán</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Loại bài</label>
+                    <select
+                      value={filterSubContentName}
+                      onChange={(e) => setFilterSubContentName(e.target.value as SubContentName | '')}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500"
+                      disabled={!filterContentName}
+                    >
+                      <option value="">Tất cả loại bài</option>
+                      {subContents.map((sub) => (
+                        <option key={`${sub.subContentName}-${sub.contentName}`} value={sub.subContentName}>
+                          {SubContentName[sub.subContentName as keyof typeof SubContentName]}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
 
-               {/* Explanation */}
-               <div className="md:col-span-2">
-                 <label htmlFor="explanation" className="block text-sm font-medium text-gray-700 mb-2">
-                   Giải thích
-                 </label>
-                 <textarea
-                   id="explanation"
-                   name="explanation"
-                   value={currentQuestion.explanation}
-                   onChange={handleQuestionChange}
-                   rows={2}
-                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500"
-                   placeholder="Giải thích đáp án (tùy chọn)"
-                 />
-               </div>
-
-               {/* Points */}
-               <div>
-                 <label htmlFor="points" className="block text-sm font-medium text-gray-700 mb-2">
-                   Điểm số
-                 </label>
-                 <input
-                   type="number"
-                   id="points"
-                   name="points"
-                   value={currentQuestion.points}
-                   onChange={handleQuestionChange}
-                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500"
-                   min="1"
-                 />
-               </div>
-
-               {/* Difficulty */}
-               <div>
-                 <label htmlFor="difficulty" className="block text-sm font-medium text-gray-700 mb-2">
-                   Độ khó
-                 </label>
-                 <select
-                   id="difficulty"
-                   name="difficulty"
-                   value={currentQuestion.difficulty}
-                   onChange={handleQuestionChange}
-                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500"
-                 >
-                   <option value={QuestionDifficulty.Easy}>Dễ</option>
-                   <option value={QuestionDifficulty.Medium}>Trung bình</option>
-                   <option value={QuestionDifficulty.Hard}>Khó</option>
-                 </select>
-               </div>
-
-               {/* Content Name */}
-               <div>
-                 <label htmlFor="contentName" className="block text-sm font-medium text-gray-700 mb-2">
-                   Loại nội dung
-                 </label>
-                 <select
-                   id="contentName"
-                   name="contentName"
-                   value={currentQuestion.contentName}
-                   onChange={handleQuestionChange}
-                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500"
-                 >
-                   <option value={ContentName.Kanji}>Chữ Hán</option>
-                   <option value={ContentName.Grammar}>Ngữ pháp</option>
-                   <option value={ContentName.Vocabulary}>Từ vựng</option>
-                   <option value={ContentName.Reading}>Đọc hiểu</option>
-                   <option value={ContentName.Listening}>Nghe hiểu</option>
-                 </select>
-               </div>
-
-               {/* Sub Content Name */}
-               <div>
-                 <label htmlFor="subContentName" className="block text-sm font-medium text-gray-700 mb-2">
-                   Loại bài
-                 </label>
-                 <select
-                   id="subContentName"
-                   name="subContentName"
-                   value={currentQuestion.subContentName || ""}
-                   onChange={handleQuestionChange}
-                   className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500 ${
-                     test.courseLevel === undefined || currentQuestion.contentName === undefined ? 'bg-gray-100 text-gray-500' : ''
-                   }`}
-                   disabled={test.courseLevel === undefined || currentQuestion.contentName === undefined}
-                 >
-                   <option value="">Chọn loại bài</option>
-                   {getSubContentOptions().map((option) => (
-                     <option key={option.value} value={option.value}>{option.label}</option>
-                   ))}
-                 </select>
-               </div>
-             </div>
-
-                           {/* Choices */}
-              <div className="mt-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h4 className="text-md font-semibold text-gray-800">Lựa chọn</h4>
+                {/* Search Button and Clear */}
+                <div className="mb-4 flex gap-2">
                   <button
-                    type="button"
-                    onClick={addChoice}
-                    className="flex items-center gap-2 px-3 py-1 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                    onClick={searchAvailableQuestions}
+                    disabled={loadingAvailableQuestions}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+                      loadingAvailableQuestions 
+                        ? 'bg-gray-400 cursor-not-allowed text-white' 
+                        : 'bg-blue-600 hover:bg-blue-700 text-white'
+                    }`}
                   >
-                    <FaPlus size={12} />
-                    Thêm lựa chọn
+                    <FaSearch size={14} />
+                    {loadingAvailableQuestions ? 'Đang tìm kiếm...' : 'Tìm kiếm ngay'}
+                  </button>
+                  
+                  <button
+                    onClick={() => {
+                      setSearchTerm("");
+                      setFilterContentName("");
+                      setFilterSubContentName("");
+                      setAvailableQuestions([]);
+                      setSelectedQuestionIds([]);
+                    }}
+                    className="flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100 transition-colors"
+                  >
+                    <FaTimes size={14} />
+                    Xóa bộ lọc
                   </button>
                 </div>
 
-                {choices.map((choice, index) => (
-                  <div key={index} className="flex items-center gap-3 mb-3">
-                    <input
-                      type="text"
-                      value={choice.content}
-                      onChange={(e) => handleChoiceChange(index, 'content', e.target.value)}
-                      placeholder={`Lựa chọn ${index + 1}`}
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500"
-                    />
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="radio"
-                        name="correctAnswer"
-                        checked={choice.isCorrect}
-                        onChange={() => {
-                          // Set all choices to false, then set this one to true
-                          setChoices(prev => prev.map((c, i) => ({ ...c, isCorrect: i === index })));
-                        }}
-                        className="text-green-600 focus:ring-green-500"
-                      />
-                      <span className="text-sm text-gray-700">Đúng</span>
-                    </label>
-                                         {choices.length > 4 && (
-                       <button
-                         type="button"
-                         onClick={() => removeChoice(index)}
-                         className="text-red-500 hover:text-red-700 transition-colors"
-                       >
-                         <FaTrash size={14} />
-                       </button>
-                     )}
+                {/* Info message */}
+                <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <p className="text-blue-800 text-sm">
+                    💡 <strong>Mẹo:</strong> Bạn có thể tìm kiếm chỉ bằng Loại nội dung hoặc Loại bài mà không cần nhập từ khóa. 
+                    Hệ thống sẽ tự động tìm kiếm khi bạn thay đổi bộ lọc.
+                  </p>
+                </div>
+
+                {/* Available Questions List */}
+                {availableQuestions.length > 0 && (
+                  <div className="mb-4">
+                    <h5 className="text-md font-semibold text-gray-700 mb-3">Câu hỏi có sẵn ({availableQuestions.length})</h5>
+                    <div className="max-h-60 overflow-y-auto space-y-3">
+                      {availableQuestions.map((question) => (
+                        <div
+                          key={question.id}
+                          className={`p-3 border rounded-lg cursor-pointer transition-colors ${
+                            selectedQuestionIds.includes(question.id)
+                              ? 'border-green-500 bg-green-50'
+                              : 'border-gray-300 hover:border-gray-400'
+                          }`}
+                          onClick={() => toggleQuestionSelection(question.id)}
+                        >
+                          <div className="flex justify-between items-start">
+                            <div className="flex-1">
+                              <p className="text-sm font-medium text-gray-800 mb-1">
+                                {question.content.length > 100 
+                                  ? question.content.substring(0, 100) + '...' 
+                                  : question.content}
+                              </p>
+                              <div className="flex flex-wrap gap-2 text-xs">
+                                <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded">
+                                  {ContentName[question.contentName]}
+                                </span>
+                                <span className="px-2 py-1 bg-purple-100 text-purple-700 rounded">
+                                  {SubContentName[question.subContentName]}
+                                </span>
+                                <span className="px-2 py-1 bg-yellow-100 text-yellow-700 rounded">
+                                  {question.points} điểm
+                                </span>
+                              </div>
+                            </div>
+                            <div className="ml-2">
+                              <input
+                                type="checkbox"
+                                checked={selectedQuestionIds.includes(question.id)}
+                                onChange={() => toggleQuestionSelection(question.id)}
+                                className="w-4 h-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    
+                    {/* Add Selected Questions Button */}
+                    {selectedQuestionIds.length > 0 && (
+                      <div className="mt-3">
+                        <button
+                          onClick={addSelectedQuestions}
+                          className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                        >
+                          <FaPlus size={14} />
+                          Thêm {selectedQuestionIds.length} câu hỏi đã chọn
+                        </button>
+                      </div>
+                    )}
                   </div>
-                ))}
+                )}
+
+                {/* No questions found message */}
+                {availableQuestions.length === 0 && !loadingAvailableQuestions && searchTerm && (
+                  <div className="text-center py-4 text-gray-500">
+                    <div>
+                      <p>Không tìm thấy câu hỏi nào phù hợp với bộ lọc hiện tại.</p>
+                      <p className="text-sm mt-1">Hãy thử thay đổi từ khóa hoặc bộ lọc.</p>
+                    </div>
+                  </div>
+                )}
               </div>
+            </div>
+          </div>
+          
 
-              {/* Audio File Upload */}
-              <div className="mt-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Tệp âm thanh (tùy chọn)
-                </label>
-                <input
-                  type="file"
-                  accept="audio/*"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) {
-                      setCurrentQuestion(prev => ({ ...prev, audioFile: file }));
-                    }
-                  }}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500"
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  Hỗ trợ: MP3, WAV, OGG. Kích thước tối đa: 10MB
-                </p>
-              </div>
-
-             {/* Add Question Button */}
-             <div className="mt-4">
-               <button
-                 type="button"
-                 onClick={addQuestion}
-                 className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-               >
-                 <FaPlus />
-                 Thêm vào danh sách
-               </button>
-             </div>
-           </div>
-
-           {/* Questions List */}
-           {questions.length > 0 && (
-             <div className="border border-gray-200 rounded-lg p-4">
-               <h3 className="text-lg font-semibold text-gray-800 mb-4">Danh sách câu hỏi ({questions.length})</h3>
-               <div className="space-y-3">
-                 {questions.map((question, index) => (
-                   <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                     <div className="flex-1">
-                       <p className="font-medium text-gray-800">{question.content}</p>
-                       <p className="text-sm text-gray-600">
-                         {question.choices?.length || 0} lựa chọn • 
-                         {question.choices?.filter(c => c.isCorrect).length || 0} đáp án đúng
-                       </p>
-                     </div>
-                     <button
-                       type="button"
-                       onClick={() => removeQuestion(index)}
-                       className="text-red-500 hover:text-red-700 transition-colors"
-                     >
-                       <FaTrash size={16} />
-                     </button>
-                   </div>
-                 ))}
-               </div>
-             </div>
-           )}
+           
 
            {/* Action Buttons */}
            <div className="flex gap-3 pt-6 border-t border-gray-200">
@@ -1476,7 +1313,7 @@ const EditTestModal: React.FC<EditTestModalProps> = ({
                `}
              >
                <FaSave className="mr-2" />
-               {loading ? "Đang cập nhật..." : `Cập nhật Test${questions.length > 0 ? ` + Thêm ${questions.length} câu hỏi` : ''}`}
+               {loading ? "Đang cập nhật..." : "Cập nhật Test"}
              </button>
              <button
                type="button"

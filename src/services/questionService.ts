@@ -174,26 +174,16 @@ export const deleteQuestion = async (id: string): Promise<void> => {
   await axiosInstance.delete(`${QUESTION_BASE_URL}/${id}`);
 };
 
-// Toggle question active status (staff only) - using update API instead of toggle-active
+// Toggle question active status (staff only) - using update API
 export const toggleQuestionActiveStatus = async (questionId: string, isActive: boolean) => {
   try {
-    // Option 1: Send as plain boolean value
-    const response = await axiosInstance.patch(`/api/questions/${questionId}/status`, isActive, {
-      headers: {
-        'Content-Type': 'application/json'
-      }
-    });
+    // Use the existing updateQuestion API to change only the isActive status
+    const updateDto: UpdateQuestionDto = {
+      isActive: isActive
+    };
     
-    // Option 2: If backend expects object format
-    // const response = await axiosInstance.patch(`/api/questions/${questionId}/status`, {
-    //   isActive: isActive
-    // }, {
-    //   headers: {
-    //     'Content-Type': 'application/json'
-    //   }
-    // });
-    
-    return response.data;
+    const response = await updateQuestion(questionId, updateDto);
+    return response;
   } catch (error: any) {
     console.error(`ToggleQuestionActiveStatus API error for ID ${questionId}:`, error);
     throw error;

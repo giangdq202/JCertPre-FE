@@ -115,13 +115,13 @@ const CreateCoursePage: React.FC = () => {
                 </Select>
               </Form.Item>
 
+              {/* Temporarily hidden Course Type - always defaults to Public */}
               <Form.Item
                 name="courseType"
-                label={<span className="text-gray-700 font-medium">Loại khóa học</span>}
-                rules={[{ required: true, message: "Please select the course type!" }]}
+                style={{ display: 'none' }}
+                initialValue={CourseType.Public}
               >
-                <Select placeholder="Chọn loại khóa học" className="rounded-lg focus:ring-orange-500 focus:border-orange-500">
-                  <Option value={CourseType.Personal}>Cá nhân</Option>
+                <Select>
                   <Option value={CourseType.Public}>Công khai</Option>
                 </Select>
               </Form.Item>

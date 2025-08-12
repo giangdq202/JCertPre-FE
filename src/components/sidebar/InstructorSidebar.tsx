@@ -10,6 +10,11 @@ import paths from "../../routes/path";
 
 const menuItems = [
   {
+    name: "Tổng quan",
+    icon: <MdDashboard size={20} />,
+    path: paths.instructor_home,
+  },
+  {
     name: "Lịch trình dạy học",
     icon: <MdOutlineSchedule size={20} />,
     path: paths.instructor_schedule,

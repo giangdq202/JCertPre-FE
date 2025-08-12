@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, Fragment } from "react";
 import { useNavigate } from "react-router-dom";
-import { FaPlus, FaEdit, FaTrash, FaEye, FaEyeSlash, FaArrowLeft, FaCog, FaTimes } from "react-icons/fa";
+import { FaPlus, FaEdit, FaTrash, FaEye, FaEyeSlash, FaArrowLeft, FaCog, FaChevronDown, FaChevronRight } from "react-icons/fa";
 import { 
   getAllTestTemplateTypes, 
   createTestTemplateType, 
@@ -40,6 +40,19 @@ import Modal from "../../components/modals/Modal";
 const TestTemplateTypeManagementPage: React.FC = () => {
   const navigate = useNavigate();
   const { userInfo } = useAuth();
+
+  // Helper function to convert CourseLevel enum to string
+  const getCourseLevelString = (courseLevel: CourseLevel): string => {
+    const levelMap = {
+      [CourseLevel.N5]: "N5",
+      [CourseLevel.N4]: "N4", 
+      [CourseLevel.N3]: "N3",
+      [CourseLevel.N2]: "N2",
+      [CourseLevel.N1]: "N1"
+    };
+    return levelMap[courseLevel];
+  };
+
   const [templateTypes, setTemplateTypes] = useState<TestTemplateTypeDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -48,18 +61,24 @@ const TestTemplateTypeManagementPage: React.FC = () => {
   const [editingTemplate, setEditingTemplate] = useState<TestTemplateTypeDto | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
+  // Expanded state for each template type
+  const [expandedTemplateTypes, setExpandedTemplateTypes] = useState<Set<string>>(new Set());
+  const [templatesByType, setTemplatesByType] = useState<{[key: string]: TestTemplateDto[]}>({}); 
+  const [loadingTemplatesByType, setLoadingTemplatesByType] = useState<{[key: string]: boolean}>({});
+
+  // Expanded state for each template (for configs)
+  const [expandedTemplates, setExpandedTemplates] = useState<Set<string>>(new Set());
+  const [configsByTemplate, setConfigsByTemplate] = useState<{[key: string]: TestTemplateConfigDto[]}>({}); 
+  const [loadingConfigsByTemplate, setLoadingConfigsByTemplate] = useState<{[key: string]: boolean}>({});
+
   // Template management states
   const [selectedTemplateType, setSelectedTemplateType] = useState<TestTemplateTypeDto | null>(null);
-  const [templates, setTemplates] = useState<TestTemplateDto[]>([]);
-  const [loadingTemplates, setLoadingTemplates] = useState(false);
   const [isCreateTemplateModalOpen, setIsCreateTemplateModalOpen] = useState(false);
   const [isEditTemplateModalOpen, setIsEditTemplateModalOpen] = useState(false);
   const [editingTemplateTemplate, setEditingTemplateTemplate] = useState<TestTemplateDto | null>(null);
 
   // Template config management states
   const [selectedTemplate, setSelectedTemplate] = useState<TestTemplateDto | null>(null);
-  const [templateConfigs, setTemplateConfigs] = useState<TestTemplateConfigDto[]>([]);
-  const [loadingConfigs, setLoadingConfigs] = useState(false);
   const [subContents, setSubContents] = useState<SubContentDto[]>([]);
   const [isCreateConfigModalOpen, setIsCreateConfigModalOpen] = useState(false);
   const [isEditConfigModalOpen, setIsEditConfigModalOpen] = useState(false);
@@ -223,20 +242,6 @@ const TestTemplateTypeManagementPage: React.FC = () => {
   };
 
   // Template management functions
-  const handleManageTemplates = async (templateType: TestTemplateTypeDto) => {
-    setSelectedTemplateType(templateType);
-    setLoadingTemplates(true);
-    try {
-      const templateList = await getAllByTypeId(templateType.testTemplateTypeId);
-      setTemplates(templateList);
-    } catch (error) {
-      console.error("Failed to load templates:", error);
-      setError("Không thể tải danh sách phần thi");
-    } finally {
-      setLoadingTemplates(false);
-    }
-  };
-
   const handleCreateTemplate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedTemplateType) return;
@@ -257,7 +262,11 @@ const TestTemplateTypeManagementPage: React.FC = () => {
         toPassPercentage: 70,
         sequence: 1
       });
-      await handleManageTemplates(selectedTemplateType);
+      
+      // Update dropdown templates
+      if (expandedTemplateTypes.has(selectedTemplateType.testTemplateTypeId)) {
+        await loadTemplatesForType(selectedTemplateType);
+      }
     } catch (error: any) {
       console.error("Failed to create template:", error);
       if (error?.response?.data?.errorCode === "TYPE_ACTIVE") {
@@ -279,7 +288,11 @@ const TestTemplateTypeManagementPage: React.FC = () => {
       await updateTestTemplate(editingTemplateTemplate.templateId, editTemplateForm);
       setIsEditTemplateModalOpen(false);
       setEditingTemplateTemplate(null);
-      await handleManageTemplates(selectedTemplateType);
+      
+      // Update dropdown templates
+      if (expandedTemplateTypes.has(selectedTemplateType.testTemplateTypeId)) {
+        await loadTemplatesForType(selectedTemplateType);
+      }
     } catch (error) {
       console.error("Failed to update template:", error);
       setError("Không thể cập nhật phần thi");
@@ -293,10 +306,90 @@ const TestTemplateTypeManagementPage: React.FC = () => {
 
     try {
       await deleteTestTemplate(templateId);
-      await handleManageTemplates(selectedTemplateType);
+      
+      // Update dropdown templates
+      if (expandedTemplateTypes.has(selectedTemplateType.testTemplateTypeId)) {
+        await loadTemplatesForType(selectedTemplateType);
+      }
     } catch (error) {
       console.error("Failed to delete template:", error);
       setError("Không thể xóa phần thi");
+    }
+  };
+
+  // Toggle expand/collapse for template type
+  const toggleTemplateTypeExpand = async (templateType: TestTemplateTypeDto) => {
+    const templateTypeId = templateType.testTemplateTypeId;
+    const isCurrentlyExpanded = expandedTemplateTypes.has(templateTypeId);
+    
+    if (isCurrentlyExpanded) {
+      // Collapse
+      const newExpanded = new Set(expandedTemplateTypes);
+      newExpanded.delete(templateTypeId);
+      setExpandedTemplateTypes(newExpanded);
+    } else {
+      // Expand - load templates if not already loaded
+      const newExpanded = new Set(expandedTemplateTypes);
+      newExpanded.add(templateTypeId);
+      setExpandedTemplateTypes(newExpanded);
+      
+      if (!templatesByType[templateTypeId]) {
+        await loadTemplatesForType(templateType);
+      }
+    }
+  };
+
+  // Load templates for a specific template type
+  const loadTemplatesForType = async (templateType: TestTemplateTypeDto) => {
+    const templateTypeId = templateType.testTemplateTypeId;
+    setLoadingTemplatesByType(prev => ({ ...prev, [templateTypeId]: true }));
+    
+    try {
+      const templatesData = await getAllByTypeId(templateTypeId);
+      setTemplatesByType(prev => ({ ...prev, [templateTypeId]: templatesData }));
+    } catch (error) {
+      console.error("Failed to load templates for type:", error);
+      setError("Không thể tải danh sách phần thi");
+    } finally {
+      setLoadingTemplatesByType(prev => ({ ...prev, [templateTypeId]: false }));
+    }
+  };
+
+  // Toggle expand/collapse for template (for configs)
+  const toggleTemplateExpand = async (template: TestTemplateDto) => {
+    const templateId = template.templateId;
+    const isCurrentlyExpanded = expandedTemplates.has(templateId);
+    
+    if (isCurrentlyExpanded) {
+      // Collapse
+      const newExpanded = new Set(expandedTemplates);
+      newExpanded.delete(templateId);
+      setExpandedTemplates(newExpanded);
+    } else {
+      // Expand - load configs if not already loaded
+      const newExpanded = new Set(expandedTemplates);
+      newExpanded.add(templateId);
+      setExpandedTemplates(newExpanded);
+      
+      if (!configsByTemplate[templateId]) {
+        await loadConfigsForTemplate(template);
+      }
+    }
+  };
+
+  // Load configs for a specific template
+  const loadConfigsForTemplate = async (template: TestTemplateDto) => {
+    const templateId = template.templateId;
+    setLoadingConfigsByTemplate(prev => ({ ...prev, [templateId]: true }));
+    
+    try {
+      const configsData = await getAllByTemplateId(templateId);
+      setConfigsByTemplate(prev => ({ ...prev, [templateId]: configsData }));
+    } catch (error) {
+      console.error("Failed to load configs for template:", error);
+      setError("Không thể tải danh sách cấu hình câu hỏi");
+    } finally {
+      setLoadingConfigsByTemplate(prev => ({ ...prev, [templateId]: false }));
     }
   };
 
@@ -313,31 +406,20 @@ const TestTemplateTypeManagementPage: React.FC = () => {
   };
 
   // Template config management functions
-  const handleManageConfigs = async (template: TestTemplateDto) => {
-    setSelectedTemplate(template);
-    setLoadingConfigs(true);
-    try {
-      const [configs, subContentList] = await Promise.all([
-        getAllByTemplateId(template.templateId),
-        getAllSubContents(undefined, undefined, undefined, undefined, 1, 100)
-      ]);
-      setTemplateConfigs(configs);
-      setSubContents(subContentList.items);
-    } catch (error) {
-      console.error("Failed to load configs:", error);
-      setError("Không thể tải danh sách cấu hình câu hỏi");
-    } finally {
-      setLoadingConfigs(false);
-    }
-  };
-
   const handleCreateConfig = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedTemplate) return;
 
     setSubmitting(true);
     try {
-      await createTestTemplateConfig(selectedTemplate.templateId, createConfigForm);
+      const response = await createTestTemplateConfig(selectedTemplate.templateId, createConfigForm);
+      
+      // Update configs in the nested dropdown state
+      setConfigsByTemplate(prev => ({
+        ...prev,
+        [selectedTemplate.templateId]: [...(prev[selectedTemplate.templateId] || []), response]
+      }));
+      
       setIsCreateConfigModalOpen(false);
       setCreateConfigForm({
         subContentId: "",
@@ -346,7 +428,6 @@ const TestTemplateTypeManagementPage: React.FC = () => {
         totalPoints: 1,
         sequence: 1
       });
-      await handleManageConfigs(selectedTemplate);
     } catch (error: any) {
       console.error("Failed to create config:", error);
       if (error?.response?.data?.errorCode === "TYPE_ACTIVE") {
@@ -365,10 +446,18 @@ const TestTemplateTypeManagementPage: React.FC = () => {
 
     setSubmitting(true);
     try {
-      await updateTestTemplateConfig(editingConfig.configId, editConfigForm);
+      const response = await updateTestTemplateConfig(editingConfig.configId, editConfigForm);
+      
+      // Update configs in the nested dropdown state
+      setConfigsByTemplate(prev => ({
+        ...prev,
+        [selectedTemplate.templateId]: prev[selectedTemplate.templateId]?.map(config => 
+          config.configId === editingConfig.configId ? response : config
+        ) || []
+      }));
+      
       setIsEditConfigModalOpen(false);
       setEditingConfig(null);
-      await handleManageConfigs(selectedTemplate);
     } catch (error) {
       console.error("Failed to update config:", error);
       setError("Không thể cập nhật cấu hình câu hỏi");
@@ -382,7 +471,14 @@ const TestTemplateTypeManagementPage: React.FC = () => {
 
     try {
       await deleteTestTemplateConfig(configId);
-      await handleManageConfigs(selectedTemplate);
+      
+      // Update configs in the nested dropdown state
+      setConfigsByTemplate(prev => ({
+        ...prev,
+        [selectedTemplate.templateId]: prev[selectedTemplate.templateId]?.filter(config => 
+          config.configId !== configId
+        ) || []
+      }));
     } catch (error) {
       console.error("Failed to delete config:", error);
       setError("Không thể xóa cấu hình câu hỏi");
@@ -515,350 +611,296 @@ const TestTemplateTypeManagementPage: React.FC = () => {
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {templateTypes.map((template) => (
-                  <tr key={template.testTemplateTypeId} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div>
-                        <div className="text-sm font-medium text-gray-900">
-                          {template.typeName}
+                  <Fragment key={template.testTemplateTypeId}>
+                    {/* Main template type row */}
+                    <tr className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          <button
+                            onClick={() => toggleTemplateTypeExpand(template)}
+                            className="mr-2 text-gray-400 hover:text-gray-600"
+                            title={expandedTemplateTypes.has(template.testTemplateTypeId) ? "Thu gọn" : "Mở rộng"}
+                          >
+                            {expandedTemplateTypes.has(template.testTemplateTypeId) ? 
+                              <FaChevronDown className="text-sm" /> : 
+                              <FaChevronRight className="text-sm" />
+                            }
+                          </button>
+                          <div>
+                            <div className="text-sm font-medium text-gray-900">
+                              {template.typeName}
+                            </div>
+                            <div className="text-sm text-gray-500">
+                              {template.description}
+                            </div>
+                          </div>
                         </div>
-                        <div className="text-sm text-gray-500">
-                          {template.description}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                          {getCourseLevelLabel(template.courseLevel)}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                          {getTestTypeLabel(template.testType)}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {template.totalTestScore}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {template.totalPassPercentage}%
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                          template.isActive 
+                            ? 'bg-green-100 text-green-800' 
+                            : 'bg-red-100 text-red-800'
+                        }`}>
+                          {template.isActive ? 'Hoạt động' : 'Không hoạt động'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => openEditModal(template)}
+                            className="text-blue-600 hover:text-blue-900"
+                            title="Chỉnh sửa"
+                          >
+                            <FaEdit className="text-sm" />
+                          </button>
+                          <button
+                            onClick={() => handleToggleActive(template.testTemplateTypeId, template.isActive)}
+                            className={`${
+                              template.isActive 
+                                ? 'text-red-600 hover:text-red-900' 
+                                : 'text-green-600 hover:text-green-900'
+                            }`}
+                            title={template.isActive ? 'Vô hiệu hóa' : 'Kích hoạt'}
+                          >
+                            {template.isActive ? <FaEyeSlash className="text-sm" /> : <FaEye className="text-sm" />}
+                          </button>
+                          <button
+                            onClick={() => handleDelete(template.testTemplateTypeId)}
+                            className="text-red-600 hover:text-red-900"
+                            title="Xóa"
+                          >
+                            <FaTrash className="text-sm" />
+                          </button>
                         </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                        {getCourseLevelLabel(template.courseLevel)}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                        {getTestTypeLabel(template.testType)}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {template.totalTestScore}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {template.totalPassPercentage}%
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                        template.isActive 
-                          ? 'bg-green-100 text-green-800' 
-                          : 'bg-red-100 text-red-800'
-                      }`}>
-                        {template.isActive ? 'Hoạt động' : 'Không hoạt động'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => handleManageTemplates(template)}
-                          className="text-purple-600 hover:text-purple-900"
-                          title="Cấu hình Phần thi"
-                        >
-                          <FaCog className="text-sm" />
-                        </button>
-                        <button
-                          onClick={() => openEditModal(template)}
-                          className="text-blue-600 hover:text-blue-900"
-                          title="Chỉnh sửa"
-                        >
-                          <FaEdit className="text-sm" />
-                        </button>
-                        <button
-                          onClick={() => handleToggleActive(template.testTemplateTypeId, template.isActive)}
-                          className={`${
-                            template.isActive 
-                              ? 'text-red-600 hover:text-red-900' 
-                              : 'text-green-600 hover:text-green-900'
-                          }`}
-                          title={template.isActive ? 'Vô hiệu hóa' : 'Kích hoạt'}
-                        >
-                          {template.isActive ? <FaEyeSlash className="text-sm" /> : <FaEye className="text-sm" />}
-                        </button>
-                        <button
-                          onClick={() => handleDelete(template.testTemplateTypeId)}
-                          className="text-red-600 hover:text-red-900"
-                          title="Xóa"
-                        >
-                          <FaTrash className="text-sm" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
+                      </td>
+                    </tr>
+
+                    {/* Expanded templates section */}
+                    {expandedTemplateTypes.has(template.testTemplateTypeId) && (
+                      <tr>
+                        <td colSpan={7} className="px-6 py-0 bg-gray-50">
+                          <div className="py-4">
+                            <div className="flex items-center justify-between mb-4">
+                              <h4 className="text-lg font-medium text-gray-900">
+                                Phần thi cho {template.typeName}
+                              </h4>
+                              <button
+                                onClick={() => {
+                                  setSelectedTemplateType(template);
+                                  setIsCreateTemplateModalOpen(true);
+                                }}
+                                disabled={template.isActive}
+                                className={`inline-flex items-center px-3 py-2 text-sm font-medium rounded-md ${
+                                  template.isActive 
+                                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
+                                    : 'bg-blue-600 text-white hover:bg-blue-700'
+                                }`}
+                                title={template.isActive ? 'Không thể tạo phần thi khi cấu trúc đề thi đã được kích hoạt' : ''}
+                              >
+                                <FaPlus className="mr-2" />
+                                Tạo phần thi mới
+                              </button>
+                            </div>
+
+                            {loadingTemplatesByType[template.testTemplateTypeId] ? (
+                              <div className="text-center py-4">
+                                <div className="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+                                <p className="mt-2 text-sm text-gray-500">Đang tải phần thi...</p>
+                              </div>
+                            ) : (
+                              <div className="space-y-2">
+                                {templatesByType[template.testTemplateTypeId]?.length > 0 ? (
+                                  templatesByType[template.testTemplateTypeId].map((templateItem) => (
+                                    <div key={templateItem.templateId} className="space-y-2">
+                                      {/* Template item with expand/collapse */}
+                                      <div className="p-3 bg-white rounded-lg border border-gray-200 hover:border-gray-300">
+                                        <div className="flex items-center justify-between">
+                                          <div className="flex items-center flex-1">
+                                            <button
+                                              onClick={() => toggleTemplateExpand(templateItem)}
+                                              className="mr-2 text-gray-400 hover:text-gray-600"
+                                              title={expandedTemplates.has(templateItem.templateId) ? "Thu gọn" : "Mở rộng"}
+                                            >
+                                              {expandedTemplates.has(templateItem.templateId) ? 
+                                                <FaChevronDown className="text-sm" /> : 
+                                                <FaChevronRight className="text-sm" />
+                                              }
+                                            </button>
+                                            <div className="flex-1">
+                                              <h5 className="font-medium text-gray-900">{templateItem.templateName}</h5>
+                                              <div className="text-sm text-gray-500 mt-1">
+                                                <span className="mr-4">Thời gian: {templateItem.durationMinutes} phút</span>
+                                                <span className="mr-4">Điểm: {templateItem.totalScore}</span>
+                                                <span className="mr-4">Tỷ lệ đỗ: {templateItem.toPassPercentage}%</span>
+                                                <span>Thứ tự: {templateItem.sequence}</span>
+                                              </div>
+                                            </div>
+                                          </div>
+                                          <div className="flex items-center gap-2">
+                                            <button
+                                              onClick={() => openEditTemplateModal(templateItem)}
+                                              disabled={template.isActive}
+                                              className={`text-sm ${
+                                                template.isActive 
+                                                  ? 'text-gray-400 cursor-not-allowed' 
+                                                  : 'text-blue-600 hover:text-blue-900'
+                                              }`}
+                                              title={template.isActive ? 'Không thể chỉnh sửa khi cấu trúc đề thi đã được kích hoạt' : 'Chỉnh sửa'}
+                                            >
+                                              <FaEdit />
+                                            </button>
+                                            <button
+                                              onClick={() => handleDeleteTemplate(templateItem.templateId)}
+                                              disabled={template.isActive}
+                                              className={`text-sm ${
+                                                template.isActive 
+                                                  ? 'text-gray-400 cursor-not-allowed' 
+                                                  : 'text-red-600 hover:text-red-900'
+                                              }`}
+                                              title={template.isActive ? 'Không thể xóa khi cấu trúc đề thi đã được kích hoạt' : 'Xóa'}
+                                            >
+                                              <FaTrash />
+                                            </button>
+                                          </div>
+                                        </div>
+                                      </div>
+
+                                      {/* Expanded configs section */}
+                                      {expandedTemplates.has(templateItem.templateId) && (
+                                        <div className="ml-6 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                                          <div className="flex items-center justify-between mb-3">
+                                            <h6 className="font-medium text-gray-800">
+                                              Cấu hình câu hỏi cho {templateItem.templateName}
+                                            </h6>
+                                            <button
+                                              onClick={async () => {
+                                                setSelectedTemplate(templateItem);
+                                                
+                                                // Load subContents if not already loaded
+                                                if (subContents.length === 0) {
+                                                  try {
+                                                    const subContentList = await getAllSubContents(undefined, undefined, undefined, undefined, 1, 100);
+                                                    setSubContents(subContentList.items);
+                                                  } catch (error) {
+                                                    console.error("Failed to load subContents:", error);
+                                                  }
+                                                }
+                                                
+                                                setIsCreateConfigModalOpen(true);
+                                              }}
+                                              disabled={template.isActive}
+                                              className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded ${
+                                                template.isActive 
+                                                  ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
+                                                  : 'bg-green-600 text-white hover:bg-green-700'
+                                              }`}
+                                              title={template.isActive ? 'Không thể tạo cấu hình câu hỏi khi cấu trúc đề thi đã được kích hoạt' : ''}
+                                            >
+                                              <FaPlus className="mr-1" />
+                                              Tạo cấu hình mới
+                                            </button>
+                                          </div>
+
+                                          {loadingConfigsByTemplate[templateItem.templateId] ? (
+                                            <div className="text-center py-2">
+                                              <div className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-green-600"></div>
+                                              <p className="mt-1 text-xs text-gray-500">Đang tải cấu hình...</p>
+                                            </div>
+                                          ) : (
+                                            <div className="space-y-2">
+                                              {configsByTemplate[templateItem.templateId]?.length > 0 ? (
+                                                configsByTemplate[templateItem.templateId].map((config) => (
+                                                  <div
+                                                    key={config.configId}
+                                                    className="flex items-center justify-between p-2 bg-white rounded border border-gray-200 hover:border-gray-300"
+                                                  >
+                                                    <div className="flex-1">
+                                                      <div className="text-sm font-medium text-gray-900">
+                                                        {config.subContent?.subContentNameDescription || 'N/A'}
+                                                      </div>
+                                                      <div className="text-xs text-gray-500 mt-1">
+                                                        <span className="mr-3">Số câu: {config.questionCount}</span>
+                                                        <span className="mr-3">Điểm/câu: {config.pointPerQuestion}</span>
+                                                        <span className="mr-3">Tổng điểm: {config.totalPoints}</span>
+                                                        <span>Thứ tự: {config.sequence}</span>
+                                                      </div>
+                                                    </div>
+                                                    <div className="flex items-center gap-1">
+                                                      <button
+                                                        onClick={() => openEditConfigModal(config)}
+                                                        disabled={template.isActive}
+                                                        className={`text-xs ${
+                                                          template.isActive 
+                                                            ? 'text-gray-400 cursor-not-allowed' 
+                                                            : 'text-blue-600 hover:text-blue-900'
+                                                        }`}
+                                                        title={template.isActive ? 'Không thể chỉnh sửa khi cấu trúc đề thi đã được kích hoạt' : 'Chỉnh sửa'}
+                                                      >
+                                                        <FaEdit />
+                                                      </button>
+                                                      <button
+                                                        onClick={() => handleDeleteConfig(config.configId)}
+                                                        disabled={template.isActive}
+                                                        className={`text-xs ${
+                                                          template.isActive 
+                                                            ? 'text-gray-400 cursor-not-allowed' 
+                                                            : 'text-red-600 hover:text-red-900'
+                                                        }`}
+                                                        title={template.isActive ? 'Không thể xóa khi cấu trúc đề thi đã được kích hoạt' : 'Xóa'}
+                                                      >
+                                                        <FaTrash />
+                                                      </button>
+                                                    </div>
+                                                  </div>
+                                                ))
+                                              ) : (
+                                                <div className="text-center py-4 text-gray-500">
+                                                  <FaCog className="mx-auto h-6 w-6 text-gray-400 mb-1" />
+                                                  <p className="text-xs">Chưa có cấu hình câu hỏi nào</p>
+                                                </div>
+                                              )}
+                                            </div>
+                                          )}
+                                        </div>
+                                      )}
+                                    </div>
+                                  ))
+                                ) : (
+                                  <div className="text-center py-8 text-gray-500">
+                                    <FaCog className="mx-auto h-8 w-8 text-gray-400 mb-2" />
+                                    <p>Chưa có phần thi nào</p>
+                                    <p className="text-sm">Tạo phần thi đầu tiên để bắt đầu</p>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
                 ))}
               </tbody>
             </table>
           </div>
         </div>
-
-        {/* Templates Management Section */}
-        {selectedTemplateType && (
-          <div className="mt-8 bg-white rounded-xl shadow-lg overflow-hidden">
-            <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
-              <div>
-                <h2 className="text-xl font-semibold text-gray-800">
-                  Phần thi cho {selectedTemplateType.typeName}
-                </h2>
-                <p className="text-sm text-gray-600">
-                  Quản lý các phần thi cho Cấu trúc đề thi này
-                </p>
-              </div>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setIsCreateTemplateModalOpen(true)}
-                  disabled={selectedTemplateType.isActive}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg font-semibold transition-colors ${
-                    selectedTemplateType.isActive 
-                      ? 'bg-gray-400 text-gray-700 cursor-not-allowed' 
-                      : 'bg-blue-600 text-white hover:bg-blue-700'
-                  }`}
-                  title={selectedTemplateType.isActive ? 'Không thể tạo phần thi khi cấu trúc đề thi đã được kích hoạt' : ''}
-                >
-                  <FaPlus className="text-sm" />
-                  Tạo Phần thi
-                </button>
-                <button
-                  onClick={() => setSelectedTemplateType(null)}
-                  className="flex items-center gap-2 px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 font-semibold transition-colors"
-                >
-                  <FaTimes className="text-sm" />
-                  Đóng
-                </button>
-              </div>
-            </div>
-
-            {loadingTemplates ? (
-              <div className="p-8 text-center">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-                <p className="mt-2 text-gray-600">Đang tải các phần thi...</p>
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Tên Phần thi
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Thời gian (phút)
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Điểm tối đa
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Tỷ lệ đỗ (%)
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Thứ tự
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Hành động
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {templates.map((template) => (
-                      <tr key={template.templateId} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-medium text-gray-900">
-                            {template.templateName}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {template.durationMinutes}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {template.totalScore}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {template.toPassPercentage}%
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {template.sequence}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                          <div className="flex items-center gap-2">
-                            <button
-                              onClick={() => handleManageConfigs(template)}
-                              className="text-green-600 hover:text-green-900"
-                              title="Cấu hình câu hỏi"
-                            >
-                              <FaCog className="text-sm" />
-                            </button>
-                            <button
-                              onClick={() => openEditTemplateModal(template)}
-                              disabled={selectedTemplateType.isActive}
-                              className={`${
-                                selectedTemplateType.isActive 
-                                  ? 'text-gray-400 cursor-not-allowed' 
-                                  : 'text-blue-600 hover:text-blue-900'
-                              }`}
-                              title={selectedTemplateType.isActive ? 'Không thể chỉnh sửa khi cấu trúc đề thi đã được kích hoạt' : 'Chỉnh sửa'}
-                            >
-                              <FaEdit className="text-sm" />
-                            </button>
-                            <button
-                              onClick={() => handleDeleteTemplate(template.templateId)}
-                              disabled={selectedTemplateType.isActive}
-                              className={`${
-                                selectedTemplateType.isActive 
-                                  ? 'text-gray-400 cursor-not-allowed' 
-                                  : 'text-red-600 hover:text-red-900'
-                              }`}
-                              title={selectedTemplateType.isActive ? 'Không thể xóa khi cấu trúc đề thi đã được kích hoạt' : 'Xóa'}
-                            >
-                              <FaTrash className="text-sm" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                {templates.length === 0 && (
-                  <div className="p-8 text-center text-gray-500">
-                    Chưa có phần thi nào. Hãy tạo phần thi đầu tiên.
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Template Configs Management Section */}
-        {selectedTemplate && (
-          <div className="mt-8 bg-white rounded-xl shadow-lg overflow-hidden">
-            <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
-              <div>
-                <h2 className="text-xl font-semibold text-gray-800">
-                  Cấu hình câu hỏi cho {selectedTemplate.templateName}
-                </h2>
-                <p className="text-sm text-gray-600">
-                  Quản lý cấu hình câu hỏi cho Phần thi này
-                </p>
-              </div>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setIsCreateConfigModalOpen(true)}
-                  disabled={selectedTemplateType?.isActive}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg font-semibold transition-colors ${
-                    selectedTemplateType?.isActive 
-                      ? 'bg-gray-400 text-gray-700 cursor-not-allowed' 
-                      : 'bg-green-600 text-white hover:bg-green-700'
-                  }`}
-                  title={selectedTemplateType?.isActive ? 'Không thể tạo cấu hình câu hỏi khi cấu trúc đề thi đã được kích hoạt' : ''}
-                >
-                  <FaPlus className="text-sm" />
-                  Tạo Cấu hình câu hỏi
-                </button>
-                <button
-                  onClick={() => setSelectedTemplate(null)}
-                  className="flex items-center gap-2 px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 font-semibold transition-colors"
-                >
-                  <FaTimes className="text-sm" />
-                  Đóng
-                </button>
-              </div>
-            </div>
-
-            {loadingConfigs ? (
-              <div className="p-8 text-center">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600 mx-auto"></div>
-                <p className="mt-2 text-gray-600">Đang tải cấu hình câu hỏi...</p>
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Nội dung con
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Số câu hỏi
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Điểm/câu
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Tổng điểm
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Thứ tự
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Hành động
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {templateConfigs.map((config) => (
-                      <tr key={config.configId} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-medium text-gray-900">
-                            {config.subContent?.subContentNameDescription || 'N/A'}
-                          </div>
-                          <div className="text-sm text-gray-500">
-                            {config.subContent?.contentNameDescription} - {config.subContent?.levelDescription}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {config.questionCount}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {config.pointPerQuestion}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {config.totalPoints}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {config.sequence}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                          <div className="flex items-center gap-2">
-                            <button
-                              onClick={() => openEditConfigModal(config)}
-                              disabled={selectedTemplateType?.isActive}
-                              className={`${
-                                selectedTemplateType?.isActive 
-                                  ? 'text-gray-400 cursor-not-allowed' 
-                                  : 'text-blue-600 hover:text-blue-900'
-                              }`}
-                              title={selectedTemplateType?.isActive ? 'Không thể chỉnh sửa khi cấu trúc đề thi đã được kích hoạt' : 'Chỉnh sửa'}
-                            >
-                              <FaEdit className="text-sm" />
-                            </button>
-                            <button
-                              onClick={() => handleDeleteConfig(config.configId)}
-                              disabled={selectedTemplateType?.isActive}
-                              className={`${
-                                selectedTemplateType?.isActive 
-                                  ? 'text-gray-400 cursor-not-allowed' 
-                                  : 'text-red-600 hover:text-red-900'
-                              }`}
-                              title={selectedTemplateType?.isActive ? 'Không thể xóa khi cấu trúc đề thi đã được kích hoạt' : 'Xóa'}
-                            >
-                              <FaTrash className="text-sm" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                {templateConfigs.length === 0 && (
-                  <div className="p-8 text-center text-gray-500">
-                    Chưa có config nào. Hãy tạo config đầu tiên.
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        )}
       </div>
 
       {/* Create Modal */}
@@ -938,7 +980,7 @@ const TestTemplateTypeManagementPage: React.FC = () => {
               <input
                 type="number"
                 value={createForm.totalTestScore}
-                onChange={(e) => setCreateForm({...createForm, totalTestScore: parseInt(e.target.value)})}
+                onChange={(e) => setCreateForm({...createForm, totalTestScore: e.target.value ? parseInt(e.target.value) : 0})}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                 min={1}
                 required
@@ -952,7 +994,7 @@ const TestTemplateTypeManagementPage: React.FC = () => {
               <input
                 type="number"
                 value={createForm.totalPassPercentage}
-                onChange={(e) => setCreateForm({...createForm, totalPassPercentage: parseInt(e.target.value)})}
+                onChange={(e) => setCreateForm({...createForm, totalPassPercentage: e.target.value ? parseInt(e.target.value) : 0})}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                 min={0}
                 max={100}
@@ -1059,7 +1101,7 @@ const TestTemplateTypeManagementPage: React.FC = () => {
               <input
                 type="number"
                 value={editForm.totalTestScore}
-                onChange={(e) => setEditForm({...editForm, totalTestScore: parseInt(e.target.value)})}
+                onChange={(e) => setEditForm({...editForm, totalTestScore: e.target.value ? parseInt(e.target.value) : 0})}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                 min={1}
                 required
@@ -1073,7 +1115,7 @@ const TestTemplateTypeManagementPage: React.FC = () => {
               <input
                 type="number"
                 value={editForm.totalPassPercentage}
-                onChange={(e) => setEditForm({...editForm, totalPassPercentage: parseInt(e.target.value)})}
+                onChange={(e) => setEditForm({...editForm, totalPassPercentage: e.target.value ? parseInt(e.target.value) : 0})}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                 min={0}
                 max={100}
@@ -1144,7 +1186,7 @@ const TestTemplateTypeManagementPage: React.FC = () => {
               <input
                 type="number"
                 value={createTemplateForm.durationMinutes}
-                onChange={(e) => setCreateTemplateForm({...createTemplateForm, durationMinutes: parseInt(e.target.value)})}
+                onChange={(e) => setCreateTemplateForm({...createTemplateForm, durationMinutes: e.target.value ? parseInt(e.target.value) : 0})}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 min={1}
                 required
@@ -1158,7 +1200,7 @@ const TestTemplateTypeManagementPage: React.FC = () => {
               <input
                 type="number"
                 value={createTemplateForm.totalScore}
-                onChange={(e) => setCreateTemplateForm({...createTemplateForm, totalScore: parseInt(e.target.value)})}
+                onChange={(e) => setCreateTemplateForm({...createTemplateForm, totalScore: e.target.value ? parseInt(e.target.value) : 0})}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 min={1}
                 required
@@ -1174,7 +1216,7 @@ const TestTemplateTypeManagementPage: React.FC = () => {
               <input
                 type="number"
                 value={createTemplateForm.toPassPercentage}
-                onChange={(e) => setCreateTemplateForm({...createTemplateForm, toPassPercentage: parseInt(e.target.value)})}
+                onChange={(e) => setCreateTemplateForm({...createTemplateForm, toPassPercentage: e.target.value ? parseInt(e.target.value) : 0})}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 min={0}
                 max={100}
@@ -1189,7 +1231,7 @@ const TestTemplateTypeManagementPage: React.FC = () => {
               <input
                 type="number"
                 value={createTemplateForm.sequence}
-                onChange={(e) => setCreateTemplateForm({...createTemplateForm, sequence: parseInt(e.target.value)})}
+                onChange={(e) => setCreateTemplateForm({...createTemplateForm, sequence: e.target.value ? parseInt(e.target.value) : 0})}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 min={1}
                 required
@@ -1246,7 +1288,7 @@ const TestTemplateTypeManagementPage: React.FC = () => {
               <input
                 type="number"
                 value={editTemplateForm.durationMinutes}
-                onChange={(e) => setEditTemplateForm({...editTemplateForm, durationMinutes: parseInt(e.target.value)})}
+                onChange={(e) => setEditTemplateForm({...editTemplateForm, durationMinutes: e.target.value ? parseInt(e.target.value) : 0})}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 min={1}
                 required
@@ -1260,7 +1302,7 @@ const TestTemplateTypeManagementPage: React.FC = () => {
               <input
                 type="number"
                 value={editTemplateForm.totalScore}
-                onChange={(e) => setEditTemplateForm({...editTemplateForm, totalScore: parseInt(e.target.value)})}
+                onChange={(e) => setEditTemplateForm({...editTemplateForm, totalScore: e.target.value ? parseInt(e.target.value) : 0})}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 min={1}
                 required
@@ -1276,7 +1318,7 @@ const TestTemplateTypeManagementPage: React.FC = () => {
               <input
                 type="number"
                 value={editTemplateForm.toPassPercentage}
-                onChange={(e) => setEditTemplateForm({...editTemplateForm, toPassPercentage: parseInt(e.target.value)})}
+                onChange={(e) => setEditTemplateForm({...editTemplateForm, toPassPercentage: e.target.value ? parseInt(e.target.value) : 0})}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 min={0}
                 max={100}
@@ -1291,7 +1333,7 @@ const TestTemplateTypeManagementPage: React.FC = () => {
               <input
                 type="number"
                 value={editTemplateForm.sequence}
-                onChange={(e) => setEditTemplateForm({...editTemplateForm, sequence: parseInt(e.target.value)})}
+                onChange={(e) => setEditTemplateForm({...editTemplateForm, sequence: e.target.value ? parseInt(e.target.value) : 0})}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 min={1}
                 required
@@ -1337,12 +1379,30 @@ const TestTemplateTypeManagementPage: React.FC = () => {
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
               required
             >
-                                      <option value="">Chọn nội dung con</option>
-              {subContents.map((subContent) => (
-                <option key={subContent.subContentId} value={subContent.subContentId}>
-                  {subContent.subContentNameDescription} - {subContent.contentNameDescription} ({subContent.levelDescription})
-                </option>
-              ))}
+              <option value="">Chọn nội dung con</option>
+              {subContents
+                .filter((subContent) => {
+                  // Filter by template type level when creating config for a specific template
+                  if (selectedTemplate) {
+                    // Find the template type for the selected template
+                    const templateType = templateTypes.find(tt => tt.testTemplateTypeId === selectedTemplate.testTemplateTypeId);
+                    if (templateType) {
+                      const templateLevelString = getCourseLevelString(templateType.courseLevel);
+                      return subContent.level === templateLevelString;
+                    }
+                  }
+                  // Fallback to selectedTemplateType if available (old flow)
+                  if (selectedTemplateType) {
+                    const templateLevelString = getCourseLevelString(selectedTemplateType.courseLevel);
+                    return subContent.level === templateLevelString;
+                  }
+                  return true;
+                })
+                .map((subContent) => (
+                  <option key={subContent.subContentId} value={subContent.subContentId}>
+                    {subContent.subContentNameDescription} - {subContent.contentNameDescription} ({subContent.levelDescription})
+                  </option>
+                ))}
             </select>
           </div>
 
@@ -1355,7 +1415,7 @@ const TestTemplateTypeManagementPage: React.FC = () => {
                 type="number"
                 value={createConfigForm.questionCount}
                 onChange={(e) => {
-                  const questionCount = parseInt(e.target.value);
+                  const questionCount = e.target.value ? parseInt(e.target.value) : 0;
                   const totalPoints = questionCount * createConfigForm.pointPerQuestion;
                   setCreateConfigForm({
                     ...createConfigForm, 
@@ -1377,7 +1437,7 @@ const TestTemplateTypeManagementPage: React.FC = () => {
                 type="number"
                 value={createConfigForm.pointPerQuestion}
                 onChange={(e) => {
-                  const pointPerQuestion = parseInt(e.target.value);
+                  const pointPerQuestion = e.target.value ? parseInt(e.target.value) : 0;
                   const totalPoints = createConfigForm.questionCount * pointPerQuestion;
                   setCreateConfigForm({
                     ...createConfigForm, 
@@ -1400,7 +1460,7 @@ const TestTemplateTypeManagementPage: React.FC = () => {
               <input
                 type="number"
                 value={createConfigForm.totalPoints}
-                onChange={(e) => setCreateConfigForm({...createConfigForm, totalPoints: parseInt(e.target.value)})}
+                onChange={(e) => setCreateConfigForm({...createConfigForm, totalPoints: e.target.value ? parseInt(e.target.value) : 0})}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent bg-gray-50"
                 min={1}
                 readOnly
@@ -1414,7 +1474,7 @@ const TestTemplateTypeManagementPage: React.FC = () => {
               <input
                 type="number"
                 value={createConfigForm.sequence}
-                onChange={(e) => setCreateConfigForm({...createConfigForm, sequence: parseInt(e.target.value)})}
+                onChange={(e) => setCreateConfigForm({...createConfigForm, sequence: e.target.value ? parseInt(e.target.value) : 0})}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                 min={1}
                 required
@@ -1459,7 +1519,7 @@ const TestTemplateTypeManagementPage: React.FC = () => {
                 type="number"
                 value={editConfigForm.questionCount}
                 onChange={(e) => {
-                  const questionCount = parseInt(e.target.value);
+                  const questionCount = e.target.value ? parseInt(e.target.value) : 0;
                   const totalPoints = questionCount * (editConfigForm.pointPerQuestion || 1);
                   setEditConfigForm({
                     ...editConfigForm, 
@@ -1481,7 +1541,7 @@ const TestTemplateTypeManagementPage: React.FC = () => {
                 type="number"
                 value={editConfigForm.pointPerQuestion}
                 onChange={(e) => {
-                  const pointPerQuestion = parseInt(e.target.value);
+                  const pointPerQuestion = e.target.value ? parseInt(e.target.value) : 0;
                   const totalPoints = (editConfigForm.questionCount || 1) * pointPerQuestion;
                   setEditConfigForm({
                     ...editConfigForm, 
@@ -1504,7 +1564,7 @@ const TestTemplateTypeManagementPage: React.FC = () => {
               <input
                 type="number"
                 value={editConfigForm.totalPoints}
-                onChange={(e) => setEditConfigForm({...editConfigForm, totalPoints: parseInt(e.target.value)})}
+                onChange={(e) => setEditConfigForm({...editConfigForm, totalPoints: e.target.value ? parseInt(e.target.value) : 0})}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent bg-gray-50"
                 min={1}
                 readOnly
@@ -1518,7 +1578,7 @@ const TestTemplateTypeManagementPage: React.FC = () => {
               <input
                 type="number"
                 value={editConfigForm.sequence}
-                onChange={(e) => setEditConfigForm({...editConfigForm, sequence: parseInt(e.target.value)})}
+                onChange={(e) => setEditConfigForm({...editConfigForm, sequence: e.target.value ? parseInt(e.target.value) : 0})}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                 min={1}
                 required

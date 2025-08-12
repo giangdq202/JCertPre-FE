@@ -199,12 +199,12 @@ export const validateCreateTestTemplateTypeDto = (dto: CreateTestTemplateTypeDto
   }
   
   // Validate course level
-  if (!dto.courseLevel) {
+  if (dto.courseLevel === null || dto.courseLevel === undefined) {
     return { isValid: false, message: TEST_TEMPLATE_TYPE_VALIDATION_RULES.COURSE_LEVEL_REQUIRED_MESSAGE };
   }
   
   // Validate test type
-  if (!dto.testType) {
+  if (dto.testType === null || dto.testType === undefined) {
     return { isValid: false, message: TEST_TEMPLATE_TYPE_VALIDATION_RULES.TEST_TYPE_REQUIRED_MESSAGE };
   }
   

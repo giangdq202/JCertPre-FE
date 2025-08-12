@@ -2,7 +2,6 @@
 
 import axiosInstance from "../consts/axios/axiosInstance"; // Assuming axiosInstance is correctly configured
 import { Pagination } from "../types/pagination"; // Assuming you have a common Pagination type
-import { Description } from "@mui/icons-material"; // Keep this if you use it for other purposes, though not directly in this file's logic
 
 const BASE_SUB_CONTENTS_URL = "/subcontents"; // Base URL for subcontent API
 
@@ -171,15 +170,15 @@ export const getAllSubContents = async (
       params.search = search;
     }
     
-    // Only add enum parameters if they are defined
+    // Only add enum parameters if they are defined - gửi số enum thay vì string
     if (level !== undefined) {
-      params.level = CourseLevel[level];
+      params.level = level; // Gửi số enum (0, 1, 2, 3, 4)
     }
     if (contentName !== undefined) {
-      params.contentName = ContentName[contentName];
+      params.contentName = contentName; // Gửi số enum (0, 1, 2, 3, 4)
     }
     if (subContentName !== undefined) {
-      params.subContentName = SubContentName[subContentName];
+      params.subContentName = subContentName; // Gửi số enum (0, 1, 2, ..., 13)
     }
 
     const response = await axiosInstance.get<Pagination<SubContentDto>>(

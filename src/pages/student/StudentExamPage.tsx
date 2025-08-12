@@ -59,11 +59,14 @@ const StudentExamPage: React.FC = () => {
             // Check if template has configs
             const configs: TestTemplateConfigDto[] = await getConfigsByTemplateId(template.templateId);
             if (configs && configs.length > 0) {
+              console.log('Template Type testType:', type.testType, 'Type of:', typeof type.testType);
+              console.log('Template Type courseLevel:', type.courseLevel, 'Type of:', typeof type.courseLevel);
+              
               options.push({
                 id: template.templateId,
                 title: `${type.typeName} - ${template.templateName}`,
-                testType: type.testType as unknown as TestType,
-                courseLevel: type.courseLevel as unknown as CourseLevel,
+                testType: type.testType as TestType,
+                courseLevel: type.courseLevel as CourseLevel,
                 estimatedDuration: template.durationMinutes || 0,
               });
             }
@@ -116,7 +119,7 @@ const StudentExamPage: React.FC = () => {
         <div className="p-6">
           <div className="mb-8">
             <h2 className="text-2xl font-bold text-gray-800 mb-2">
-              Thi thử JLPT & Kiểm tra đầu vào
+              Thi thử JLPT
             </h2>
             <p className="text-gray-600">
               Chọn loại bài thi phù hợp với trình độ của bạn để bắt đầu làm bài

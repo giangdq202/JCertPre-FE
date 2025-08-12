@@ -228,12 +228,12 @@ export const validateTestCreateDto = (dto: CreateTestDto): { isValid: boolean; m
   }
 
   // Validate test type
-  if (!dto.testType) {
+  if (dto.testType === undefined || dto.testType === null) {
     return { isValid: false, message: TEST_VALIDATION_RULES.TEST_TYPE_REQUIRED_MESSAGE };
   }
 
   // Validate course level
-  if (!dto.courseLevel) {
+  if (dto.courseLevel === undefined || dto.courseLevel === null) {
     return { isValid: false, message: TEST_VALIDATION_RULES.COURSE_LEVEL_REQUIRED_MESSAGE };
   }
 
@@ -309,11 +309,11 @@ export const validateTestUpdateDto = (dto: UpdateTestDto): { isValid: boolean; m
  * Validate auto test input according to backend rules
  */
 export const validateCreateAutoTestInput = (dto: CreateAutoTestInput): { isValid: boolean; message?: string } => {
-  if (!dto.testType) {
+  if (dto.testType === undefined || dto.testType === null) {
     return { isValid: false, message: TEST_VALIDATION_RULES.TEST_TYPE_REQUIRED_MESSAGE };
   }
 
-  if (!dto.courseLevel) {
+  if (dto.courseLevel === undefined || dto.courseLevel === null) {
     return { isValid: false, message: TEST_VALIDATION_RULES.COURSE_LEVEL_REQUIRED_MESSAGE };
   }
 

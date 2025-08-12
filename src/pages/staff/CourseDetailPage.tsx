@@ -388,7 +388,7 @@ const CourseDetailPage: React.FC = () => {
           title: courseData.title,
           description: courseData.description,
           level: courseData.level,
-          courseType: courseData.courseType,
+          courseType: CourseType.Public, // Always set to Public regardless of current value
           price: courseData.price,
           startDate: courseData.startDate,
           endDate: courseData.endDate,
@@ -598,13 +598,38 @@ const CourseDetailPage: React.FC = () => {
     setSubmittingCourse(true);
     try {
       await removeInstructorFromCourse(courseId, instructorIdToRemove);
-      // message.success("Instructor removed successfully!"); // Removed Ant Design message
-              showSuccess("Thành công", "Instructor removed successfully!");
+      
+      // Get updated course data
       const updatedCourseData = await getCourseById(courseId);
       setCourse(updatedCourseData);
+      
+      // Check if there are no instructors left and auto-update status to Draft
+      if (!updatedCourseData.instructors || updatedCourseData.instructors.length === 0) {
+        try {
+          // Auto-update course status to Draft when no instructors left
+          const updateStatusData: UpdateCourseDto = {
+            status: CourseStatus.Draft
+          };
+          await updateCourse(courseId, updateStatusData);
+          
+          // Reload course data to reflect status change
+          const finalCourseData = await getCourseById(courseId);
+          setCourse(finalCourseData);
+          setCourseFormState(prev => ({
+            ...prev,
+            status: finalCourseData.status
+          }));
+          
+          showSuccess("Thành công", "Instructor removed successfully! Course status automatically updated to Draft since no instructors remain.");
+        } catch (statusError) {
+          console.error("Error auto-updating course status:", statusError);
+          showSuccess("Thành công", "Instructor removed successfully! Please manually update course status.");
+        }
+      } else {
+        showSuccess("Thành công", "Instructor removed successfully!");
+      }
     } catch (error) {
-      // message.error("Failed to remove instructor."); // Removed Ant Design message
-              showError("Lỗi", "Failed to remove instructor.");
+      showError("Lỗi", "Failed to remove instructor.");
       console.error("Error removing instructor:", error);
     } finally {
       setSubmittingCourse(false);
@@ -617,7 +642,7 @@ const CourseDetailPage: React.FC = () => {
         title: course.title,
         description: course.description,
         level: course.level,
-        courseType: course.courseType,
+        courseType: CourseType.Public, // Always set to Public regardless of current value
         price: course.price,
         startDate: course.startDate,
         endDate: course.endDate,
@@ -646,13 +671,6 @@ const CourseDetailPage: React.FC = () => {
     // Clear previous validation errors
     setLessonValidationError("");
     
-    // Validate lesson data before submission
-    const validation = validateLessonCreateDto(createLessonFormState);
-    if (!validation.isValid) {
-      setLessonValidationError(validation.message || "Validation failed");
-      return;
-    }
-    
     setSubmittingLesson(true);
     try {
       const nextLessonOrder = lessons.length > 0
@@ -663,6 +681,14 @@ const CourseDetailPage: React.FC = () => {
         ...createLessonFormState,
         lessonOrder: nextLessonOrder,
       };
+
+      // Validate lesson data after calculating the lesson order
+      const validation = validateLessonCreateDto(newLessonData);
+      if (!validation.isValid) {
+        setLessonValidationError(validation.message || "Validation failed");
+        setSubmittingLesson(false);
+        return;
+      }
 
       const newLesson = await createLesson(courseId, newLessonData);
       const documentsForNewLesson = await getDocumentsByLessonId(newLesson.lessonId);
@@ -1097,19 +1123,16 @@ const CourseDetailPage: React.FC = () => {
                         ))}
                     </select>
                   </div>
-                  <div>
+                  {/* Temporarily hidden Course Type field - always defaults to Public */}
+                  <div style={{ display: 'none' }}>
                     <label htmlFor="courseType" className="block text-sm font-medium text-gray-700 mb-1">Loại khóa học</label>
                     <select
                       id="courseType"
                       name="courseType"
-                      value={courseFormState.courseType ?? ''}
-                      onChange={(e) => handleCourseSelectChange('courseType')(Number(e.target.value))}
-                      disabled={course.status === CourseStatus.Archived}
-                      className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500 transition-colors bg-white ${
-                        course.status === CourseStatus.Archived ? 'bg-gray-100 cursor-not-allowed' : ''
-                      }`}
+                      value={CourseType.Public}
+                      disabled={true}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500 transition-colors bg-white"
                     >
-                      <option value={CourseType.Personal}>Cá nhân</option>
                       <option value={CourseType.Public}>Công khai</option>
                     </select>
                   </div>
@@ -1430,7 +1453,10 @@ const CourseDetailPage: React.FC = () => {
                           className="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-100 transition-colors"
                           onClick={() => handleLessonPanelToggle(lesson.lessonId)}
                         >
-                          <span className="font-medium text-gray-800">Bài học {lesson.lessonOrder}: {lesson.title}</span>
+                          <div className="flex items-center gap-3">
+                            
+                            <span className="font-medium text-gray-800">{lesson.title}</span>
+                          </div>
                           <div className="flex items-center gap-2">
                             <button
                               onClick={(e) => { e.stopPropagation(); showCreateTestModal(lesson.lessonId); }}
@@ -1585,9 +1611,7 @@ const CourseDetailPage: React.FC = () => {
                               </div>
                             ) : (
                               <div className="space-y-3">
-                                <p className="text-gray-700 text-base">
-                                  <span className="font-semibold">Thứ tự:</span> {lesson.lessonOrder}
-                                </p>
+                                
                                 <p className="text-gray-700 text-base">
                                   <span className="font-semibold">Nội dung:</span> {lesson.content}
                                 </p>
