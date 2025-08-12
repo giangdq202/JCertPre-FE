@@ -224,6 +224,7 @@ export const createCourse = async (
     formData.append("Description", createCourseDto.description);
     formData.append("Level", createCourseDto.level.toString());
     formData.append("CourseType", createCourseDto.courseType.toString());
+    // Revert back to .toString() as per working version
     formData.append("Price", createCourseDto.price.toString());
     formData.append("StartDate", createCourseDto.startDate);
     formData.append("EndDate", createCourseDto.endDate);
@@ -257,6 +258,8 @@ export const updateCourse = async (
 ): Promise<CourseDto> => {
   try {
     const formData = new FormData();
+    
+    // Only append non-null and non-undefined values
     if (updateCourseDto.title !== undefined && updateCourseDto.title !== null) {
       formData.append("Title", updateCourseDto.title);
     }
@@ -270,13 +273,15 @@ export const updateCourse = async (
       formData.append("CourseType", updateCourseDto.courseType.toString());
     }
     if (updateCourseDto.price !== undefined && updateCourseDto.price !== null) {
+      // Revert back to .toString() as per working version
       formData.append("Price", updateCourseDto.price.toString());
     }
     if (updateCourseDto.thumbnailFile) {
       formData.append("ThumbnailFile", updateCourseDto.thumbnailFile);
     }
-    if (updateCourseDto.thumbnailUrl) {
-      formData.append("ThumbnailUrl", updateCourseDto.thumbnailUrl);
+    if (updateCourseDto.thumbnailUrl !== undefined) {
+      // Allow setting thumbnailUrl to null by sending empty string or the actual URL
+      formData.append("ThumbnailUrl", updateCourseDto.thumbnailUrl || "");
     }
     if (updateCourseDto.startDate !== undefined && updateCourseDto.startDate !== null) {
       formData.append("StartDate", updateCourseDto.startDate);
