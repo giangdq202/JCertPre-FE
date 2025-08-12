@@ -185,6 +185,12 @@ const StudentCourseDetailPage = () => {
         }
 
         try {
+            // Check if user is enrolled before allowing to join
+            if (!isUserEnrolled) {
+                showError("Chưa đăng ký khóa học", "Bạn cần đăng ký khóa học trước khi tham gia livestream.");
+                return;
+            }
+
             // Check if user can join
             const canJoin = await livestreamApi.canJoinLivestream(livestream.livestreamId, userInfo?.id || '');
             
@@ -530,20 +536,24 @@ const StudentCourseDetailPage = () => {
                                                 </div>
                                                 
                                                 <div className="text-right">
-                                                    {canJoin ? (
-                                                        <button
-                                                            onClick={() => handleJoinLivestream(livestream)}
-                                                            className="bg-green-500 text-white py-2 px-4 rounded-lg hover:bg-green-600 transition-colors text-sm font-medium flex items-center gap-2"
-                                                        >
-                                                            <FaPlay className="text-xs" />
-                                                            Tham gia
-                                                        </button>
-                                                    ) : statusInfo.status === 'completed' ? (
-                                                        <span className="text-gray-400 text-sm">Đã kết thúc</span>
-                                                    ) : statusInfo.status === 'scheduled' ? (
-                                                        <span className="text-gray-500 text-sm">Chưa đến giờ</span>
+                                                    {isUserEnrolled ? (
+                                                        canJoin ? (
+                                                            <button
+                                                                onClick={() => handleJoinLivestream(livestream)}
+                                                                className="bg-green-500 text-white py-2 px-4 rounded-lg hover:bg-green-600 transition-colors text-sm font-medium flex items-center gap-2"
+                                                            >
+                                                                <FaPlay className="text-xs" />
+                                                                Tham gia
+                                                            </button>
+                                                        ) : statusInfo.status === 'completed' ? (
+                                                            <span className="text-gray-400 text-sm">Đã kết thúc</span>
+                                                        ) : statusInfo.status === 'scheduled' ? (
+                                                            <span className="text-gray-500 text-sm">Chưa đến giờ</span>
+                                                        ) : (
+                                                            <span className="text-orange-500 text-sm">Sắp bắt đầu</span>
+                                                        )
                                                     ) : (
-                                                        <span className="text-orange-500 text-sm">Sắp bắt đầu</span>
+                                                        <span className="text-gray-400 text-sm">Cần đăng ký khóa học</span>
                                                     )}
                                                 </div>
                                             </div>
