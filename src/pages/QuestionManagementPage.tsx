@@ -343,6 +343,7 @@ const QuestionManagementPage: React.FC = () => {
 
   const handleToggleActiveStatus = async (questionId: string, currentStatus: boolean) => {
     try {
+      // Fix: Pass the new status as a boolean value, not an object
       const updatedQuestion = await toggleQuestionActiveStatus(questionId, !currentStatus);
       
       // Update the questions list with the new status

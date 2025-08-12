@@ -175,29 +175,29 @@ export const deleteQuestion = async (id: string): Promise<void> => {
 };
 
 // Toggle question active status (staff only) - using update API instead of toggle-active
-export const toggleQuestionActiveStatus = async (id: string, isActive: boolean): Promise<QuestionDto> => {
-  // First get the current question to preserve all existing fields
-  const currentQuestion = await getQuestionById(id);
-  
-  // Create FormData for multipart/form-data request with all existing fields
-  const formData = new FormData();
-  formData.append('content', currentQuestion.content);
-  if (currentQuestion.explanation) {
-    formData.append('explanation', currentQuestion.explanation);
+export const toggleQuestionActiveStatus = async (questionId: string, isActive: boolean) => {
+  try {
+    // Option 1: Send as plain boolean value
+    const response = await axiosInstance.patch(`/api/questions/${questionId}/status`, isActive, {
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    // Option 2: If backend expects object format
+    // const response = await axiosInstance.patch(`/api/questions/${questionId}/status`, {
+    //   isActive: isActive
+    // }, {
+    //   headers: {
+    //     'Content-Type': 'application/json'
+    //   }
+    // });
+    
+    return response.data;
+  } catch (error: any) {
+    console.error(`ToggleQuestionActiveStatus API error for ID ${questionId}:`, error);
+    throw error;
   }
-  formData.append('points', currentQuestion.points.toString());
-  formData.append('difficulty', currentQuestion.difficulty.toString());
-  formData.append('isActive', isActive.toString()); // Only change this field
-  formData.append('contentName', currentQuestion.contentName.toString());
-  formData.append('level', currentQuestion.level.toString());
-  formData.append('subContentName', currentQuestion.subContentName.toString());
-  
-  const { data } = await axiosInstance.put<QuestionDto>(`${QUESTION_BASE_URL}/${id}`, formData, {
-    headers: {
-      'Content-Type': 'multipart/form-data',
-    },
-  });
-  return data;
 };
 
 export interface GetQuestionsPagingDetailsParams {
@@ -242,4 +242,4 @@ export const updateChoice = async (choiceId: string, choiceDto: ChoiceUpdateDto)
 
 export const deleteChoice = async (choiceId: string): Promise<void> => {
   await axiosInstance.delete(`${CHOICE_BASE_URL}/choice/${choiceId}`);
-}; 
+};
