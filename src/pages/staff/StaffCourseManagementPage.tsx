@@ -3,6 +3,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import StaffSidebar from "../../components/sidebar/StaffSidebar";
 import StaffHeader from "../../components/header/StaffHeader";
+import { useNotification } from "../../components/notifications";
 
 // Import icons from react-icons
 import {
@@ -23,6 +24,7 @@ import {
 
 const StaffCourseManagementPage: React.FC = () => {
   const navigate = useNavigate();
+  const { error: showError } = useNotification();
 
   const [courses, setCourses] = useState<CourseListDto[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
@@ -56,12 +58,12 @@ const StaffCourseManagementPage: React.FC = () => {
         pageSize: response.pageSize,
       }));
     } catch (error) {
-      alert("Không thể tải danh sách khóa học."); // Using alert instead of Ant Design message
+      showError("Không thể tải danh sách khóa học.");
       console.error("Error fetching courses:", error);
     } finally {
       setLoading(false);
     }
-  }, [queryParameters]); // `fetchCourses` depends on `queryParameters`
+  }, [queryParameters, showError]); // `fetchCourses` depends on `queryParameters`
 
   // Gọi API khi queryParameters thay đổi
   useEffect(() => {

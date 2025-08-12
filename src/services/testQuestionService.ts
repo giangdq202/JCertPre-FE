@@ -7,7 +7,6 @@ import {
   ADD_QUESTIONS_JLPT_AUTO_URL,
   DELETE_ALL_TEST_QUESTIONS_URL,
 } from "../consts/apiUrl/baseUrl";
-
 export interface AddTestQuestionManualDto {
   TestId: string;
   QuestionId: string;
@@ -31,6 +30,13 @@ export const addQuestionsCustomManual = async (
   testQuestionPairs: { testId: string; questionId: string }[]
 ): Promise<void> => {
   try {
+    // Basic validation for each test question pair
+    for (const pair of testQuestionPairs) {
+      if (!pair.testId || !pair.questionId) {
+        throw new Error(`Validation failed for pair ${pair.testId}-${pair.questionId}: testId and questionId are required`);
+      }
+    }
+
     // Map camelCase to PascalCase for backend
     const mappedPairs = testQuestionPairs.map(pair => ({
       TestId: pair.testId,

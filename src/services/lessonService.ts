@@ -1,44 +1,14 @@
 // src/services/lessonService.ts
 
-import axiosInstance from "../consts/axios/axiosInstance"; // Assuming axiosInstance is correctly configured
-import { Pagination } from "../types/pagination"; // Assuming you have a common Pagination type
-// Import DocumentDto here as it will be part of LessonDto
-import { DocumentDto } from "./documentService"; // Will be created in the next step
+import axiosInstance from "../consts/axios/axiosInstance";
+import { Pagination } from "../types/pagination";
+import {
+  LessonDto,
+  CreateLessonDto,
+  UpdateLessonDto
+} from "../types/lesson.types";
 
 const BASE_LESSONS_URL = "/lessons"; // Base URL for lesson API
-
-// --- Interfaces for Lesson DTOs ---
-
-/**
- * Represents a Lesson data transfer object.
- */
-export interface LessonDto {
-  lessonId: string; // GUID in C# is string in TypeScript
-  courseId: string;
-  title: string;
-  lessonOrder: number;
-  content: string;
-  documents: DocumentDto[]; // Added documents array
-}
-
-/**
- * Data transfer object for creating a new lesson.
- */
-export interface CreateLessonDto {
-  title: string;
-  lessonOrder: number;
-  content: string;
-}
-
-/**
- * Data transfer object for updating an existing lesson.
- * All fields are optional as only specific fields might be updated.
- */
-export interface UpdateLessonDto {
-  title?: string;
-  lessonOrder?: number;
-  content?: string;
-}
 
 // --- API Functions for Lessons ---
 

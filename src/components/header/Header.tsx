@@ -62,7 +62,7 @@ const Header: React.FC = () => {
             </span>
           </Link>
 
-          <button
+          {/* <button
             onClick={() => setIsDropdownOpen(!isDropdownOpen)}
             className={`flex items-center gap-1 text-sm font-semibold px-3 py-1.5 rounded-full transition border font-['Merriweather'] tracking-wide uppercase
             ${
@@ -86,10 +86,10 @@ const Header: React.FC = () => {
               className="pl-9 pr-3 py-2 rounded-full text-sm border border-red-200 focus:outline-none focus:ring-2 focus:ring-red-300 bg-white text-gray-700 shadow-md placeholder-gray-400 transition duration-200"
             />
             <FaSearch className="absolute left-3 top-2.5 text-red-400 text-sm" />
-          </div>
+          </div> */}
         </div>
 
-        <nav className="flex justify-center flex-grow gap-6 text-sm font-semibold font-['Merriweather'] whitespace-nowrap">
+        {/* <nav className="flex justify-center flex-grow gap-6 text-sm font-semibold font-['Merriweather'] whitespace-nowrap">
           {[
             ["Trang chủ", "/"],
             ["Khoá học", "/courses"],
@@ -107,7 +107,7 @@ const Header: React.FC = () => {
               <span className="absolute left-0 bottom-0 w-full h-[2px] bg-red-400 scale-x-0 hover:scale-x-100 transition-transform duration-300 origin-left rounded-full" />
             </Link>
           ))}
-        </nav>
+        </nav> */}
 
         <div className="flex items-center gap-3 justify-end flex-grow-0 ml-2">
           {isAuthenticated ? (

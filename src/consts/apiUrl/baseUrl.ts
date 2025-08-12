@@ -151,6 +151,8 @@ export const DELETE_ALL_TEST_QUESTIONS_URL = (testId: string) => `${TEST_QUESTIO
 // ===== ATTEMPT ANSWER ENDPOINTS =====
 export const ATTEMPT_ANSWER_BASE_URL = `${BASE_URL}/attempt-answers`;
 export const ADD_OR_UPDATE_ATTEMPT_ANSWERS_URL = `${ATTEMPT_ANSWER_BASE_URL}/add-or-update`;
+export const CREATE_ATTEMPT_ANSWER_URL = `${ATTEMPT_ANSWER_BASE_URL}/create`;
+export const UPDATE_ATTEMPT_ANSWER_URL = `${ATTEMPT_ANSWER_BASE_URL}/update`;
 export const GET_ATTEMPT_ANSWERS_URL = (attemptId: string) => `${ATTEMPT_ANSWER_BASE_URL}/by-attempt/${attemptId}`;
 
 // ===== CONVERSATION ENDPOINTS =====
@@ -247,3 +249,11 @@ export const PAYMENT_CANCEL_URL = `${PAYMENT_BASE_URL}/cancel`;
 
 // WebSocket server URL for LiveKit
 export const LIVEKIT_WS_URL = "wss://livekit.zd-dev.xyz";
+
+// Admin Dashboard URLs
+export const GET_ADMIN_DASHBOARD_TOTAL_REVENUE_URL = `${BASE_URL}/admin-dashboard/revenue/total`;
+export const GET_ADMIN_DASHBOARD_TOTAL_ENROLLMENTS_URL = `${BASE_URL}/admin-dashboard/enrollments/total`;
+export const GET_ADMIN_DASHBOARD_ENROLLMENTS_BY_MONTH_URL = `${BASE_URL}/admin-dashboard/enrollments/by-month`;
+export const GET_ADMIN_DASHBOARD_CURRENT_MONTH_ENROLLMENTS_URL = `${BASE_URL}/admin-dashboard/enrollments/current-month`;
+export const GET_ADMIN_DASHBOARD_CURRENT_MONTH_REVENUE_URL = `${BASE_URL}/admin-dashboard/revenue/current-month`;
+export const GET_ADMIN_DASHBOARD_REVENUE_BY_MONTH_URL = `${BASE_URL}/admin-dashboard/revenue/by-month`;

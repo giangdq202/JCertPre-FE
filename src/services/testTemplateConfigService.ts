@@ -6,6 +6,10 @@ import {
   UPDATE_TEST_TEMPLATE_CONFIG_URL,
   DELETE_TEST_TEMPLATE_CONFIG_URL,
 } from "../consts/apiUrl/baseUrl";
+import {
+  validateCreateTestTemplateConfigDto,
+  validateUpdateTestTemplateConfigDto
+} from "../types/testTemplateConfig.types";
 
 export interface CreateTestTemplateConfigDto {
   subContentId: string;
@@ -86,6 +90,12 @@ export const createTestTemplateConfig = async (
   dto: CreateTestTemplateConfigDto
 ): Promise<TestTemplateConfigDto> => {
   try {
+    // Validate the DTO before sending to backend
+    const validation = validateCreateTestTemplateConfigDto(dto);
+    if (!validation.isValid) {
+      throw new Error(`Validation failed: ${validation.message}`);
+    }
+
     const response = await axiosInstance.post(CREATE_TEST_TEMPLATE_CONFIG_URL(templateId), dto);
     return response.data;
   } catch (error) {
@@ -105,6 +115,12 @@ export const updateTestTemplateConfig = async (
   dto: UpdateTestTemplateConfigDto
 ): Promise<TestTemplateConfigDto> => {
   try {
+    // Validate the DTO before sending to backend
+    const validation = validateUpdateTestTemplateConfigDto(dto);
+    if (!validation.isValid) {
+      throw new Error(`Validation failed: ${validation.message}`);
+    }
+
     const response = await axiosInstance.put(UPDATE_TEST_TEMPLATE_CONFIG_URL(configId), dto);
     return response.data;
   } catch (error) {

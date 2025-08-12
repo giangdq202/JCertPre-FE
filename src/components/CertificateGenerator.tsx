@@ -1,6 +1,7 @@
 import React from 'react';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
+import { useNotification } from './notifications';
 
 interface CertificateData {
   studentName: string;
@@ -19,6 +20,7 @@ export const CertificateGenerator: React.FC<CertificateGeneratorProps> = ({
   certificateData,
   onDownload
 }) => {
+  const { error: showError } = useNotification();
   const generateCertificate = async () => {
     try {
       // Tạo HTML template cho certificate
@@ -145,7 +147,7 @@ export const CertificateGenerator: React.FC<CertificateGeneratorProps> = ({
       onDownload?.();
     } catch (error) {
       console.error('Error generating certificate:', error);
-      alert('Có lỗi xảy ra khi tạo chứng chỉ. Vui lòng thử lại.');
+      showError('Lỗi', 'Có lỗi xảy ra khi tạo chứng chỉ. Vui lòng thử lại.');
     }
   };
 

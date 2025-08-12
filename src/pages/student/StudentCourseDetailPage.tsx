@@ -596,7 +596,10 @@ const StudentCourseDetailPage = () => {
                             Hãy để chúng tôi giúp bạn tìm khóa học phù hợp nhất dựa trên mục tiêu và trình độ hiện tại của bạn.
                         </p>
                         <div className="flex flex-col sm:flex-row justify-center space-y-4 sm:space-y-0 sm:space-x-6">
-                            <button className="bg-green-600 text-white py-3 px-8 rounded-lg font-semibold hover:bg-green-700 transition-colors shadow-md">
+                            <button 
+                                onClick={() => navigate(paths.student_messages)}
+                                className="bg-green-600 text-white py-3 px-8 rounded-lg font-semibold hover:bg-green-700 transition-colors shadow-md"
+                            >
                                 Chat với Tư vấn viên
                             </button>
                         </div>

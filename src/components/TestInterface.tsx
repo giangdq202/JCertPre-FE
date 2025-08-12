@@ -10,7 +10,7 @@ import {
   FaExclamationTriangle
 } from 'react-icons/fa';
 import { TestDto } from '../services/testService';
-import { QuestionDto } from '../services/questionService';
+import { QuestionDto } from '../types/question.types';
 import { TestQuestionDto, getQuestionsByTestId } from '../services/testQuestionService';
 import { 
   TestAttemptDto, 
@@ -23,10 +23,12 @@ import {
   getTestAttemptWithScoreSummary
 } from '../services/testAttemptService';
 import {
-  AddOrUpdateAttemptAnswerDto,
-  addOrUpdateAttemptAnswer,
-  getAttemptAnswersByAttemptId,
+  CreateAttemptAnswerDto,
   AttemptAnswerDto
+} from '../types/attemptAnswer.types';
+import {
+  addOrUpdateAttemptAnswer,
+  getAttemptAnswersByAttemptId
 } from '../services/attemptAnswerService';
 import { getQuestionById } from '../services/questionService';
 import { useAuth } from '../auth/AuthContext';
@@ -188,7 +190,7 @@ export const TestInterface: React.FC<TestInterfaceProps> = ({ test, onBack }) =>
 
     // Save answer to backend
     try {
-      const dto: AddOrUpdateAttemptAnswerDto = {
+      const dto: CreateAttemptAnswerDto = {
         attemptId: currentAttempt.attemptId,
         questionId,
         choiceId
@@ -460,17 +462,27 @@ export const TestInterface: React.FC<TestInterfaceProps> = ({ test, onBack }) =>
             {/* Question attachments */}
             {currentQuestion.questionDetails.questionAttachments?.map((attachment, index) => (
               <div key={index} className="mb-4">
-                {attachment.mediaType === 'image' ? (
+                {attachment.mediaType.startsWith('image/') ? (
                   <img 
                     src={attachment.mediaUrl} 
                     alt="Question attachment" 
                     className="max-w-full h-auto rounded-lg shadow-sm"
                   />
-                ) : attachment.mediaType === 'audio' ? (
-                  <audio controls className="w-full">
-                    <source src={attachment.mediaUrl} type="audio/mpeg" />
-                    Trình duyệt của bạn không hỗ trợ audio.
-                  </audio>
+                ) : attachment.mediaType.startsWith('audio/') ? (
+                  <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                    <div className="flex items-center gap-2 mb-2">
+                      <FaPlay className="text-blue-600" />
+                      <span className="text-sm font-medium text-blue-800">Audio câu hỏi</span>
+                    </div>
+                    <audio 
+                      controls 
+                      className="w-full"
+                      preload="none"
+                    >
+                      <source src={attachment.mediaUrl} type={attachment.mediaType} />
+                      Trình duyệt của bạn không hỗ trợ audio.
+                    </audio>
+                  </div>
                 ) : (
                   <div className="bg-gray-100 p-4 rounded-lg">
                     <a 
@@ -479,7 +491,7 @@ export const TestInterface: React.FC<TestInterfaceProps> = ({ test, onBack }) =>
                       rel="noopener noreferrer"
                       className="text-blue-600 hover:underline"
                     >
-                      Xem tài liệu đính kèm
+                      Xem tài liệu đính kèm ({attachment.mediaType})
                     </a>
                   </div>
                 )}

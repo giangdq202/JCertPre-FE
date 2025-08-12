@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { FaClock, FaArrowRight, FaArrowLeft, FaExclamationTriangle } from 'react-icons/fa';
+import { FaClock, FaArrowRight, FaArrowLeft, FaExclamationTriangle, FaPlay } from 'react-icons/fa';
 import { useAuth } from '../auth/AuthContext';
 import { useNotification } from './notifications';
 import { 
@@ -21,9 +21,14 @@ import {
   TestQuestionDto
 } from '../services/testQuestionService';
 import {
-  getQuestionById,
-  QuestionDto
+  getQuestionById
 } from '../services/questionService';
+import {
+  QuestionDto
+} from '../types/question.types';
+import {
+  CreateAttemptAnswerDto
+} from '../types/attemptAnswer.types';
 import {
   addOrUpdateAttemptAnswer
 } from '../services/attemptAnswerService';
@@ -285,7 +290,7 @@ const JLPTTestInterface: React.FC<JLPTTestInterfaceProps> = ({
 
     // Save answer to backend
     try {
-      const attemptAnswer = {
+      const attemptAnswer: CreateAttemptAnswerDto = {
         attemptId: testAttempt.attemptId,
         questionId: questionId,
         choiceId: choiceId
@@ -624,6 +629,49 @@ const JLPTTestInterface: React.FC<JLPTTestInterfaceProps> = ({
                   <p className="text-lg text-gray-800 leading-relaxed">
                     {currentQuestion.content}
                   </p>
+                  
+                  {/* Question attachments - Audio support */}
+                  {currentQuestion.questionAttachments && currentQuestion.questionAttachments.length > 0 && (
+                    <div className="mt-4 space-y-3">
+                      {currentQuestion.questionAttachments.map((attachment, index) => (
+                        <div key={index}>
+                          {attachment.mediaType.startsWith('image/') ? (
+                            <img 
+                              src={attachment.mediaUrl} 
+                              alt="Question attachment" 
+                              className="max-w-full h-auto rounded-lg shadow-sm"
+                            />
+                          ) : attachment.mediaType.startsWith('audio/') ? (
+                            <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                              <div className="flex items-center gap-2 mb-2">
+                                <FaPlay className="text-blue-600" />
+                                <span className="text-sm font-medium text-blue-800">Audio câu hỏi</span>
+                              </div>
+                              <audio 
+                                controls 
+                                className="w-full"
+                                preload="none"
+                              >
+                                <source src={attachment.mediaUrl} type={attachment.mediaType} />
+                                Trình duyệt của bạn không hỗ trợ audio.
+                              </audio>
+                            </div>
+                          ) : (
+                            <div className="bg-gray-100 p-4 rounded-lg">
+                              <a 
+                                href={attachment.mediaUrl} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="text-blue-600 hover:underline"
+                              >
+                                Xem tài liệu đính kèm ({attachment.mediaType})
+                              </a>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
 

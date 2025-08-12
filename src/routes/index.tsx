@@ -29,13 +29,27 @@ import StaffMessagesPage from "../pages/staff/StaffMessagesPage";
 import CreditPurchasePage from "../pages/student/CreditPurchasePage";
 import CreditHistoryPage from "../pages/student/CreditHistoryPage";
 import PaymentCallbackPage from "../pages/PaymentCallbackPage";
+import PaymentSuccessPage from "../pages/PaymentSuccessPage";
+import PaymentCancelledPage from "../pages/PaymentCancelledPage";
+import PaymentErrorPage from "../pages/PaymentErrorPage";
+import PaymentPendingPage from "../pages/PaymentPendingPage";
 import MessagesPage from "../pages/student/MessagesPage";
 import VocabularyPage from "../pages/student/VocabularyPage";
+// Instructor imports
+import InstructorHomePage from "../pages/instructor/InstructorHomePage";
+import InstructorSchedulePage from "../pages/instructor/InstructorSchedulePage";
+import InstructorCoursesPage from "../pages/instructor/InstructorCoursesPage";
+import InstructorCourseDetailPage from "../pages/instructor/InstructorCourseDetailPage";
+// Admin imports
+import AdminHomePage from "../pages/admin/AdminHomePage";
+import AdminUserManagementPage from "../pages/admin/AdminUserManagementPage";
 // LiveKit imports
 import LiveKitHomePage from "../pages/livekit/LiveKitHomePage";
 import PreJoin from "../components/livekit/PreJoin";
 import VideoConference from "../components/livekit/VideoConference";
 import RoomManager from "../components/livekit/RoomManager";
+import { adminPaths } from "./path";
+import EditQuestionPage from "../pages/EditQuestionPage";
 
 const AppRoutes: React.FC = () => {
   console.log("AppRoutes: Rendering routes");
@@ -140,7 +154,7 @@ const AppRoutes: React.FC = () => {
           }
         />
         <Route
-          path={paths.staff_home}
+          path={paths.staff_home + "/*"}
           element={
             <ProtectedRoute allowedRoles={["ACADEMIC_MANAGER"]}>
               <StaffHomePage />
@@ -160,6 +174,14 @@ const AppRoutes: React.FC = () => {
           element={
             <ProtectedRoute allowedRoles={["ACADEMIC_MANAGER"]}>
               <CreateQuestionPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path={paths.edit_question}
+          element={
+            <ProtectedRoute allowedRoles={["ACADEMIC_MANAGER"]}>
+              <EditQuestionPage />
             </ProtectedRoute>
           }
         />
@@ -242,6 +264,23 @@ const AppRoutes: React.FC = () => {
           path={paths.payment_callback}
           element={<PaymentCallbackPage />}
         />
+        {/* Payment success/cancelled/error/pending routes (public) */}
+        <Route
+          path={paths.payment_success}
+          element={<PaymentSuccessPage />}
+        />
+        <Route
+          path={paths.payment_cancelled}
+          element={<PaymentCancelledPage />}
+        />
+        <Route
+          path={paths.payment_error}
+          element={<PaymentErrorPage />}
+        />
+        <Route
+          path={paths.payment_pending}
+          element={<PaymentPendingPage />}
+        />
         {/* LiveKit routes */}
         <Route
           path={paths.livekit_home}
@@ -288,6 +327,56 @@ const AppRoutes: React.FC = () => {
           element={
             <ProtectedRoute allowedRoles={["STUDENT", "ACADEMIC_MANAGER"]}>
               <VideoConference />
+            </ProtectedRoute>
+          }
+        />
+        {/* Instructor routes */}
+        <Route
+          path={paths.instructor_home}
+          element={
+            <ProtectedRoute allowedRoles={["INSTRUCTOR"]}>
+              <InstructorHomePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path={paths.instructor_schedule}
+          element={
+            <ProtectedRoute allowedRoles={["INSTRUCTOR"]}>
+              <InstructorSchedulePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path={paths.instructor_courses}
+          element={
+            <ProtectedRoute allowedRoles={["INSTRUCTOR"]}>
+              <InstructorCoursesPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path={paths.instructor_course_detail}
+          element={
+            <ProtectedRoute allowedRoles={["INSTRUCTOR"]}>
+              <InstructorCourseDetailPage />
+            </ProtectedRoute>
+          }
+        />
+        {/* Admin routes */}
+        <Route
+          path={paths.admin_home}
+          element={
+            <ProtectedRoute allowedRoles={["ADMIN"]}>
+              <AdminHomePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path={adminPaths.admin_users}
+          element={
+            <ProtectedRoute allowedRoles={["ADMIN"]}>
+              <AdminUserManagementPage />
             </ProtectedRoute>
           }
         />

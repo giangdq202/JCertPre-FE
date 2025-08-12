@@ -1,105 +1,38 @@
 import axiosInstance from "../consts/axios/axiosInstance";
-import { BASE_URL } from "../consts/apiUrl/baseUrl";
+import {
+  QUESTION_BASE_URL,
+  CHOICE_BASE_URL,
+  GET_QUESTION_FOR_TEST_URL,
+} from "../consts/apiUrl/baseUrl";
+import {
+  ChoiceReadDto,
+  ChoiceCreateDto,
+  ChoiceUpdateDto
+} from "../types/choice.types";
+import {
+  QuestionDto,
+  CreateQuestionDto,
+  UpdateQuestionDto,
+  validateQuestionCreateDto,
+  validateQuestionUpdateDto
+} from "../types/question.types";
 
-export enum QuestionDifficulty {
-  Easy = 0,
-  Medium = 1,
-  Hard = 2,
-}
-
-export enum ContentName {
-  Kanji = 0,
-  Vocabulary = 1,
-  Grammar = 2,
-  Reading = 3,
-  Listening = 4,
-}
-
-export enum CourseLevel {
-  N5 = 0,
-  N4 = 1,
-  N3 = 2,
-  N2 = 3,
-  N1 = 4,
-}
-
-export enum SubContentName {
-  Mondai1 = 0, // Đọc chữ Hán
-  Mondai2 = 1, // Nhớ chữ Hán
-  Mondai3 = 2, // Chọn từ phù hợp với câu
-  Mondai4 = 3, // Tìm câu có cách diễn đạt giống
-  Mondai5 = 4, // Chọn ngữ pháp phù hợp với câu
-  Mondai6 = 5, // Sắp xếp câu
-  Mondai7 = 6, // Tìm đáp án đúng để hoàn thành đoạn văn
-  Mondai8 = 7, // Đoạn văn ngắn
-  Mondai9 = 8, // Trung văn
-  Mondai10 = 9, // Tìm kiếm thông tin
-  Mondai11 = 10, // Hiểu đề bài
-  Mondai12 = 11, // Hiểu điểm chính
-  Mondai13 = 12, // Diễn đạt bằng lời nói
-  Mondai14 = 13, // Phản hồi tức thời
-}
-
-export interface ChoiceReadDto {
-  choiceId: string;
-  questionId: string;
-  content: string;
-  isCorrect: boolean;
-}
-
-export interface ChoiceCreateDto {
-  content: string;
-  isCorrect: boolean;
-}
-
-export interface ChoiceUpdateDto {
-  content?: string;
-  isCorrect?: boolean;
-}
+// Import enums from types instead of duplicating them
+import {
+  QuestionDifficulty,
+  ContentName,
+  CourseLevel,
+  SubContentName
+} from "../types/question.types";
 
 export interface QuestionAttachmentDto {
   mediaUrl: string;
   mediaType: string;
 }
 
-export interface QuestionDto {
-  id: string;
-  content: string;
-  explanation?: string;
-  points: number;
-  difficulty: QuestionDifficulty;
-  isActive: boolean;
-  choices?: ChoiceReadDto[];
-  questionAttachments?: QuestionAttachmentDto[];
-  contentName: string;
-  contentNameDescription: string;
-  level: string;
-  levelDescription: string;
-  subContentName: string;
-  subContentNameDescription: string;
-}
 
-export interface CreateQuestionDto {
-  content: string;
-  explanation?: string;
-  points: number;
-  difficulty: QuestionDifficulty;
-  isActive: boolean;
-  contentName: ContentName;
-  level: CourseLevel;
-  subContentName: SubContentName;
-}
 
-export interface UpdateQuestionDto {
-  content?: string;
-  explanation?: string;
-  points?: number;
-  difficulty?: QuestionDifficulty;
-  isActive?: boolean;
-  contentName?: ContentName;
-  level?: CourseLevel;
-  subContentName?: SubContentName;
-}
+
 
 export interface Pagination<T> {
   pageIndex: number;
@@ -110,8 +43,6 @@ export interface Pagination<T> {
   previous: boolean;
   items: T[];
 }
-
-const QUESTION_BASE_URL = `${BASE_URL}/questions`;
 
 // Get all questions (for staff - includes both active and inactive)
 export const getAllQuestions = async (): Promise<QuestionDto[]> => {
@@ -134,12 +65,108 @@ export const getQuestionById = async (id: string): Promise<QuestionDto> => {
 };
 
 export const createQuestion = async (dto: CreateQuestionDto): Promise<QuestionDto> => {
-  const { data } = await axiosInstance.post<QuestionDto>(QUESTION_BASE_URL, dto);
+  // Validate the DTO before sending to backend
+  const validation = validateQuestionCreateDto({
+    content: dto.content,
+    explanation: dto.explanation,
+    points: dto.points,
+    difficulty: dto.difficulty,
+    isActive: dto.isActive,
+    contentName: dto.contentName,
+    level: dto.level,
+    subContentName: dto.subContentName,
+    audioFile: dto.audioFile
+  });
+  
+  if (!validation.isValid) {
+    throw new Error(`Validation failed: ${validation.message}`);
+  }
+
+  // Create FormData for multipart/form-data request
+  const formData = new FormData();
+  
+  // Add all text fields
+  formData.append('content', dto.content);
+  if (dto.explanation) {
+    formData.append('explanation', dto.explanation);
+  }
+  formData.append('points', dto.points.toString());
+  formData.append('difficulty', dto.difficulty.toString());
+  formData.append('isActive', dto.isActive.toString());
+  formData.append('contentName', dto.contentName.toString());
+  formData.append('level', dto.level.toString());
+  formData.append('subContentName', dto.subContentName.toString());
+  
+  // Add audio file if provided
+  if (dto.audioFile) {
+    formData.append('audioFile', dto.audioFile);
+  }
+
+  const { data } = await axiosInstance.post<QuestionDto>(QUESTION_BASE_URL, formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
   return data;
 };
 
 export const updateQuestion = async (id: string, dto: UpdateQuestionDto): Promise<QuestionDto> => {
-  const { data } = await axiosInstance.put<QuestionDto>(`${QUESTION_BASE_URL}/${id}`, dto);
+  // Validate the DTO before sending to backend
+  const validation = validateQuestionUpdateDto({
+    content: dto.content,
+    explanation: dto.explanation,
+    points: dto.points,
+    difficulty: dto.difficulty,
+    isActive: dto.isActive,
+    contentName: dto.contentName,
+    level: dto.level,
+    subContentName: dto.subContentName,
+    audioFile: dto.audioFile
+  });
+  
+  if (!validation.isValid) {
+    throw new Error(`Validation failed: ${validation.message}`);
+  }
+
+  // Create FormData for multipart/form-data request
+  const formData = new FormData();
+  
+  // Add all text fields that are provided
+  if (dto.content !== undefined) {
+    formData.append('content', dto.content);
+  }
+  if (dto.explanation !== undefined) {
+    formData.append('explanation', dto.explanation);
+  }
+  if (dto.points !== undefined) {
+    formData.append('points', dto.points.toString());
+  }
+  if (dto.difficulty !== undefined) {
+    formData.append('difficulty', dto.difficulty.toString());
+  }
+  if (dto.isActive !== undefined) {
+    formData.append('isActive', dto.isActive.toString());
+  }
+  if (dto.contentName !== undefined) {
+    formData.append('contentName', dto.contentName.toString());
+  }
+  if (dto.level !== undefined) {
+    formData.append('level', dto.level.toString());
+  }
+  if (dto.subContentName !== undefined) {
+    formData.append('subContentName', dto.subContentName.toString());
+  }
+  
+  // Add audio file if provided
+  if (dto.audioFile) {
+    formData.append('audioFile', dto.audioFile);
+  }
+
+  const { data } = await axiosInstance.put<QuestionDto>(`${QUESTION_BASE_URL}/${id}`, formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
   return data;
 };
 
@@ -149,7 +176,27 @@ export const deleteQuestion = async (id: string): Promise<void> => {
 
 // Toggle question active status (staff only) - using update API instead of toggle-active
 export const toggleQuestionActiveStatus = async (id: string, isActive: boolean): Promise<QuestionDto> => {
-  const { data } = await axiosInstance.put<QuestionDto>(`${QUESTION_BASE_URL}/${id}`, { isActive });
+  // First get the current question to preserve all existing fields
+  const currentQuestion = await getQuestionById(id);
+  
+  // Create FormData for multipart/form-data request with all existing fields
+  const formData = new FormData();
+  formData.append('content', currentQuestion.content);
+  if (currentQuestion.explanation) {
+    formData.append('explanation', currentQuestion.explanation);
+  }
+  formData.append('points', currentQuestion.points.toString());
+  formData.append('difficulty', currentQuestion.difficulty.toString());
+  formData.append('isActive', isActive.toString()); // Only change this field
+  formData.append('contentName', currentQuestion.contentName.toString());
+  formData.append('level', currentQuestion.level.toString());
+  formData.append('subContentName', currentQuestion.subContentName.toString());
+  
+  const { data } = await axiosInstance.put<QuestionDto>(`${QUESTION_BASE_URL}/${id}`, formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
   return data;
 };
 
@@ -180,19 +227,19 @@ export const getQuestionsPagingDetails = async (params: GetQuestionsPagingDetail
 
 // Choice APIs
 export const getChoicesByQuestionId = async (questionId: string): Promise<ChoiceReadDto[]> => {
-  const response = await axiosInstance.get(`/choices/question/${questionId}`);
+  const response = await axiosInstance.get(`${CHOICE_BASE_URL}/question/${questionId}`);
   return response.data;
 };
 
 export const createChoice = async (questionId: string, choiceDto: ChoiceCreateDto): Promise<ChoiceReadDto> => {
-  const response = await axiosInstance.post(`/choices/question/${questionId}`, choiceDto);
+  const response = await axiosInstance.post(`${CHOICE_BASE_URL}/question/${questionId}`, choiceDto);
   return response.data;
 };
 
 export const updateChoice = async (choiceId: string, choiceDto: ChoiceUpdateDto): Promise<void> => {
-  await axiosInstance.put(`/choices/choice/${choiceId}`, choiceDto);
+  await axiosInstance.put(`${CHOICE_BASE_URL}/choice/${choiceId}`, choiceDto);
 };
 
 export const deleteChoice = async (choiceId: string): Promise<void> => {
-  await axiosInstance.delete(`/choices/choice/${choiceId}`);
+  await axiosInstance.delete(`${CHOICE_BASE_URL}/choice/${choiceId}`);
 }; 

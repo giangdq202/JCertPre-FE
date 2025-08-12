@@ -25,6 +25,7 @@ import { getAllTestAttemptsByUserId, TestAttemptDto } from "../../services/testA
 import StudentProfileModal from "../../components/modals/StudentProfileModal";
 import { useAuth } from "../../auth/AuthContext";
 import { useLessonProgress } from "../../hooks/useLessonProgress";
+import { useNotification } from "../../components/notifications";
 import paths from "../../routes/path";
 import { FaBookOpen, FaPenNib, FaArrowRight, FaTrophy, FaClock } from "react-icons/fa";
 import { HiOutlineClock } from "react-icons/hi2";
@@ -70,6 +71,7 @@ const StudentHomePage = () => {
   const { userInfo } = useAuth(); // Kept for user info
   const navigate = useNavigate();
   const { getCourseCompletionRate } = useLessonProgress();
+  const { success, error } = useNotification();
 
   const [studentProfile, setStudentProfile] =
     useState<StudentProfileDto | null>(null);
@@ -104,7 +106,7 @@ const StudentHomePage = () => {
   const handleProfileCreated = (profile: StudentProfileDto) => {
     setStudentProfile(profile);
     setShowProfileModal(false);
-    alert("Tạo hồ sơ thành công!"); // Using alert instead of Ant Design message
+    success("Thành công", "Tạo hồ sơ thành công!");
   };
 
   // Fetch student profile
@@ -123,9 +125,9 @@ const StudentHomePage = () => {
         } else {
           setShowProfileModal(true); // No profile found, show modal
         }
-      } catch (error) {
-        console.error("Error fetching student profile:", error);
-        alert("Failed to fetch student profile."); // Using alert
+      } catch (err) {
+        console.error("Error fetching student profile:", err);
+        error("Lỗi", "Không thể tải hồ sơ học viên.");
       } finally {
         setIsLoadingProfile(false);
       }
@@ -154,9 +156,9 @@ const StudentHomePage = () => {
           }
         }
         setEnrolledCourseDetails(courseDetails);
-      } catch (error) {
-        console.error("Error fetching enrolled courses:", error);
-        alert("Failed to fetch enrolled courses.");
+      } catch (err) {
+        console.error("Error fetching enrolled courses:", err);
+        error("Lỗi", "Không thể tải danh sách khóa học đã đăng ký.");
         setEnrolledCoursesLoaded(true); // Mark as loaded even if error
       } finally {
         setIsLoadingEnrolledCourses(false);
@@ -309,9 +311,9 @@ const StudentHomePage = () => {
         
         // Limit to 5 recommended courses
         setRecommendedCourses(filteredCourses.slice(0, 5));
-      } catch (error) {
-        console.error("Error fetching recommended courses:", error);
-        alert("Failed to fetch recommended courses."); // Using alert
+      } catch (err) {
+        console.error("Error fetching recommended courses:", err);
+        error("Lỗi", "Không thể tải danh sách khóa học gợi ý.");
       } finally {
         setIsLoadingRecommendedCourses(false);
       }
@@ -471,11 +473,7 @@ const StudentHomePage = () => {
                 <span className="text-green-600">{userInfo?.fullName || "Học viên"}</span>!
               </h2>
               <p className="text-gray-600 text-base mb-6">
-                Hãy tiếp tục hành trình chinh phục chứng chỉ{" "}
-                <span className="font-medium text-gray-800">
-                  {studentProfile?.currentLevel ? `JLPT ${studentProfile.currentLevel}` : "Nhật ngữ"}
-                </span>{" "}
-                của bạn.
+                Hãy tiếp tục hành trình chinh phục chứng chỉ JLPT của bạn.
               </p>
 
               <div className="flex flex-col sm:flex-row gap-4">
@@ -703,7 +701,7 @@ const StudentHomePage = () => {
                 Khóa học của tôi
               </h3>
               <Link
-                to={paths.student_home}
+                to={paths.student_my_courses}
                 className="text-green-600 hover:text-green-700 hover:underline text-base font-semibold transition"
               >
                 Xem tất cả
@@ -720,7 +718,7 @@ const StudentHomePage = () => {
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                {enrolledCourses.map((enrollment) => {
+                {enrolledCourses.slice(0, 3).map((enrollment) => {
                   const instructorNode = (() => {
                     const instructor = enrolledInstructors[enrollment.courseId]?.[0];
                     if (instructor) {
@@ -786,12 +784,12 @@ const StudentHomePage = () => {
               <h3 className="text-2xl font-bold text-gray-900 tracking-tight">
                 Danh sách khóa học
               </h3>
-              <Link
-                to={paths.student_home} // Updated path
-                className="text-green-600 hover:text-green-700 hover:underline text-base font-semibold transition"
-              >
-                Xem tất cả gợi ý
-              </Link>
+                             <Link
+                 to={paths.student_course}
+                 className="text-green-600 hover:text-green-700 hover:underline text-base font-semibold transition"
+               >
+                 Xem tất cả gợi ý
+               </Link>
             </div>
 
             {isLoadingRecommendedCourses ? (
@@ -804,8 +802,8 @@ const StudentHomePage = () => {
                 <p className="text-gray-600">Không tìm thấy khóa học nào phù hợp.</p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {recommendedCourses.map((course) => {
+                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                 {recommendedCourses.slice(0, 3).map((course) => {
                   const recInstructorNode = (() => {
                     const instructor = recommendedInstructors[course.courseId]?.[0];
                     if (instructor) {
@@ -867,45 +865,51 @@ const StudentHomePage = () => {
                 Gợi ý học tập cá nhân hóa
               </h3>
 
-              <div className="space-y-5">
-                {[
-                  {
-                    title: "Ôn tập các dạng câu điều kiện",
-                    description:
-                      "Bài kiểm tra gần đây cho thấy bạn cần luyện tập thêm với các mẫu ngữ pháp điều kiện.",
-                    action: "Bắt đầu luyện tập",
-                  },
-                  {
-                    title: "Luyện nghe hiểu",
-                    description:
-                      "Cải thiện kỹ năng nghe của bạn với các bài tập âm thanh trình độ N3 này.",
-                    action: "Bắt đầu nghe",
-                  },
-                  {
-                    title: "Luyện viết Kanji",
-                    description:
-                      "Thực hành viết 15 ký tự Kanji thường bị nhầm lẫn này.",
-                    action: "Bắt đầu viết",
-                  },
-                ].map((rec, index) => (
-                  <div
-                    key={index}
-                    className="flex items-start p-4 border rounded-xl hover:shadow-md transition-shadow duration-200"
-                  >
-                    <div className="flex-1">
-                      <h4 className="text-md font-semibold text-gray-800 mb-1">
-                        {rec.title}
-                      </h4>
-                      <p className="text-gray-600 text-sm mb-3">
-                        {rec.description}
-                      </p>
-                      <button className="inline-block bg-green-500 hover:bg-green-600 text-white text-sm px-4 py-2 rounded-lg transition-colors duration-200">
-                        {rec.action}
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                             <div className="space-y-5">
+                 {[
+                   {
+                     title: "Ôn tập theo các dạng câu hỏi",
+                     description:
+                       "Luyện tập các dạng câu hỏi khác nhau để cải thiện kỹ năng làm bài thi.",
+                     action: "Bắt đầu luyện tập",
+                     path: paths.question_management,
+                   },
+                   {
+                     title: "Luyện thi JLPT",
+                     description:
+                       "Luyện tập các đề thi JLPT với quy trình thi thực tế.",
+                     action: "Bắt đầu luyện tập",
+                     path: paths.student_exam,
+                   },
+                   {
+                     title: "Tư vấn lộ trình học",
+                     description:
+                       "Nhận tư vấn từ Tư vấn viên về lộ trình học tập phù hợp với trình độ của bạn.",
+                     action: "Liên hệ tư vấn",
+                     path: paths.student_messages,
+                   },
+                 ].map((rec, index) => (
+                   <div
+                     key={index}
+                     className="flex items-start p-4 border rounded-xl hover:shadow-md transition-shadow duration-200"
+                   >
+                     <div className="flex-1">
+                       <h4 className="text-md font-semibold text-gray-800 mb-1">
+                         {rec.title}
+                       </h4>
+                       <p className="text-gray-600 text-sm mb-3">
+                         {rec.description}
+                       </p>
+                       <button 
+                         onClick={() => navigate(rec.path)}
+                         className="inline-block bg-green-500 hover:bg-green-600 text-white text-sm px-4 py-2 rounded-lg transition-colors duration-200"
+                       >
+                         {rec.action}
+                       </button>
+                     </div>
+                   </div>
+                 ))}
+               </div>
             </div>
 
             {/* Announcements */}

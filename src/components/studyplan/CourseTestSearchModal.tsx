@@ -150,7 +150,7 @@ const CourseTestSearchModal: React.FC<CourseTestSearchModalProps> = ({
     return tests.filter(test => {
       const matchesSearch = !searchTerm ||
         test.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        test.description.toLowerCase().includes(searchTerm.toLowerCase());
+        (test.description?.toLowerCase() || '').includes(searchTerm.toLowerCase());
       
       const matchesLevel = !selectedLevel ||
         getTestLevelString(test.courseLevel) === selectedLevel;

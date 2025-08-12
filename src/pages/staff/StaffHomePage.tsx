@@ -86,7 +86,7 @@ const StaffDashboardContent = () => {
                         Quản lý khóa học
                     </button>
                 </div>
-                <div className="bg-white p-6 rounded-xl shadow-lg">
+                {/* <div className="bg-white p-6 rounded-xl shadow-lg">
                     <h3 className="text-lg font-semibold text-gray-800 mb-4">Khiếu nại mới</h3>
                     <p className="text-gray-600">Có <strong>2</strong> khiếu nại chưa được xử lý.</p>
                     <button
@@ -95,7 +95,7 @@ const StaffDashboardContent = () => {
                     >
                         Xem khiếu nại
                     </button>
-                </div>
+                </div> */}
             </div>
         </div>
     );

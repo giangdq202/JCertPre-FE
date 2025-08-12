@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { FaTimes, FaPlus, FaTrash, FaSave, FaExclamationCircle, FaMagic } from "react-icons/fa";
 import { TestType, TestStatus, CourseLevel, CreateTestDto, CreateAutoTestInput, createAutoTest } from "../../services/testService";
-import { CreateQuestionDto, QuestionDifficulty, ContentName, SubContentName, createChoice } from "../../services/questionService";
+import { CreateQuestionDto, QuestionDifficulty, ContentName, SubContentName } from "../../types/question.types";
+import { createChoice } from "../../services/questionService";
 
 import { createByLessonId, updateTestStatus } from "../../services/testService";
 import { addQuestionsCustomManual } from "../../services/testQuestionService";
@@ -10,6 +11,12 @@ import { getAllTestTemplateTypes, TestTemplateTypeDto } from "../../services/tes
 import { getAllSubContents, SubContentDto } from "../../services/subContentService";
 import { useAuth } from "../../auth/AuthContext";
 import NotificationModal from "./NotificationModal";
+import { 
+  ChoiceCreateDto,
+  validateChoiceCreateDto,
+  CHOICE_VALIDATION_RULES
+} from '../../types/choice.types';
+import { useNotification } from '../notifications';
 
 interface CreateTestModalProps {
   isOpen: boolean;
@@ -24,7 +31,7 @@ interface CreateTestModalProps {
 // Extend CreateQuestionDto to include choices for internal use
 interface QuestionWithChoices extends Omit<CreateQuestionDto, 'subContentName'> {
   subContentName?: SubContentName;
-  choices?: { content: string; isCorrect: boolean }[];
+  choices?: ChoiceCreateDto[];
 }
 
 const CreateTestModal: React.FC<CreateTestModalProps> = ({
@@ -212,6 +219,25 @@ const CreateTestModal: React.FC<CreateTestModalProps> = ({
     }
   };
 
+  const resetQuestionForm = () => {
+    setCurrentQuestion({
+      content: "",
+      explanation: "",
+      points: 1,
+      difficulty: QuestionDifficulty.Easy,
+      isActive: true,
+      contentName: ContentName.Vocabulary,
+      level: courseLevel,
+      subContentName: undefined,
+    });
+    setChoices([
+      { content: "", isCorrect: false },
+      { content: "", isCorrect: false },
+      { content: "", isCorrect: false },
+      { content: "", isCorrect: false },
+    ]);
+  };
+
   const addQuestion = () => {
     if (!currentQuestion.content.trim()) {
       showNotification("Thiếu nội dung câu hỏi", "Vui lòng nhập nội dung câu hỏi", "warning");
@@ -240,10 +266,12 @@ const CreateTestModal: React.FC<CreateTestModalProps> = ({
       return;
     }
 
-    // Check if choice content is not too short
+    // Validate each choice according to backend rules
     for (let i = 0; i < validChoices.length; i++) {
-      if (validChoices[i].content.trim().length < 1) {
-        showNotification("Lựa chọn trống", `Lựa chọn ${i + 1} phải có nội dung`, "warning");
+      const choice = validChoices[i];
+      const validation = validateChoiceCreateDto(choice);
+      if (!validation.isValid) {
+        showNotification("Lựa chọn không hợp lệ", `Lựa chọn ${i + 1}: ${validation.message}`, "warning");
         return;
       }
     }
@@ -259,22 +287,7 @@ const CreateTestModal: React.FC<CreateTestModalProps> = ({
     };
 
     setQuestions(prev => [...prev, questionWithChoices]);
-    setCurrentQuestion({
-      content: "",
-      explanation: "",
-      points: 1,
-      difficulty: QuestionDifficulty.Easy,
-      isActive: true,
-      contentName: ContentName.Vocabulary,
-      level: courseLevel,
-      subContentName: undefined,
-    });
-    setChoices([
-      { content: "", isCorrect: false },
-      { content: "", isCorrect: false },
-      { content: "", isCorrect: false },
-      { content: "", isCorrect: false },
-    ]);
+    resetQuestionForm();
   };
 
   const removeQuestion = (index: number) => {
@@ -297,7 +310,7 @@ const CreateTestModal: React.FC<CreateTestModalProps> = ({
       return;
     }
 
-    if (!testData.title.trim() || !testData.description.trim()) {
+    if (!testData.title.trim() || !testData.description?.trim()) {
       showNotification("Thiếu thông tin", "Vui lòng điền đầy đủ tiêu đề và mô tả test", "warning");
       return;
     }
@@ -341,7 +354,7 @@ const CreateTestModal: React.FC<CreateTestModalProps> = ({
       // Prepare test data with all required fields
       const testDataToSend = {
         title: testData.title.trim(),
-        description: testData.description.trim(),
+        description: testData.description?.trim() || "",
         testType: selectedTestType,
         courseLevel: courseLevel,
         durationMinutes: selectedTestType === TestType.CustomManual ? testData.durationMinutes : 0,
@@ -753,7 +766,7 @@ const CreateTestModal: React.FC<CreateTestModalProps> = ({
                       <option value={ContentName.Grammar}>Ngữ pháp</option>
                       <option value={ContentName.Reading}>Đọc hiểu</option>
                       <option value={ContentName.Listening}>Nghe hiểu</option>
-                      <option value={ContentName.Kanji}>Kanji</option>
+                      <option value={ContentName.Kanji}>Chữ Hán</option>
                     </select>
                   </div>
                   <div>

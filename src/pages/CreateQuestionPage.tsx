@@ -1,12 +1,29 @@
-import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { FaArrowLeft, FaChevronDown, FaChevronUp } from "react-icons/fa";
-import { createQuestion, createChoice, CreateQuestionDto, ChoiceCreateDto, QuestionDifficulty, ContentName, SubContentName, CourseLevel } from "../services/questionService";
-import { getAllSubContents, SubContentDto } from "../services/subContentService";
-import paths from "../routes/path";
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { FaPlus, FaTrash, FaSave, FaTimes, FaPlay, FaVolumeUp, FaArrowLeft, FaMusic } from 'react-icons/fa';
+import { 
+  QuestionDifficulty, 
+  ContentName, 
+  CourseLevel, 
+  SubContentName,
+  CreateQuestionDto,
+} from '../types/question.types';
+import { 
+  createQuestion,
+  createChoice,
+} from '../services/questionService';
+import { 
+  ChoiceCreateDto,
+  validateChoiceCreateDto,
+  CHOICE_VALIDATION_RULES
+} from '../types/choice.types';
+import { getAllSubContents, SubContentDto } from '../services/subContentService';
+import { useNotification } from '../components/notifications';
+import paths from '../routes/path';
 
 const CreateQuestionPage: React.FC = () => {
   const navigate = useNavigate();
+  const { success, error, warning } = useNotification();
   
   // Form states
   const [difficulty, setDifficulty] = useState<QuestionDifficulty | null>(null);
@@ -20,6 +37,10 @@ const CreateQuestionPage: React.FC = () => {
   const [questionContent, setQuestionContent] = useState("");
   const [questionExplanation, setQuestionExplanation] = useState("");
   const [showQuestionExplanation, setShowQuestionExplanation] = useState(false);
+  
+  // Audio file
+  const [audioFile, setAudioFile] = useState<File | null>(null);
+  const [audioFileName, setAudioFileName] = useState<string>("");
   
   // Choices
   const [choices, setChoices] = useState([
@@ -50,10 +71,10 @@ const CreateQuestionPage: React.FC = () => {
   
   const CONTENT_NAME_LABELS: Record<ContentName, string> = {
     [ContentName.Kanji]: "Chữ Hán",
-    [ContentName.Vocabulary]: "Từ vựng",
-    [ContentName.Grammar]: "Ngữ pháp",
-    [ContentName.Reading]: "Đọc hiểu",
-    [ContentName.Listening]: "Nghe hiểu",
+    [ContentName.Vocabulary]: "Từ Vựng",
+    [ContentName.Grammar]: "Ngữ Pháp",
+    [ContentName.Reading]: "Đọc Hiểu",
+    [ContentName.Listening]: "Nghe Hiểu",
   };
   
   const SUBCONTENT_NAME_LABELS: Record<SubContentName, string> = {
@@ -97,19 +118,95 @@ const CreateQuestionPage: React.FC = () => {
     fetchSubContents();
   }, [courseLevel, contentName]);
   
-  // Update choices
-  const updateChoice = (index: number, field: string, value: any) => {
+  const addChoice = () => {
+    if (choices.length < 6) {
+      setChoices([...choices, { content: '', isCorrect: false }]);
+    }
+  };
+
+  const removeChoice = (index: number) => {
+    if (choices.length > 2) {
+      const newChoices = choices.filter((_, i) => i !== index);
+      setChoices(newChoices);
+    }
+  };
+
+  const updateChoiceContent = (index: number, content: string) => {
     const newChoices = [...choices];
-    newChoices[index] = { ...newChoices[index], [field]: value };
+    newChoices[index] = { ...newChoices[index], content };
     setChoices(newChoices);
   };
-  
-  // Toggle choice explanation
-  const toggleChoiceExplanation = (index: number) => {
-    // Removed explanation functionality
+
+  const updateChoiceCorrect = (index: number) => {
+    const newChoices = choices.map((choice, i) => ({
+      ...choice,
+      isCorrect: i === index
+    }));
+    setChoices(newChoices);
+  };
+
+  const validateChoices = (): { isValid: boolean; message?: string } => {
+    if (choices.length < 2) {
+      return { isValid: false, message: "Phải có ít nhất 2 lựa chọn" };
+    }
+
+    const validChoices = choices.filter(c => c.content.trim());
+    if (validChoices.length < 2) {
+      return { isValid: false, message: "Cần ít nhất 2 lựa chọn có nội dung" };
+    }
+
+    // Validate each choice according to backend rules
+    for (let i = 0; i < validChoices.length; i++) {
+      const choice = validChoices[i];
+      const validation = validateChoiceCreateDto(choice);
+      if (!validation.isValid) {
+        return { isValid: false, message: `Lựa chọn ${i + 1}: ${validation.message}` };
+      }
+    }
+
+    if (!validChoices.some(c => c.isCorrect)) {
+      return { isValid: false, message: "Cần ít nhất 1 đáp án đúng" };
+    }
+
+    return { isValid: true };
+  };
+
+  // Handle audio file selection
+  const handleAudioFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Check if contentName is Listening
+      if (contentName !== ContentName.Listening) {
+        warning("Chỉ có thể thêm file âm thanh cho câu hỏi loại 'Nghe hiểu'");
+        e.target.value = ''; // Reset file input
+        return;
+      }
+      
+      // Validate file type
+      if (!file.type.startsWith('audio/')) {
+        warning("Vui lòng chọn file audio hợp lệ");
+        e.target.value = ''; // Reset file input
+        return;
+      }
+      
+      // Validate file size (e.g., max 10MB)
+      if (file.size > 10 * 1024 * 1024) {
+        warning("File audio không được vượt quá 10MB");
+        e.target.value = ''; // Reset file input
+        return;
+      }
+      
+      setAudioFile(file);
+      setAudioFileName(file.name);
+    }
+  };
+
+  // Remove audio file
+  const removeAudioFile = () => {
+    setAudioFile(null);
+    setAudioFileName("");
   };
   
-  // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -123,6 +220,38 @@ const CreateQuestionPage: React.FC = () => {
       points
     });
     
+    if (!questionContent.trim()) {
+      warning("Thiếu nội dung câu hỏi", "Vui lòng nhập nội dung câu hỏi");
+      return;
+    }
+
+    if (questionContent.trim().length < 10) {
+      warning("Nội dung quá ngắn", "Nội dung câu hỏi phải có ít nhất 10 ký tự");
+      return;
+    }
+
+    if (contentName === undefined) {
+      warning("Chưa chọn loại nội dung", "Vui lòng chọn loại nội dung");
+      return;
+    }
+
+    if (courseLevel === undefined) {
+      warning("Chưa chọn cấp độ", "Vui lòng chọn cấp độ");
+      return;
+    }
+
+    if (selectedSubContent === undefined) {
+      warning("Chưa chọn loại bài", "Vui lòng chọn loại bài");
+      return;
+    }
+
+    // Validate choices
+    const choiceValidation = validateChoices();
+    if (!choiceValidation.isValid) {
+      warning("Lựa chọn không hợp lệ", choiceValidation.message || "Vui lòng kiểm tra lại các lựa chọn");
+      return;
+    }
+    
     // Validation
     if (difficulty === null || courseLevel === null || contentName === null || !selectedSubContent || !questionContent.trim()) {
       console.log("Validation failed:", {
@@ -132,19 +261,7 @@ const CreateQuestionPage: React.FC = () => {
         hasSelectedSubContent: !!selectedSubContent,
         hasQuestionContent: !!questionContent.trim()
       });
-      alert("Vui lòng điền đầy đủ thông tin bắt buộc");
-      return;
-    }
-    
-    const hasCorrectChoice = choices.some(choice => choice.isCorrect);
-    if (!hasCorrectChoice) {
-      alert("Vui lòng chọn ít nhất một đáp án đúng");
-      return;
-    }
-    
-    const hasChoiceContent = choices.every(choice => choice.content.trim() !== "");
-    if (!hasChoiceContent) {
-      alert("Vui lòng điền đầy đủ nội dung các đáp án");
+      warning("Vui lòng điền đầy đủ thông tin bắt buộc");
       return;
     }
     
@@ -160,7 +277,7 @@ const CreateQuestionPage: React.FC = () => {
       );
       
       if (!selectedSubContentData) {
-        alert("Không tìm thấy nội dung con được chọn");
+        warning("Không tìm thấy nội dung con được chọn");
         return;
       }
       
@@ -194,7 +311,7 @@ const CreateQuestionPage: React.FC = () => {
       console.log("Mapped subContentName:", subContentName); // Debug
       
       if (subContentName === null || subContentName === undefined) {
-        alert("Không thể map subContentName");
+        warning("Không thể map subContentName");
         return;
       }
       
@@ -208,6 +325,7 @@ const CreateQuestionPage: React.FC = () => {
         contentName: contentName,
         level: courseLevel,
         subContentName: subContentName,
+        audioFile: audioFile || undefined, // Include audio file if selected
       };
       
       const createdQuestion = await createQuestion(questionDto);
@@ -222,13 +340,32 @@ const CreateQuestionPage: React.FC = () => {
         await createChoice(createdQuestion.id, choiceDto);
       }
       
-      alert("Tạo câu hỏi thành công!");
+      success("Tạo câu hỏi thành công!");
       navigate(paths.question_management);
       
-    } catch (error) {
-      console.error("Error creating question:", error);
-      alert("Có lỗi xảy ra khi tạo câu hỏi");
-    } finally {
+          } catch (err: any) {
+        console.error("Error creating question:", err);
+        
+        // Handle backend validation errors
+        if (err?.response?.status === 400 && err?.response?.data?.errors) {
+          const validationErrors = err.response.data.errors;
+          let errorMessage = "Lỗi validation:\n";
+          
+          Object.entries(validationErrors).forEach(([field, messages]) => {
+            if (Array.isArray(messages)) {
+              errorMessage += `- ${field}: ${messages.join(', ')}\n`;
+            } else {
+              errorMessage += `- ${field}: ${messages}\n`;
+            }
+          });
+          
+          error("Lỗi validation", errorMessage.trim());
+        } else if (err?.response?.data?.message) {
+          error("Lỗi", err.response.data.message);
+        } else {
+          error("Có lỗi xảy ra khi tạo câu hỏi");
+        }
+      } finally {
       setLoading(false);
     }
   };
@@ -242,9 +379,12 @@ const CreateQuestionPage: React.FC = () => {
     const options = subContents.map(sc => {
       console.log("Processing subContent:", sc); // Debug
       
-      // Use descriptions directly from API response
-      const contentNameLabel = sc.contentNameDescription;
-      const subContentNameLabel = sc.subContentNameDescription;
+      // Map the string enum names to their properly capitalized labels
+      const contentNameKey = sc.contentName as keyof typeof ContentName;
+      const subContentNameKey = sc.subContentName as keyof typeof SubContentName;
+      
+      const contentNameLabel = CONTENT_NAME_LABELS[ContentName[contentNameKey]];
+      const subContentNameLabel = SUBCONTENT_NAME_LABELS[SubContentName[subContentNameKey]];
       
       return `${contentNameLabel} - ${subContentNameLabel}`;
     });
@@ -438,6 +578,38 @@ const CreateQuestionPage: React.FC = () => {
             )}
           </div>
           
+          {/* Audio File Upload - Only show for Listening content */}
+          {contentName === ContentName.Listening && (
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                File âm thanh (tùy chọn)
+              </label>
+              <div className="flex items-center space-x-2">
+                <input
+                  type="file"
+                  accept="audio/*"
+                  onChange={handleAudioFileChange}
+                  className="block w-full text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 focus:outline-none file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-green-50 file:text-green-700 hover:file:bg-green-100"
+                />
+                {audioFileName && (
+                  <div className="flex items-center bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
+                    <FaMusic className="mr-1" /> {audioFileName}
+                    <button
+                      type="button"
+                      onClick={removeAudioFile}
+                      className="ml-2 text-green-800 hover:text-green-900"
+                    >
+                      <FaTrash className="h-4 w-4" />
+                    </button>
+                  </div>
+                )}
+              </div>
+              <p className="text-sm text-gray-500 mt-1">
+                Chỉ câu hỏi loại "Nghe hiểu" mới có thể thêm file âm thanh
+              </p>
+            </div>
+          )}
+          
           {/* Choices */}
           <div className="mb-6">
             <label className="block text-sm font-medium text-gray-700 mb-4">
@@ -451,13 +623,7 @@ const CreateQuestionPage: React.FC = () => {
                     type="radio"
                     name="correctChoice"
                     checked={choice.isCorrect}
-                    onChange={() => {
-                      const newChoices = choices.map((c, i) => ({
-                        ...c,
-                        isCorrect: i === index
-                      }));
-                      setChoices(newChoices);
-                    }}
+                    onChange={() => updateChoiceCorrect(index)}
                     className="mt-2"
                   />
                   
@@ -465,7 +631,7 @@ const CreateQuestionPage: React.FC = () => {
                   <div className="flex-1 relative">
                     <textarea
                       value={choice.content}
-                      onChange={(e) => updateChoice(index, 'content', e.target.value)}
+                      onChange={(e) => updateChoiceContent(index, e.target.value)}
                       rows={2}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none"
                       placeholder={`Đáp án ${index + 1}...`}
@@ -478,6 +644,20 @@ const CreateQuestionPage: React.FC = () => {
                 </div>
               ))}
             </div>
+            <button
+              type="button"
+              onClick={addChoice}
+              className="mt-4 flex items-center text-green-600 hover:text-green-700"
+            >
+              <FaPlus className="mr-2" /> Thêm đáp án
+            </button>
+            <button
+              type="button"
+              onClick={() => removeChoice(choices.length - 1)}
+              className="mt-4 ml-2 flex items-center text-red-600 hover:text-red-700"
+            >
+              <FaTrash className="mr-2" /> Xóa đáp án
+            </button>
           </div>
           
           {/* Submit button */}

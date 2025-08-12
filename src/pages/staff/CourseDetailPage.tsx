@@ -45,15 +45,20 @@ import {
   InstructorInfoDto,
 } from "../../services/courseService";
 import {
-  LessonDto,
-  CreateLessonDto,
-  UpdateLessonDto,
   getLessonsByCourseId,
   createLesson,
   updateLesson,
   deleteLessonById,
   deleteAllLessonsByCourseId,
 } from "../../services/lessonService";
+import {
+  LessonDto,
+  CreateLessonDto,
+  UpdateLessonDto,
+  validateLessonCreateDto,
+  validateLessonUpdateDto,
+  LESSON_VALIDATION_RULES
+} from "../../types/lesson.types";
 import {
   DocumentDto,
   uploadImageDocument,
@@ -71,6 +76,7 @@ import {
 } from "../../services/livestreamService";
 import { getByLessonId, TestDto, TestStatus, updateTestStatus } from "../../services/testService";
 import paths from "../../routes/path";
+import { useNotification } from "../../components/notifications";
 import CreateTestModal from "../../components/modals/CreateTestModal";
 import EditTestModal from "../../components/modals/EditTestModal";
 
@@ -254,6 +260,7 @@ const CustomPopconfirm: React.FC<CustomPopconfirmProps> = ({
 const CourseDetailPage: React.FC = () => {
   const { courseId } = useParams<{ courseId: string }>();
   const navigate = useNavigate();
+  const { success: showSuccess, error: showError, warning: showWarning, info: showInfo } = useNotification();
 
   const [course, setCourse] = useState<CourseDto | null>(null);
   const [lessons, setLessons] = useState<LessonDto[]>([]);
@@ -287,6 +294,7 @@ const CourseDetailPage: React.FC = () => {
 
   // Validation error states
   const [dateValidationError, setDateValidationError] = useState<string>("");
+  const [lessonValidationError, setLessonValidationError] = useState<string>("");
   
   // Livestream state
   const [livestreams, setLivestreams] = useState<LivestreamDto[]>([]);
@@ -367,7 +375,7 @@ const CourseDetailPage: React.FC = () => {
 
       if (!courseId) {
         // message.error("Course ID is missing. Redirecting to course list."); // Removed Ant Design message
-        alert("Course ID is missing. Redirecting to course list."); // Using alert
+        showError("Lỗi", "Course ID is missing. Redirecting to course list.");
         setLoading(false);
         navigate(paths.course_management);
         return;
@@ -408,7 +416,7 @@ const CourseDetailPage: React.FC = () => {
         console.log("Livestreams loaded:", livestreamsData.length);
       } catch (error) {
         // message.error("Failed to fetch course details or lessons. Please check the ID or network connection."); // Removed Ant Design message
-        alert("Failed to fetch course details or lessons. Please check the ID or network connection."); // Using alert
+        showError("Lỗi", "Failed to fetch course details or lessons. Please check the ID or network connection.");
         console.error("Error fetching data:", error);
         navigate(paths.course_management);
       } finally {
@@ -433,7 +441,7 @@ const CourseDetailPage: React.FC = () => {
         setInstructors(instructorUsers);
       } catch (error) {
         console.error("Error fetching instructors:", error);
-        alert("Không thể tải danh sách giảng viên.");
+        showError("Lỗi", "Không thể tải danh sách giảng viên.");
       } finally {
         setLoadingInstructors(false);
       }
@@ -495,7 +503,7 @@ const CourseDetailPage: React.FC = () => {
     if (courseFormState.startDate && courseFormState.endDate) {
       const dateValidation = validateCourseDates(courseFormState.startDate, courseFormState.endDate);
       if (!dateValidation.isValid) {
-        alert(dateValidation.message);
+        showWarning("Cảnh báo", dateValidation.message);
         return;
       }
     }
@@ -510,10 +518,10 @@ const CourseDetailPage: React.FC = () => {
       setCourse(updatedCourse);
       setThumbnailFile(null); // Reset thumbnail file after successful update
       // message.success("Course updated successfully!"); // Removed Ant Design message
-      alert("Course updated successfully!"); // Using alert
+              showSuccess("Thành công", "Course updated successfully!");
     } catch (error) {
       // message.error("Failed to update course."); // Removed Ant Design message
-      alert("Failed to update course."); // Using alert
+              showError("Lỗi", "Failed to update course.");
       console.error("Error updating course:", error);
     } finally {
       setSubmittingCourse(false);
@@ -527,7 +535,7 @@ const CourseDetailPage: React.FC = () => {
     if (newStatus === CourseStatus.Published) {
       const instructorValidation = validateInstructorForPublishing(course.instructors);
       if (!instructorValidation.isValid) {
-        alert(instructorValidation.message);
+        showWarning("Cảnh báo", instructorValidation.message);
         return;
       }
     }
@@ -536,7 +544,7 @@ const CourseDetailPage: React.FC = () => {
     if (newStatus === CourseStatus.Published && courseFormState.startDate && courseFormState.endDate) {
       const dateValidation = validateCourseDates(courseFormState.startDate, courseFormState.endDate);
       if (!dateValidation.isValid) {
-        alert(dateValidation.message);
+        showWarning("Cảnh báo", dateValidation.message);
         return;
       }
     }
@@ -554,10 +562,10 @@ const CourseDetailPage: React.FC = () => {
       setCourse(updatedCourse);
       setCourseFormState(prev => ({ ...prev, status: newStatus })); // Update form state as well
       // message.success(`Course status updated to ${CourseStatus[newStatus]} successfully!`); // Removed Ant Design message
-      alert(`Course status updated to ${CourseStatus[newStatus]} successfully!`); // Using alert
+              showSuccess("Thành công", `Course status updated to ${CourseStatus[newStatus]} successfully!`);
     } catch (error) {
       // message.error("Failed to update course status."); // Removed Ant Design message
-      alert("Failed to update course status."); // Using alert
+              showError("Lỗi", "Failed to update course status.");
       console.error("Error updating course status:", error);
     } finally {
       setSubmittingCourse(false);
@@ -566,19 +574,19 @@ const CourseDetailPage: React.FC = () => {
 
   const handleAddInstructor = async () => {
     if (!courseId || !newInstructorId) {
-      alert("Vui lòng chọn một giảng viên.");
+              showWarning("Cảnh báo", "Vui lòng chọn một giảng viên.");
       return;
     }
     setSubmittingCourse(true);
     try {
       await addInstructorToCourse(courseId, newInstructorId);
-      alert("Đã thêm giảng viên thành công!");
+              showSuccess("Thành công", "Đã thêm giảng viên thành công!");
       const updatedCourseData = await getCourseById(courseId);
       setCourse(updatedCourseData);
       setIsAddInstructorModalVisible(false);
       setNewInstructorId("");
     } catch (error) {
-      alert("Không thể thêm giảng viên. Kiểm tra ID hoặc nếu đã được gán.");
+              showError("Lỗi", "Không thể thêm giảng viên. Kiểm tra ID hoặc nếu đã được gán.");
       console.error("Error adding instructor:", error);
     } finally {
       setSubmittingCourse(false);
@@ -591,12 +599,12 @@ const CourseDetailPage: React.FC = () => {
     try {
       await removeInstructorFromCourse(courseId, instructorIdToRemove);
       // message.success("Instructor removed successfully!"); // Removed Ant Design message
-      alert("Instructor removed successfully!"); // Using alert
+              showSuccess("Thành công", "Instructor removed successfully!");
       const updatedCourseData = await getCourseById(courseId);
       setCourse(updatedCourseData);
     } catch (error) {
       // message.error("Failed to remove instructor."); // Removed Ant Design message
-      alert("Failed to remove instructor."); // Using alert
+              showError("Lỗi", "Failed to remove instructor.");
       console.error("Error removing instructor:", error);
     } finally {
       setSubmittingCourse(false);
@@ -618,7 +626,7 @@ const CourseDetailPage: React.FC = () => {
       });
       setThumbnailFile(null); // Reset thumbnail file when canceling
       // message.info("Course changes discarded."); // Removed Ant Design message
-      alert("Course changes discarded."); // Using alert
+              showInfo("Thông báo", "Course changes discarded.");
     }
   };
 
@@ -634,6 +642,17 @@ const CourseDetailPage: React.FC = () => {
 
   const handleCreateLesson = async () => {
     if (!courseId) return;
+    
+    // Clear previous validation errors
+    setLessonValidationError("");
+    
+    // Validate lesson data before submission
+    const validation = validateLessonCreateDto(createLessonFormState);
+    if (!validation.isValid) {
+      setLessonValidationError(validation.message || "Validation failed");
+      return;
+    }
+    
     setSubmittingLesson(true);
     try {
       const nextLessonOrder = lessons.length > 0
@@ -650,13 +669,11 @@ const CourseDetailPage: React.FC = () => {
       const lessonWithDocs = { ...newLesson, documents: documentsForNewLesson };
 
       setLessons((prev) => [...prev, lessonWithDocs].sort((a, b) => a.lessonOrder - b.lessonOrder));
-      // message.success("Lesson created successfully!"); // Removed Ant Design message
-      alert("Lesson created successfully!"); // Using alert
+      showSuccess("Thành công", "Lesson created successfully!");
       setCreateLessonFormState({ title: '', content: '', lessonOrder: 0 }); // Reset form
       setActiveLessonPanel(newLesson.lessonId);
     } catch (error) {
-      // message.error("Failed to create lesson."); // Removed Ant Design message
-      alert("Failed to create lesson."); // Using alert
+      showError("Lỗi", "Failed to create lesson.");
       console.error("Error creating lesson:", error);
     } finally {
       setSubmittingLesson(false);
@@ -684,6 +701,17 @@ const CourseDetailPage: React.FC = () => {
 
   const handleUpdateLesson = async () => {
     if (!editingLessonId) return;
+    
+    // Clear previous validation errors
+    setLessonValidationError("");
+    
+    // Validate lesson data before submission
+    const validation = validateLessonUpdateDto(editLessonFormState);
+    if (!validation.isValid) {
+      setLessonValidationError(validation.message || "Validation failed");
+      return;
+    }
+    
     setSubmittingLesson(true);
     try {
       const updatedLesson = await updateLesson(editingLessonId, editLessonFormState);
@@ -693,14 +721,12 @@ const CourseDetailPage: React.FC = () => {
       setLessons((prev) =>
         prev.map((l) => (l.lessonId === editingLessonId ? lessonWithDocs : l)).sort((a, b) => a.lessonOrder - b.lessonOrder)
       );
-      // message.success("Lesson updated successfully!"); // Removed Ant Design message
-      alert("Lesson updated successfully!"); // Using alert
+      showSuccess("Thành công", "Lesson updated successfully!");
       setEditingLessonId(null); // Exit editing mode
       setEditLessonFormState({}); // Clear edit form state
       setActiveLessonPanel([]); // Collapse the panel after update
     } catch (error) {
-      // message.error("Failed to update lesson."); // Removed Ant Design message
-      alert("Failed to update lesson."); // Using alert
+      showError("Lỗi", "Failed to update lesson.");
       console.error("Error updating lesson:", error);
     } finally {
       setSubmittingLesson(false);
@@ -719,10 +745,10 @@ const CourseDetailPage: React.FC = () => {
       await deleteLessonById(lessonId);
       setLessons((prev) => prev.filter((l) => l.lessonId !== lessonId));
       // message.success("Lesson deleted successfully!"); // Removed Ant Design message
-      alert("Lesson deleted successfully!"); // Using alert
+        showSuccess("Thành công", "Lesson deleted successfully!"); // Using alert
     } catch (error) {
       // message.error("Failed to delete lesson."); // Removed Ant Design message
-      alert("Failed to delete lesson."); // Using alert
+        showError("Lỗi", "Failed to delete lesson."); // Using alert
       console.error("Error deleting lesson:", error);
     } finally {
       setSubmittingLesson(false);
@@ -736,10 +762,10 @@ const CourseDetailPage: React.FC = () => {
       await deleteAllLessonsByCourseId(courseId);
       setLessons([]);
       // message.success("All lessons deleted successfully!"); // Removed Ant Design message
-      alert("All lessons deleted successfully!"); // Using alert
+        showSuccess("Thành công", "All lessons deleted successfully!"); // Using alert
     } catch (error) {
       // message.error("Failed to delete all lessons."); // Removed Ant Design message
-      alert("Failed to delete all lessons."); // Using alert
+        showError("Lỗi", "Failed to delete all lessons."); // Using alert
       console.error("Error deleting all lessons:", error);
     } finally {
       setSubmittingLesson(false);
@@ -764,7 +790,7 @@ const CourseDetailPage: React.FC = () => {
 
   const handleUploadDocument = async () => {
     if (!currentLessonIdForUpload || fileList.length === 0) {
-      alert("Please select a file to upload.");
+      showWarning("Cảnh báo", "Please select a file to upload.");
       return;
     }
     setSubmittingDocument(true);
@@ -793,16 +819,16 @@ const CourseDetailPage: React.FC = () => {
       setLessons((prevLessons) =>
         prevLessons.map((lesson) =>
           lesson.lessonId === currentLessonIdForUpload
-            ? { ...lesson, documents: [...lesson.documents, newDocument] }
+            ? { ...lesson, documents: [...(lesson.documents || []), newDocument] }
             : lesson
         ).sort((a, b) => a.lessonOrder - b.lessonOrder)
       );
 
-      alert("Document uploaded successfully!");
+              showSuccess("Thành công", "Document uploaded successfully!");
       setIsUploadDocumentModalVisible(false);
       setFileList([]);
     } catch (error) {
-      alert("Failed to upload document.");
+              showError("Lỗi", "Failed to upload document.");
       console.error("Error uploading document:", error);
     } finally {
       setSubmittingDocument(false);
@@ -818,7 +844,7 @@ const CourseDetailPage: React.FC = () => {
           lesson.lessonId === lessonId
             ? {
                 ...lesson,
-                documents: lesson.documents.filter(
+                documents: (lesson.documents || []).filter(
                   (doc) => doc.documentId !== documentId
                 ),
               }
@@ -826,10 +852,10 @@ const CourseDetailPage: React.FC = () => {
         ).sort((a, b) => a.lessonOrder - b.lessonOrder)
       );
       // message.success("Document deleted successfully!"); // Removed Ant Design message
-      alert("Document deleted successfully!"); // Using alert
+        showSuccess("Thành công", "Document deleted successfully!"); // Using alert
     } catch (error) {
       // message.error("Failed to delete document."); // Removed Ant Design message
-      alert("Failed to delete document."); // Using alert
+        showError("Lỗi", "Failed to delete document."); // Using alert
       console.error("Error deleting document:", error);
     } finally {
       setSubmittingDocument(false);
@@ -890,10 +916,10 @@ const CourseDetailPage: React.FC = () => {
       setIsCreateLivestreamModalVisible(false);
       setLivestreamValidationError("");
       
-      alert("Livestream created successfully!");
+              showSuccess("Thành công", "Livestream created successfully!");
     } catch (error) {
       console.error("Error creating livestream:", error);
-      alert("Failed to create livestream. Please try again.");
+              showError("Lỗi", "Failed to create livestream. Please try again.");
     } finally {
       setSubmittingLivestream(false);
     }
@@ -903,10 +929,10 @@ const CourseDetailPage: React.FC = () => {
     try {
       await livestreamApi.deleteLivestream(livestreamId);
       setLivestreams(prev => prev.filter(ls => ls.livestreamId !== livestreamId));
-      alert("Livestream deleted successfully!");
+              showSuccess("Thành công", "Livestream deleted successfully!");
     } catch (error) {
       console.error("Error deleting livestream:", error);
-      alert("Failed to delete livestream. Please try again.");
+              showError("Lỗi", "Failed to delete livestream. Please try again.");
     }
   };
 
@@ -917,7 +943,7 @@ const CourseDetailPage: React.FC = () => {
 
   const handleTestCreated = () => {
     // Refresh course data or show success message
-    alert("Test created successfully!");
+            showSuccess("Thành công", "Test created successfully!");
   };
 
   const showEditTestModal = (test: TestDto) => {
@@ -932,7 +958,7 @@ const CourseDetailPage: React.FC = () => {
     }
     setIsEditTestModalVisible(false);
     setCurrentTestForEdit(null);
-    alert("Test updated successfully!");
+            showSuccess("Thành công", "Test updated successfully!");
   };
 
 
@@ -1319,8 +1345,17 @@ const CourseDetailPage: React.FC = () => {
               {/* Create New Lesson Form */}
               <h3 className="text-xl font-semibold text-gray-800 mb-4">Tạo bài học mới</h3>
               <div className="mb-6 p-5 border border-gray-200 rounded-xl bg-gray-50">
+                {/* Validation Error Display */}
+                {lessonValidationError && (
+                  <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                    <p className="text-red-700 text-sm">{lessonValidationError}</p>
+                  </div>
+                )}
+                
                 <div className="mb-4">
-                  <label htmlFor="create-title" className="block text-sm font-medium text-gray-700 mb-1">Tiêu đề bài học</label>
+                  <label htmlFor="create-title" className="block text-sm font-medium text-gray-700 mb-1">
+                    Tiêu đề bài học <span className="text-red-500">*</span>
+                  </label>
                   <input
                     type="text"
                     id="create-title"
@@ -1328,10 +1363,24 @@ const CourseDetailPage: React.FC = () => {
                     value={createLessonFormState.title}
                     onChange={handleCreateLessonChange}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                    placeholder="Nhập tiêu đề bài học"
                   />
+                  <div className="flex justify-between items-center mt-1">
+                    <span className="text-xs text-gray-500">
+                      {createLessonFormState.title.length}/{LESSON_VALIDATION_RULES.TITLE_MAX_LENGTH} ký tự
+                    </span>
+                    {createLessonFormState.title.length > LESSON_VALIDATION_RULES.TITLE_MAX_LENGTH && (
+                      <span className="text-xs text-red-500">
+                        Tiêu đề quá dài
+                      </span>
+                    )}
+                  </div>
                 </div>
+                
                 <div className="mb-4">
-                  <label htmlFor="create-content" className="block text-sm font-medium text-gray-700 mb-1">Nội dung bài học</label>
+                  <label htmlFor="create-content" className="block text-sm font-medium text-gray-700 mb-1">
+                    Nội dung bài học <span className="text-red-500">*</span>
+                  </label>
                   <textarea
                     id="create-content"
                     name="content"
@@ -1339,8 +1388,20 @@ const CourseDetailPage: React.FC = () => {
                     value={createLessonFormState.content}
                     onChange={handleCreateLessonChange}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                    placeholder="Nhập nội dung bài học"
                   ></textarea>
+                  <div className="flex justify-between items-center mt-1">
+                    <span className="text-xs text-gray-500">
+                      {createLessonFormState.content.length}/{LESSON_VALIDATION_RULES.CONTENT_MAX_LENGTH} ký tự
+                    </span>
+                    {createLessonFormState.content.length > LESSON_VALIDATION_RULES.CONTENT_MAX_LENGTH && (
+                      <span className="text-xs text-red-500">
+                        Nội dung quá dài
+                      </span>
+                    )}
+                  </div>
                 </div>
+                
                 <button
                   onClick={handleCreateLesson}
                   disabled={submittingLesson}
@@ -1421,8 +1482,17 @@ const CourseDetailPage: React.FC = () => {
                           <div className="p-4 border-t border-gray-200 bg-white">
                             {editingLessonId === lesson.lessonId ? (
                               <div className="space-y-4">
+                                {/* Validation Error Display */}
+                                {lessonValidationError && (
+                                  <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                                    <p className="text-red-700 text-sm">{lessonValidationError}</p>
+                                  </div>
+                                )}
+                                
                                 <div>
-                                  <label htmlFor={`edit-title-${lesson.lessonId}`} className="block text-sm font-medium text-gray-700 mb-1">Tiêu đề</label>
+                                  <label htmlFor={`edit-title-${lesson.lessonId}`} className="block text-sm font-medium text-gray-700 mb-1">
+                                    Tiêu đề
+                                  </label>
                                   <input
                                     type="text"
                                     id={`edit-title-${lesson.lessonId}`}
@@ -1430,10 +1500,26 @@ const CourseDetailPage: React.FC = () => {
                                     value={editLessonFormState.title || ''}
                                     onChange={handleEditLessonChange}
                                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500 transition-colors"
+                                    placeholder="Nhập tiêu đề bài học"
                                   />
+                                  {(editLessonFormState.title !== undefined && editLessonFormState.title !== '') && (
+                                    <div className="flex justify-between items-center mt-1">
+                                      <span className="text-xs text-gray-500">
+                                        {editLessonFormState.title.length}/{LESSON_VALIDATION_RULES.TITLE_MAX_LENGTH} ký tự
+                                      </span>
+                                      {editLessonFormState.title.length > LESSON_VALIDATION_RULES.TITLE_MAX_LENGTH && (
+                                        <span className="text-xs text-red-500">
+                                          Tiêu đề quá dài
+                                        </span>
+                                      )}
+                                    </div>
+                                  )}
                                 </div>
+                                
                                 <div>
-                                  <label htmlFor={`edit-order-${lesson.lessonId}`} className="block text-sm font-medium text-gray-700 mb-1">Thứ tự</label>
+                                  <label htmlFor={`edit-order-${lesson.lessonId}`} className="block text-sm font-medium text-gray-700 mb-1">
+                                    Thứ tự
+                                  </label>
                                   <input
                                     type="number"
                                     id={`edit-order-${lesson.lessonId}`}
@@ -1441,11 +1527,20 @@ const CourseDetailPage: React.FC = () => {
                                     value={editLessonFormState.lessonOrder || ''}
                                     onChange={handleEditLessonChange}
                                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500 transition-colors"
-                                    min={1}
+                                    min={LESSON_VALIDATION_RULES.LESSON_ORDER_MIN}
+                                    max={LESSON_VALIDATION_RULES.LESSON_ORDER_MAX}
                                   />
+                                  <div className="mt-1">
+                                    <span className="text-xs text-gray-500">
+                                      Phạm vi: {LESSON_VALIDATION_RULES.LESSON_ORDER_MIN} - {LESSON_VALIDATION_RULES.LESSON_ORDER_MAX}
+                                    </span>
+                                  </div>
                                 </div>
+                                
                                 <div>
-                                  <label htmlFor={`edit-content-${lesson.lessonId}`} className="block text-sm font-medium text-gray-700 mb-1">Nội dung</label>
+                                  <label htmlFor={`edit-content-${lesson.lessonId}`} className="block text-sm font-medium text-gray-700 mb-1">
+                                    Nội dung
+                                  </label>
                                   <textarea
                                     id={`edit-content-${lesson.lessonId}`}
                                     name="content"
@@ -1453,7 +1548,20 @@ const CourseDetailPage: React.FC = () => {
                                     value={editLessonFormState.content || ''}
                                     onChange={handleEditLessonChange}
                                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500 transition-colors"
+                                    placeholder="Nhập nội dung bài học"
                                   ></textarea>
+                                  {(editLessonFormState.content !== undefined && editLessonFormState.content !== '') && (
+                                    <div className="flex justify-between items-center mt-1">
+                                      <span className="text-xs text-gray-500">
+                                        {editLessonFormState.content.length}/{LESSON_VALIDATION_RULES.CONTENT_MAX_LENGTH} ký tự
+                                      </span>
+                                      {editLessonFormState.content.length > LESSON_VALIDATION_RULES.CONTENT_MAX_LENGTH && (
+                                        <span className="text-xs text-red-500">
+                                          Nội dung quá dài
+                                        </span>
+                                      )}
+                                    </div>
+                                  )}
                                 </div>
                                 <div className="flex gap-3 mt-4">
                                   <button
@@ -1539,9 +1647,9 @@ const CourseDetailPage: React.FC = () => {
 
                                 {/* Documents Section for this lesson */}
                                 <h4 className="text-lg font-semibold text-gray-700 mt-5 mb-3 border-t pt-4">Tài liệu bài học</h4>
-                                {lesson.documents && lesson.documents.length > 0 ? (
+                                {(lesson.documents || []).length > 0 ? (
                                   <ul className="space-y-3">
-                                    {lesson.documents.map((doc) => (
+                                    {(lesson.documents || []).map((doc) => (
                                       <li key={doc.documentId} className="flex items-center justify-between bg-white p-3 rounded-lg border border-gray-200 shadow-sm">
                                         <div className="flex items-center gap-3">
                                           {doc.fileUrl.includes(".pdf") ? (

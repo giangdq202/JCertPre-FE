@@ -160,7 +160,7 @@ const Home: React.FC = () => {
           </div>
         </div>
       </div>
-      <CourseSection />
+      {/* <CourseSection /> */}
       <BenefitsSection />
     </div>
   );

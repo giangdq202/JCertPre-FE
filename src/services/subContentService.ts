@@ -43,6 +43,52 @@ export enum ContentName {
   Listening = 4, // nghe hiểu
 }
 
+// --- Validation rules for sub-content fields ---
+export const SUB_CONTENT_VALIDATION_RULES = {
+  SUB_CONTENT_NAME_REQUIRED_MESSAGE: "SubContentName is required.",
+  LEVEL_REQUIRED_MESSAGE: "Level is required.",
+  CONTENT_NAME_REQUIRED_MESSAGE: "ContentName is required."
+} as const;
+
+// --- Validation functions ---
+/**
+ * Validate sub-content creation DTO according to backend rules
+ */
+export const validateSubContentCreateDto = (dto: CreateSubContentDto): { isValid: boolean; message?: string } => {
+  if (dto.subContentName === undefined || dto.subContentName === null) {
+    return { isValid: false, message: SUB_CONTENT_VALIDATION_RULES.SUB_CONTENT_NAME_REQUIRED_MESSAGE };
+  }
+
+  if (dto.level === undefined || dto.level === null) {
+    return { isValid: false, message: SUB_CONTENT_VALIDATION_RULES.LEVEL_REQUIRED_MESSAGE };
+  }
+
+  if (dto.contentName === undefined || dto.contentName === null) {
+    return { isValid: false, message: SUB_CONTENT_VALIDATION_RULES.CONTENT_NAME_REQUIRED_MESSAGE };
+  }
+
+  return { isValid: true };
+};
+
+/**
+ * Validate sub-content update DTO according to backend rules
+ */
+export const validateSubContentUpdateDto = (dto: UpdateSubContentDto): { isValid: boolean; message?: string } => {
+  if (dto.subContentName === undefined || dto.subContentName === null) {
+    return { isValid: false, message: SUB_CONTENT_VALIDATION_RULES.SUB_CONTENT_NAME_REQUIRED_MESSAGE };
+  }
+
+  if (dto.level === undefined || dto.level === null) {
+    return { isValid: false, message: SUB_CONTENT_VALIDATION_RULES.LEVEL_REQUIRED_MESSAGE };
+  }
+
+  if (dto.contentName === undefined || dto.contentName === null) {
+    return { isValid: false, message: SUB_CONTENT_VALIDATION_RULES.CONTENT_NAME_REQUIRED_MESSAGE };
+  }
+
+  return { isValid: true };
+};
+
 // --- Interfaces for Dạng câu hỏi DTOs ---
 
 /**
@@ -157,6 +203,12 @@ export const createSubContent = async (
   createSubContentDto: CreateSubContentDto // DTO này đã dùng numeric enum
 ): Promise<SubContentDto> => {
   try {
+    // Validate the DTO before sending to backend
+    const validation = validateSubContentCreateDto(createSubContentDto);
+    if (!validation.isValid) {
+      throw new Error(`Validation failed: ${validation.message}`);
+    }
+
     const response = await axiosInstance.post<SubContentDto>(
       BASE_SUB_CONTENTS_URL,
       createSubContentDto // Axios sẽ tự tuần tự hóa các số thành JSON
@@ -180,6 +232,12 @@ export const updateSubContent = async (
   updateSubContentDto: UpdateSubContentDto // DTO này đã dùng numeric enum
 ): Promise<SubContentDto> => {
   try {
+    // Validate the DTO before sending to backend
+    const validation = validateSubContentUpdateDto(updateSubContentDto);
+    if (!validation.isValid) {
+      throw new Error(`Validation failed: ${validation.message}`);
+    }
+
     const response = await axiosInstance.put<SubContentDto>(
       `${BASE_SUB_CONTENTS_URL}/${subContentId}`,
       updateSubContentDto // Axios sẽ tự tuần tự hóa các số thành JSON

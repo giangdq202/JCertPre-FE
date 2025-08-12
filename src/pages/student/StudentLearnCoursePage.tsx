@@ -4,14 +4,20 @@ import { getLessonsByCourseId, LessonDto } from "../../services/lessonService";
 import { getDocumentsByLessonId, DocumentDto } from "../../services/documentService";
 import { getCourseById, CourseDto } from "../../services/courseService";
 import { getByLessonId, TestDto, TestStatus } from "../../services/testService";
+import { getAllTestAttemptsByUserId, TestAttemptDto, TestAttemptStatus } from "../../services/testAttemptService";
+import { livestreamApi, LivestreamDto, LivestreamStatus } from "../../services/livestreamService";
 import StudentHeader from "../../components/header/StudentHeader";
 import StudentSideBar from "../../components/sidebar/StudentSideBar";
-import { FaChevronRight, FaFilePdf, FaDownload, FaVideo, FaEdit, FaEye, FaEyeSlash } from "react-icons/fa";
+import { FaChevronRight, FaFilePdf, FaDownload, FaVideo, FaEdit, FaPlay, FaClock, FaCalendarAlt, FaUser } from "react-icons/fa";
 import { FiCheckCircle, FiCircle } from "react-icons/fi";
+import { HiOutlineClock } from "react-icons/hi2";
 import { useLessonProgress } from "../../hooks/useLessonProgress";
 import { VideoLessonPlayer } from "../../components/VideoLessonPlayer";
 import { TestInterface } from "../../components/TestInterface";
 import { useAuth } from "../../auth/AuthContext";
+import { useNotification } from '../../components/notifications';
+import paths from "../../routes/path";
+import dayjs from 'dayjs';
 
 // Add custom styles for video controls
 const videoStyles = `
@@ -43,9 +49,7 @@ const StudentLearnCoursePage: React.FC = () => {
   const [selectedLessonId, setSelectedLessonId] = useState<string | null>(null);
   const [documents, setDocuments] = useState<DocumentDto[]>([]);
   const [loadingLessons, setLoadingLessons] = useState(true);
-  const [loadingDocs, setLoadingDocs] = useState(false);
   const [videoDoc, setVideoDoc] = useState<DocumentDto | null>(null);
-  const [pdfDoc, setPdfDoc] = useState<DocumentDto | null>(null);
   const [lessonProgress, setLessonProgress] = useState<{ [key: string]: number }>({});
   const [showCompletionMessage, setShowCompletionMessage] = useState(false);
   const [completedLessonTitle, setCompletedLessonTitle] = useState('');
@@ -53,11 +57,18 @@ const StudentLearnCoursePage: React.FC = () => {
   const [loadingTests, setLoadingTests] = useState<{ [key: string]: boolean }>({});
   const [activeTest, setActiveTest] = useState<TestDto | null>(null);
   const [showTestInterface, setShowTestInterface] = useState(false);
+  const [, setTestAttempts] = useState<TestAttemptDto[]>([]);
+  const [passedTestIds, setPassedTestIds] = useState<Set<string>>(new Set());
   const navigate = useNavigate();
   
+  // Livestream states
+  const [livestreams, setLivestreams] = useState<LivestreamDto[]>([]);
+  const [isLoadingLivestreams, setIsLoadingLivestreams] = useState(false);
+  
   // Auth and lesson progress hooks
-  const { isLoading: authLoading } = useAuth();
-  const { getLessonCompletionRate, markLessonCompleted } = useLessonProgress();
+  const { isLoading: authLoading, userInfo } = useAuth();
+  const { getLessonCompletionRate } = useLessonProgress();
+  const { error: showError, warning } = useNotification();
 
   useEffect(() => {
     if (!courseId || authLoading) return;
@@ -95,24 +106,71 @@ const StudentLearnCoursePage: React.FC = () => {
 
   useEffect(() => {
     if (!selectedLessonId) return;
-    setLoadingDocs(true);
     getDocumentsByLessonId(selectedLessonId)
       .then((docs) => {
         setDocuments(docs);
         // Ưu tiên video đầu tiên nếu có
         const video = docs.find((d) => d.fileUrl.includes("688ac2cc0012a1f4136d"));
         setVideoDoc(video || null);
-        // Ưu tiên pdf đầu tiên nếu có
-        const pdf = docs.find((d) => d.fileUrl.includes("688ac2de002dc607c7e7"));
         
         // Load test for this lesson if not already loaded
         if (!lessonTests[selectedLessonId] && !loadingTests[selectedLessonId]) {
           loadLessonTest(selectedLessonId);
         }
-        setPdfDoc(pdf || null);
-      })
-      .finally(() => setLoadingDocs(false));
+      });
   }, [selectedLessonId]);
+
+  // Fetch livestreams for this course
+  useEffect(() => {
+    const fetchLivestreams = async () => {
+      if (!courseId) return;
+      
+      setIsLoadingLivestreams(true);
+      try {
+        const livestreamsData = await livestreamApi.getLivestreamsByCourse(courseId);
+        setLivestreams(livestreamsData);
+      } catch (error) {
+        console.error("Error fetching livestreams:", error);
+        setLivestreams([]);
+      } finally {
+        setIsLoadingLivestreams(false);
+      }
+    };
+
+    if (!authLoading && courseId) {
+      fetchLivestreams();
+    }
+  }, [courseId, authLoading]);
+
+  // Load all test attempts for the user
+  useEffect(() => {
+    const loadAllTestAttempts = async () => {
+      if (!userInfo?.id) return;
+      
+      try {
+        const allAttempts = await getAllTestAttemptsByUserId(userInfo.id);
+        
+        // Store all attempts
+        setTestAttempts(allAttempts);
+        
+        // Find test IDs that have at least one passed attempt
+        const passedTestIdsSet = new Set<string>();
+        allAttempts.forEach(attempt => {
+          if (attempt.status === TestAttemptStatus.Completed && attempt.isPass === true) {
+            passedTestIdsSet.add(attempt.testId);
+          }
+        });
+        
+        setPassedTestIds(passedTestIdsSet);
+      } catch (error) {
+        console.error('Failed to load test attempts:', error);
+      }
+    };
+
+    if (!authLoading && userInfo?.id) {
+      loadAllTestAttempts();
+    }
+  }, [userInfo?.id, authLoading]);
 
   const handleLessonClick = (lessonId: string) => {
     setSelectedLessonId(lessonId);
@@ -163,14 +221,6 @@ const StudentLearnCoursePage: React.FC = () => {
     return lessonProgress[lessonId] >= 100;
   };
 
-  const handleDocClick = (doc: DocumentDto) => {
-    if (doc.fileUrl.includes("688ac2de002dc607c7e7")) {
-      setPdfDoc(doc);
-    } else {
-      window.open(doc.fileUrl, "_blank");
-    }
-  };
-
   const handleStartTest = (test: TestDto) => {
     setActiveTest(test);
     setShowTestInterface(true);
@@ -179,6 +229,127 @@ const StudentLearnCoursePage: React.FC = () => {
   const handleBackFromTest = () => {
     setShowTestInterface(false);
     setActiveTest(null);
+    // Refresh test results when coming back from test
+    refreshTestResults();
+  };
+
+  const handleJoinLivestream = async (livestream: LivestreamDto) => {
+    const now = dayjs();
+    const livestreamStart = dayjs(livestream.scheduledDateTime);
+    const timeUntilStart = livestreamStart.diff(now, 'minute');
+
+    if (timeUntilStart > 15) {
+      warning("Chưa đến giờ", `Buổi livestream sẽ bắt đầu sau ${timeUntilStart} phút. Bạn chỉ có thể tham gia 15 phút trước khi bắt đầu.`);
+      return;
+    }
+
+    if (timeUntilStart < -livestream.durationMinutes) {
+      showError("Livestream đã kết thúc", "Buổi livestream này đã kết thúc.");
+      return;
+    }
+
+    try {
+      // Check if user can join
+      const canJoin = await livestreamApi.canJoinLivestream(livestream.livestreamId, userInfo?.id || '');
+      
+      if (!canJoin) {
+        showError("Không có quyền truy cập", "Bạn không có quyền tham gia buổi livestream này.");
+        return;
+      }
+
+      // Generate join token
+      const joinData = await livestreamApi.generateJoinToken(livestream.livestreamId, userInfo?.id || '');
+      
+      // Navigate to livestream room
+      navigate(paths.student_livestream.replace(':livestreamId', livestream.livestreamId), {
+        state: {
+          livestreamId: livestream.livestreamId,
+          roomName: joinData.roomName,
+          token: joinData.token,
+          title: joinData.title,
+          scheduledDateTime: joinData.scheduledDateTime,
+          description: joinData.description,
+          durationMinutes: joinData.durationMinutes
+        }
+      });
+    } catch (error: any) {
+      console.error("Error joining livestream:", error);
+      showError("Lỗi tham gia livestream", "Không thể tham gia buổi livestream. Vui lòng thử lại.");
+    }
+  };
+
+  const getLivestreamStatus = (livestream: LivestreamDto) => {
+    const now = dayjs();
+    const livestreamStart = dayjs(livestream.scheduledDateTime);
+    const timeUntilStart = livestreamStart.diff(now, 'minute');
+
+    if (livestream.status === LivestreamStatus.COMPLETED) {
+      return { status: 'completed', text: 'Đã kết thúc', color: 'text-gray-500' };
+    }
+
+    if (livestream.status === LivestreamStatus.LIVE) {
+      return { status: 'live', text: 'Đang diễn ra', color: 'text-red-600' };
+    }
+
+    if (timeUntilStart <= 0 && timeUntilStart > -livestream.durationMinutes) {
+      return { status: 'live', text: 'Đang diễn ra', color: 'text-red-600' };
+    }
+
+    if (timeUntilStart <= 15 && timeUntilStart > 0) {
+      return { status: 'starting', text: 'Sắp bắt đầu', color: 'text-orange-600' };
+    }
+
+    return { status: 'scheduled', text: 'Đã lên lịch', color: 'text-green-600' };
+  };
+
+  const canJoinLivestream = (livestream: LivestreamDto) => {
+    const now = dayjs();
+    const livestreamStart = dayjs(livestream.scheduledDateTime);
+    const timeUntilStart = livestreamStart.diff(now, 'minute');
+    
+    return timeUntilStart <= 15 && timeUntilStart > -livestream.durationMinutes && livestream.status !== LivestreamStatus.COMPLETED;
+  };
+
+  const isTestPassed = (testId: string) => {
+    return passedTestIds.has(testId);
+  };
+
+  // const getTestScore = (testId: string) => {
+  //   // Find the best (highest scoring) passed attempt for this test
+  //   const passedAttempts = testAttempts.filter(attempt => 
+  //     attempt.testId === testId && 
+  //     attempt.status === TestAttemptStatus.Completed && 
+  //     attempt.isPass === true
+  //   );
+  //   
+  //   if (passedAttempts.length === 0) return null;
+  //   
+  //   // For now, just return "PASS" since we don't have percentage score in attempt
+  //   // You might need to call getTestAttemptWithScoreSummary for the specific attempt if you need percentage
+  //   return "PASS";
+  // };
+
+  const refreshTestResults = async () => {
+    if (!userInfo?.id) return;
+    
+    try {
+      const allAttempts = await getAllTestAttemptsByUserId(userInfo.id);
+      
+      // Store all attempts
+      setTestAttempts(allAttempts);
+      
+      // Find test IDs that have at least one passed attempt
+      const passedTestIdsSet = new Set<string>();
+      allAttempts.forEach(attempt => {
+        if (attempt.status === TestAttemptStatus.Completed && attempt.isPass === true) {
+          passedTestIdsSet.add(attempt.testId);
+        }
+      });
+      
+      setPassedTestIds(passedTestIdsSet);
+    } catch (error) {
+      console.error('Failed to refresh test results:', error);
+    }
   };
 
   return (
@@ -272,6 +443,102 @@ const StudentLearnCoursePage: React.FC = () => {
                   </div>
                 </div>
               )}
+
+              {/* Phần Lịch livestream sắp tới */}
+              <div className="mb-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <FaVideo className="text-2xl text-blue-600" />
+                  <h3 className="text-xl font-bold text-gray-800">Lịch livestream sắp tới</h3>
+                </div>
+                
+                {isLoadingLivestreams ? (
+                  <div className="bg-white rounded-xl shadow-xl p-8">
+                    <div className="flex justify-center items-center h-32">
+                      <div className="animate-spin rounded-full h-8 w-8 border-4 border-t-4 border-green-500 border-opacity-25"></div>
+                      <p className="ml-4 text-gray-600">Đang tải lịch livestream...</p>
+                    </div>
+                  </div>
+                ) : livestreams.length === 0 ? (
+                  <div className="bg-white rounded-xl shadow-xl p-8 text-center">
+                    <FaVideo className="text-4xl text-gray-400 mx-auto mb-4" />
+                    <h4 className="text-lg font-semibold text-gray-700 mb-2">Chưa có livestream nào</h4>
+                    <p className="text-gray-500">Khóa học này chưa có lịch livestream nào được lên kế hoạch.</p>
+                  </div>
+                ) : (
+                  <div className="bg-white rounded-xl shadow-xl overflow-hidden">
+                    <div className="p-6">
+                      <div className="grid grid-cols-1 lg:grid-cols-6 font-semibold text-gray-700 border-b border-gray-200 pb-4 mb-4 gap-4">
+                        <div className="lg:col-span-2">Buổi học</div>
+                        <div>Trạng thái</div>
+                        <div>Ngày & Thời gian</div>
+                        <div>Thời lượng</div>
+                        <div></div>
+                      </div>
+                      
+                      {livestreams.map((livestream) => {
+                        const statusInfo = getLivestreamStatus(livestream);
+                        const canJoin = canJoinLivestream(livestream);
+                        
+                        return (
+                          <div key={livestream.livestreamId} className="grid grid-cols-1 lg:grid-cols-6 items-center py-4 border-b border-gray-100 last:border-b-0 gap-4">
+                            <div className="lg:col-span-2">
+                              <div className="text-gray-900 font-medium">{livestream.description || 'Buổi học trực tuyến'}</div>
+                              <div className="text-sm text-gray-500 flex items-center gap-2 mt-1">
+                                <FaUser className="text-xs" />
+                                <span>Giảng viên</span>
+                              </div>
+                            </div>
+                            
+                            <div>
+                              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusInfo.color}`}>
+                                {statusInfo.text}
+                              </span>
+                            </div>
+                            
+                            <div className="text-gray-600">
+                              <div className="flex items-center gap-2">
+                                <FaCalendarAlt className="text-sm" />
+                                <span>{dayjs(livestream.scheduledDateTime).format('DD/MM/YYYY')}</span>
+                              </div>
+                              <div className="flex items-center gap-2 mt-1">
+                                <FaClock className="text-sm" />
+                                <span className="font-semibold text-green-600">
+                                  {dayjs(livestream.scheduledDateTime).format('HH:mm')}
+                                </span>
+                              </div>
+                            </div>
+                            
+                            <div className="text-gray-600">
+                              <div className="flex items-center gap-2">
+                                <HiOutlineClock className="text-sm" />
+                                <span>{livestream.durationMinutes} phút</span>
+                              </div>
+                            </div>
+                            
+                            <div className="text-right">
+                              {canJoin ? (
+                                <button
+                                  onClick={() => handleJoinLivestream(livestream)}
+                                  className="bg-green-500 text-white py-2 px-4 rounded-lg hover:bg-green-600 transition-colors text-sm font-medium flex items-center gap-2"
+                                >
+                                  <FaPlay className="text-xs" />
+                                  Tham gia
+                                </button>
+                              ) : statusInfo.status === 'completed' ? (
+                                <span className="text-gray-400 text-sm">Đã kết thúc</span>
+                              ) : statusInfo.status === 'scheduled' ? (
+                                <span className="text-gray-500 text-sm">Chưa đến giờ</span>
+                              ) : (
+                                <span className="text-orange-500 text-sm">Sắp bắt đầu</span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
                 </>
               )}
             </div>
@@ -355,26 +622,50 @@ const StudentLearnCoursePage: React.FC = () => {
                               <div className="flex flex-col gap-2">
                                 <div className="flex items-center justify-between gap-2 p-2 rounded-lg bg-blue-50 border border-blue-200">
                                   <div className="flex items-center gap-2 flex-1">
-                                    <FaEdit className="text-blue-600" />
+                                    {isTestPassed(lessonTests[lesson.lessonId]!.testId) ? (
+                                      <FiCheckCircle className="text-green-600" />
+                                    ) : (
+                                      <FaEdit className="text-blue-600" />
+                                    )}
                                     <div className="flex-1">
-                                      <span className="text-sm font-medium text-gray-800 block">
-                                        {lessonTests[lesson.lessonId]?.title}
-                                      </span>
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-sm font-medium text-gray-800 block">
+                                          {lessonTests[lesson.lessonId]?.title}
+                                        </span>
+                                        {isTestPassed(lessonTests[lesson.lessonId]!.testId) && (
+                                          <span className="text-xs text-green-600 font-medium bg-green-100 px-2 py-0.5 rounded">
+                                            Đã pass ✓
+                                          </span>
+                                        )}
+                                      </div>
                                       <span className="text-xs text-gray-500">
                                         {lessonTests[lesson.lessonId]?.description}
                                       </span>
+
                                     </div>
                                   </div>
 
                                 </div>
                                 {lessonTests[lesson.lessonId]?.status === TestStatus.Open && (
-                                  <button
-                                    onClick={() => handleStartTest(lessonTests[lesson.lessonId]!)}
-                                    className="w-full flex items-center justify-center gap-2 p-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
-                                  >
-                                    <FaEdit />
-                                    Làm bài test
-                                  </button>
+                                  <>
+                                    {isTestPassed(lessonTests[lesson.lessonId]!.testId) ? (
+                                      <button
+                                        onClick={() => handleStartTest(lessonTests[lesson.lessonId]!)}
+                                        className="w-full flex items-center justify-center gap-2 p-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 transition-colors"
+                                      >
+                                        <FaEdit />
+                                        Làm lại bài test
+                                      </button>
+                                    ) : (
+                                      <button
+                                        onClick={() => handleStartTest(lessonTests[lesson.lessonId]!)}
+                                        className="w-full flex items-center justify-center gap-2 p-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
+                                      >
+                                        <FaEdit />
+                                        Làm bài test
+                                      </button>
+                                    )}
+                                  </>
                                 )}
                               </div>
                             ) : !loadingTests[lesson.lessonId] && (

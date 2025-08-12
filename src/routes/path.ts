@@ -31,6 +31,10 @@ const paths = {
   credit_purchase: "/credit-purchase",
   credit_history: "/credit-history",
   payment_callback: "/payment/callback",
+  payment_success: "/payment/success",
+  payment_cancelled: "/payment/cancelled",
+  payment_error: "/payment/error",
+  payment_pending: "/payment/pending",
   // LiveKit routes
   livekit_home: "/livekit",
   livekit_join: "/livekit/join",
@@ -38,6 +42,25 @@ const paths = {
   livekit_create: "/livekit/create",
   livekit_manage: "/livekit/manage",
   livekit_room: "/livekit/room/:roomName",
+  // Instructor routes
+  instructor_home: "/instructor/home",
+  instructor_schedule: "/instructor/schedule",
+  instructor_courses: "/instructor/courses",
+  instructor_course_detail: "/instructor/course-detail/:courseId",
+  // Admin routes
+  admin_home: "/admin/home",
+  edit_question: "/edit-question/:questionId",
 };
+
+// Admin paths
+export const adminPaths = {
+  admin_home: "/admin/home",
+  admin_users: "/admin/users",
+  admin_analytics: "/admin/analytics",
+  admin_settings: "/admin/settings",
+};
+
+// export const EDIT_QUESTION = "/edit-question/:questionId";
+// export const editQuestion = (questionId: string) => `/edit-question/${questionId}`;
 
 export default paths;

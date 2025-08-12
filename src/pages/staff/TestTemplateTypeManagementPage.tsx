@@ -132,7 +132,7 @@ const TestTemplateTypeManagementPage: React.FC = () => {
       setTemplateTypes(response.items);
     } catch (error) {
       console.error("Failed to load template types:", error);
-      setError("Không thể tải danh sách template types");
+      setError("Không thể tải danh sách cấu trúc đề thi");
     } finally {
       setLoading(false);
     }
@@ -162,7 +162,7 @@ const TestTemplateTypeManagementPage: React.FC = () => {
       await loadTemplateTypes();
     } catch (error) {
       console.error("Failed to create template type:", error);
-      setError("Không thể tạo template type");
+      setError("Không thể tạo cấu trúc đề thi");
     } finally {
       setSubmitting(false);
     }
@@ -180,21 +180,21 @@ const TestTemplateTypeManagementPage: React.FC = () => {
       await loadTemplateTypes();
     } catch (error) {
       console.error("Failed to update template type:", error);
-      setError("Không thể cập nhật template type");
+      setError("Không thể cập nhật cấu trúc đề thi");
     } finally {
       setSubmitting(false);
     }
   };
 
   const handleDelete = async (templateTypeId: string) => {
-    if (!window.confirm("Bạn có chắc chắn muốn xóa template type này?")) return;
+    if (!window.confirm("Bạn có chắc chắn muốn xóa cấu trúc đề thi này?")) return;
 
     try {
       await deleteTestTemplateType(templateTypeId);
       await loadTemplateTypes();
     } catch (error) {
       console.error("Failed to delete template type:", error);
-      setError("Không thể xóa template type");
+      setError("Không thể xóa cấu trúc đề thi");
     }
   };
 
@@ -204,7 +204,7 @@ const TestTemplateTypeManagementPage: React.FC = () => {
       await loadTemplateTypes();
     } catch (error) {
       console.error("Failed to toggle template type active status:", error);
-      setError("Không thể cập nhật trạng thái template type");
+      setError("Không thể cập nhật trạng thái cấu trúc đề thi");
     }
   };
 
@@ -231,7 +231,7 @@ const TestTemplateTypeManagementPage: React.FC = () => {
       setTemplates(templateList);
     } catch (error) {
       console.error("Failed to load templates:", error);
-      setError("Không thể tải danh sách templates");
+      setError("Không thể tải danh sách phần thi");
     } finally {
       setLoadingTemplates(false);
     }
@@ -261,9 +261,9 @@ const TestTemplateTypeManagementPage: React.FC = () => {
     } catch (error: any) {
       console.error("Failed to create template:", error);
       if (error?.response?.data?.errorCode === "TYPE_ACTIVE") {
-        setError("Không thể tạo template khi template type đã được kích hoạt");
+        setError("Không thể tạo phần thi khi cấu trúc đề thi đã được kích hoạt");
       } else {
-        setError("Không thể tạo template");
+        setError("Không thể tạo phần thi");
       }
     } finally {
       setSubmitting(false);
@@ -282,21 +282,21 @@ const TestTemplateTypeManagementPage: React.FC = () => {
       await handleManageTemplates(selectedTemplateType);
     } catch (error) {
       console.error("Failed to update template:", error);
-      setError("Không thể cập nhật template");
+      setError("Không thể cập nhật phần thi");
     } finally {
       setSubmitting(false);
     }
   };
 
   const handleDeleteTemplate = async (templateId: string) => {
-    if (!window.confirm("Bạn có chắc chắn muốn xóa template này?") || !selectedTemplateType) return;
+    if (!window.confirm("Bạn có chắc chắn muốn xóa phần thi này?") || !selectedTemplateType) return;
 
     try {
       await deleteTestTemplate(templateId);
       await handleManageTemplates(selectedTemplateType);
     } catch (error) {
       console.error("Failed to delete template:", error);
-      setError("Không thể xóa template");
+      setError("Không thể xóa phần thi");
     }
   };
 
@@ -325,7 +325,7 @@ const TestTemplateTypeManagementPage: React.FC = () => {
       setSubContents(subContentList.items);
     } catch (error) {
       console.error("Failed to load configs:", error);
-      setError("Không thể tải danh sách configs");
+      setError("Không thể tải danh sách cấu hình câu hỏi");
     } finally {
       setLoadingConfigs(false);
     }
@@ -350,9 +350,9 @@ const TestTemplateTypeManagementPage: React.FC = () => {
     } catch (error: any) {
       console.error("Failed to create config:", error);
       if (error?.response?.data?.errorCode === "TYPE_ACTIVE") {
-        setError("Không thể tạo config khi template type đã được kích hoạt");
+        setError("Không thể tạo cấu hình câu hỏi khi cấu trúc đề thi đã được kích hoạt");
       } else {
-        setError("Không thể tạo config");
+        setError("Không thể tạo cấu hình câu hỏi");
       }
     } finally {
       setSubmitting(false);
@@ -371,21 +371,21 @@ const TestTemplateTypeManagementPage: React.FC = () => {
       await handleManageConfigs(selectedTemplate);
     } catch (error) {
       console.error("Failed to update config:", error);
-      setError("Không thể cập nhật config");
+      setError("Không thể cập nhật cấu hình câu hỏi");
     } finally {
       setSubmitting(false);
     }
   };
 
   const handleDeleteConfig = async (configId: string) => {
-    if (!window.confirm("Bạn có chắc chắn muốn xóa config này?") || !selectedTemplate) return;
+    if (!window.confirm("Bạn có chắc chắn muốn xóa cấu hình câu hỏi này?") || !selectedTemplate) return;
 
     try {
       await deleteTestTemplateConfig(configId);
       await handleManageConfigs(selectedTemplate);
     } catch (error) {
       console.error("Failed to delete config:", error);
-      setError("Không thể xóa config");
+      setError("Không thể xóa cấu hình câu hỏi");
     }
   };
 
@@ -408,17 +408,17 @@ const TestTemplateTypeManagementPage: React.FC = () => {
       [CourseLevel.N2]: "N2",
       [CourseLevel.N1]: "N1"
     };
-    return labels[level] || "Unknown";
+    return labels[level] || "Không xác định";
   };
 
   const getTestTypeLabel = (type: TestType) => {
     const labels = {
-      [TestType.JLPTAuto]: "JLPT Auto",
-      [TestType.EntryAuto]: "Entry Auto", 
-      [TestType.CustomManual]: "Custom Manual",
-      [TestType.CustomAuto]: "Custom Auto"
+      [TestType.JLPTAuto]: "JLPT Tự động",
+      [TestType.EntryAuto]: "Đầu vào Tự động", 
+      [TestType.CustomManual]: "Tùy chỉnh Thủ công",
+      [TestType.CustomAuto]: "Tùy chỉnh Tự động"
     };
-    return labels[type] || "Unknown";
+    return labels[type] || "Không xác định";
   };
 
   if (loading) {
@@ -445,20 +445,20 @@ const TestTemplateTypeManagementPage: React.FC = () => {
               <FaArrowLeft className="mr-2" />
               Quay lại trang chủ
             </button>
-            <h1 className="text-3xl font-bold text-gray-900">Quản lý Test Template Types</h1>
+            <h1 className="text-3xl font-bold text-gray-900">Quản lý Cấu trúc đề thi</h1>
             <p className="text-gray-600 mt-2">
-              Quản lý các template types cho các loại test khác nhau
+              Quy định các cấu trúc cho các loại đề thi khác nhau
             </p>
             <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
               <h3 className="text-sm font-semibold text-blue-800 mb-2">📋 Quy trình thiết lập:</h3>
               <ol className="text-sm text-blue-700 list-decimal list-inside space-y-1">
-                <li>Tạo <strong>Test Template Type</strong> (VD: JLPT N3 Auto)</li>
-                <li>Tạo <strong>Test Templates</strong> cho type đó (VD: Đề 1, Đề 2, Đề 3...)</li>
-                <li>Cấu hình <strong>Template Configs</strong> cho mỗi template (số câu hỏi cho từng loại nội dung)</li>
-                <li><strong>Kích hoạt</strong> Template Type để hệ thống có thể sử dụng</li>
+                <li>Tạo <strong>Cấu trúc đề thi</strong> (VD: JLPT N3)</li>
+                <li>Tạo các<strong>phần thi</strong> cho đề thi đó (VD: Phần nghe, Phần Đọc hiểu,...)</li>
+                <li>Cấu hình <strong>các dạng câu hỏi</strong> cho mỗi Phần thi</li>
+                <li><strong>Kích hoạt</strong> Cấu trúc đề thi để hệ thống có thể sử dụng</li>
               </ol>
               <p className="text-xs text-blue-600 mt-2">
-                ⚠️ <strong>Lưu ý:</strong> Sau khi kích hoạt, không thể chỉnh sửa templates/configs. Hãy kiểm tra kỹ trước khi kích hoạt!
+                ⚠️ <strong>Lưu ý:</strong> Sau khi kích hoạt Cấu trúc đề thi, không thể chỉnh sửa.
               </p>
             </div>
           </div>
@@ -467,7 +467,7 @@ const TestTemplateTypeManagementPage: React.FC = () => {
             className="flex items-center gap-2 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 font-semibold transition-colors"
           >
             <FaPlus className="text-sm" />
-            Tạo Template Type
+            Tạo Cấu trúc đề thi
           </button>
         </div>
 
@@ -482,7 +482,7 @@ const TestTemplateTypeManagementPage: React.FC = () => {
         <div className="bg-white rounded-xl shadow-lg overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-200">
             <h2 className="text-xl font-semibold text-gray-800">
-              Danh sách Template Types ({templateTypes.length})
+              Danh sách Cấu trúc đề thi ({templateTypes.length})
             </h2>
           </div>
           
@@ -491,13 +491,13 @@ const TestTemplateTypeManagementPage: React.FC = () => {
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Tên Template
+                    Tên Cấu trúc đề thi
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Cấp độ
+                    Cấp độ khóa học
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Loại Test
+                    Loại đề thi
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Điểm tối đa
@@ -556,7 +556,7 @@ const TestTemplateTypeManagementPage: React.FC = () => {
                         <button
                           onClick={() => handleManageTemplates(template)}
                           className="text-purple-600 hover:text-purple-900"
-                          title="Cấu hình Templates"
+                          title="Cấu hình Phần thi"
                         >
                           <FaCog className="text-sm" />
                         </button>
@@ -600,10 +600,10 @@ const TestTemplateTypeManagementPage: React.FC = () => {
             <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
               <div>
                 <h2 className="text-xl font-semibold text-gray-800">
-                  Templates cho {selectedTemplateType.typeName}
+                  Phần thi cho {selectedTemplateType.typeName}
                 </h2>
                 <p className="text-sm text-gray-600">
-                  Quản lý các templates cho template type này
+                  Quản lý các phần thi cho Cấu trúc đề thi này
                 </p>
               </div>
               <div className="flex gap-2">
@@ -615,10 +615,10 @@ const TestTemplateTypeManagementPage: React.FC = () => {
                       ? 'bg-gray-400 text-gray-700 cursor-not-allowed' 
                       : 'bg-blue-600 text-white hover:bg-blue-700'
                   }`}
-                  title={selectedTemplateType.isActive ? 'Không thể tạo template khi template type đã active' : ''}
+                  title={selectedTemplateType.isActive ? 'Không thể tạo phần thi khi cấu trúc đề thi đã được kích hoạt' : ''}
                 >
                   <FaPlus className="text-sm" />
-                  Tạo Template
+                  Tạo Phần thi
                 </button>
                 <button
                   onClick={() => setSelectedTemplateType(null)}
@@ -633,7 +633,7 @@ const TestTemplateTypeManagementPage: React.FC = () => {
             {loadingTemplates ? (
               <div className="p-8 text-center">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-                <p className="mt-2 text-gray-600">Đang tải templates...</p>
+                <p className="mt-2 text-gray-600">Đang tải các phần thi...</p>
               </div>
             ) : (
               <div className="overflow-x-auto">
@@ -641,7 +641,7 @@ const TestTemplateTypeManagementPage: React.FC = () => {
                   <thead className="bg-gray-50">
                     <tr>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Tên Template
+                        Tên Phần thi
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Thời gian (phút)
@@ -685,7 +685,7 @@ const TestTemplateTypeManagementPage: React.FC = () => {
                             <button
                               onClick={() => handleManageConfigs(template)}
                               className="text-green-600 hover:text-green-900"
-                              title="Cấu hình Configs"
+                              title="Cấu hình câu hỏi"
                             >
                               <FaCog className="text-sm" />
                             </button>
@@ -697,7 +697,7 @@ const TestTemplateTypeManagementPage: React.FC = () => {
                                   ? 'text-gray-400 cursor-not-allowed' 
                                   : 'text-blue-600 hover:text-blue-900'
                               }`}
-                              title={selectedTemplateType.isActive ? 'Không thể chỉnh sửa khi template type đã active' : 'Chỉnh sửa'}
+                              title={selectedTemplateType.isActive ? 'Không thể chỉnh sửa khi cấu trúc đề thi đã được kích hoạt' : 'Chỉnh sửa'}
                             >
                               <FaEdit className="text-sm" />
                             </button>
@@ -709,7 +709,7 @@ const TestTemplateTypeManagementPage: React.FC = () => {
                                   ? 'text-gray-400 cursor-not-allowed' 
                                   : 'text-red-600 hover:text-red-900'
                               }`}
-                              title={selectedTemplateType.isActive ? 'Không thể xóa khi template type đã active' : 'Xóa'}
+                              title={selectedTemplateType.isActive ? 'Không thể xóa khi cấu trúc đề thi đã được kích hoạt' : 'Xóa'}
                             >
                               <FaTrash className="text-sm" />
                             </button>
@@ -721,7 +721,7 @@ const TestTemplateTypeManagementPage: React.FC = () => {
                 </table>
                 {templates.length === 0 && (
                   <div className="p-8 text-center text-gray-500">
-                    Chưa có template nào. Hãy tạo template đầu tiên.
+                    Chưa có phần thi nào. Hãy tạo phần thi đầu tiên.
                   </div>
                 )}
               </div>
@@ -735,10 +735,10 @@ const TestTemplateTypeManagementPage: React.FC = () => {
             <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
               <div>
                 <h2 className="text-xl font-semibold text-gray-800">
-                  Configs cho {selectedTemplate.templateName}
+                  Cấu hình câu hỏi cho {selectedTemplate.templateName}
                 </h2>
                 <p className="text-sm text-gray-600">
-                  Quản lý cấu hình câu hỏi cho template này
+                  Quản lý cấu hình câu hỏi cho Phần thi này
                 </p>
               </div>
               <div className="flex gap-2">
@@ -750,10 +750,10 @@ const TestTemplateTypeManagementPage: React.FC = () => {
                       ? 'bg-gray-400 text-gray-700 cursor-not-allowed' 
                       : 'bg-green-600 text-white hover:bg-green-700'
                   }`}
-                  title={selectedTemplateType?.isActive ? 'Không thể tạo config khi template type đã active' : ''}
+                  title={selectedTemplateType?.isActive ? 'Không thể tạo cấu hình câu hỏi khi cấu trúc đề thi đã được kích hoạt' : ''}
                 >
                   <FaPlus className="text-sm" />
-                  Tạo Config
+                  Tạo Cấu hình câu hỏi
                 </button>
                 <button
                   onClick={() => setSelectedTemplate(null)}
@@ -768,7 +768,7 @@ const TestTemplateTypeManagementPage: React.FC = () => {
             {loadingConfigs ? (
               <div className="p-8 text-center">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600 mx-auto"></div>
-                <p className="mt-2 text-gray-600">Đang tải configs...</p>
+                <p className="mt-2 text-gray-600">Đang tải cấu hình câu hỏi...</p>
               </div>
             ) : (
               <div className="overflow-x-auto">
@@ -776,7 +776,7 @@ const TestTemplateTypeManagementPage: React.FC = () => {
                   <thead className="bg-gray-50">
                     <tr>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        SubContent
+                        Nội dung con
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Số câu hỏi
@@ -828,7 +828,7 @@ const TestTemplateTypeManagementPage: React.FC = () => {
                                   ? 'text-gray-400 cursor-not-allowed' 
                                   : 'text-blue-600 hover:text-blue-900'
                               }`}
-                              title={selectedTemplateType?.isActive ? 'Không thể chỉnh sửa khi template type đã active' : 'Chỉnh sửa'}
+                              title={selectedTemplateType?.isActive ? 'Không thể chỉnh sửa khi cấu trúc đề thi đã được kích hoạt' : 'Chỉnh sửa'}
                             >
                               <FaEdit className="text-sm" />
                             </button>
@@ -840,7 +840,7 @@ const TestTemplateTypeManagementPage: React.FC = () => {
                                   ? 'text-gray-400 cursor-not-allowed' 
                                   : 'text-red-600 hover:text-red-900'
                               }`}
-                              title={selectedTemplateType?.isActive ? 'Không thể xóa khi template type đã active' : 'Xóa'}
+                              title={selectedTemplateType?.isActive ? 'Không thể xóa khi cấu trúc đề thi đã được kích hoạt' : 'Xóa'}
                             >
                               <FaTrash className="text-sm" />
                             </button>
@@ -865,12 +865,12 @@ const TestTemplateTypeManagementPage: React.FC = () => {
       <Modal
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
-        title="Tạo Template Type mới"
+        title="Tạo Cấu trúc đề thi mới"
       >
         <form onSubmit={handleCreateSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Tên Template *
+              Tên Cấu trúc đề thi *
             </label>
             <input
               type="text"
@@ -884,7 +884,7 @@ const TestTemplateTypeManagementPage: React.FC = () => {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Cấp độ *
+                Cấp độ khóa học *
               </label>
               <select
                 value={createForm.courseLevel}
@@ -902,7 +902,7 @@ const TestTemplateTypeManagementPage: React.FC = () => {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Loại Test *
+                Loại đề thi *
               </label>
               <select
                 value={createForm.testType}
@@ -976,7 +976,7 @@ const TestTemplateTypeManagementPage: React.FC = () => {
                 submitting ? 'bg-green-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'
               }`}
             >
-              {submitting ? 'Đang tạo...' : 'Tạo Template Type'}
+              {submitting ? 'Đang tạo...' : 'Tạo Cấu trúc đề thi'}
             </button>
           </div>
         </form>
@@ -986,12 +986,12 @@ const TestTemplateTypeManagementPage: React.FC = () => {
       <Modal
         isOpen={isEditModalOpen}
         onClose={() => setIsEditModalOpen(false)}
-        title="Chỉnh sửa Template Type"
+        title="Chỉnh sửa Cấu trúc đề thi"
       >
         <form onSubmit={handleEditSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Tên Template *
+              Tên Cấu trúc đề thi *
             </label>
             <input
               type="text"
@@ -1005,7 +1005,7 @@ const TestTemplateTypeManagementPage: React.FC = () => {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Cấp độ *
+                Cấp độ khóa học *
               </label>
               <select
                 value={editForm.courseLevel}
@@ -1023,7 +1023,7 @@ const TestTemplateTypeManagementPage: React.FC = () => {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Loại Test *
+                Loại đề thi *
               </label>
               <select
                 value={editForm.testType}
@@ -1110,7 +1110,7 @@ const TestTemplateTypeManagementPage: React.FC = () => {
                 submitting ? 'bg-green-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'
               }`}
             >
-              {submitting ? 'Đang cập nhật...' : 'Cập nhật Template Type'}
+              {submitting ? 'Đang cập nhật...' : 'Cập nhật Cấu trúc đề thi'}
             </button>
           </div>
         </form>
@@ -1120,12 +1120,12 @@ const TestTemplateTypeManagementPage: React.FC = () => {
       <Modal
         isOpen={isCreateTemplateModalOpen}
         onClose={() => setIsCreateTemplateModalOpen(false)}
-        title="Tạo Template mới"
+        title="Tạo Phần thi mới"
       >
         <form onSubmit={handleCreateTemplate} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Tên Template *
+              Tên Phần thi *
             </label>
             <input
               type="text"
@@ -1212,7 +1212,7 @@ const TestTemplateTypeManagementPage: React.FC = () => {
                 submitting ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'
               }`}
             >
-              {submitting ? 'Đang tạo...' : 'Tạo Template'}
+              {submitting ? 'Đang tạo...' : 'Tạo Phần thi'}
             </button>
           </div>
         </form>
@@ -1222,12 +1222,12 @@ const TestTemplateTypeManagementPage: React.FC = () => {
       <Modal
         isOpen={isEditTemplateModalOpen}
         onClose={() => setIsEditTemplateModalOpen(false)}
-        title="Chỉnh sửa Template"
+        title="Chỉnh sửa Phần thi"
       >
         <form onSubmit={handleEditTemplate} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Tên Template *
+              Tên Phần thi *
             </label>
             <input
               type="text"
@@ -1314,7 +1314,7 @@ const TestTemplateTypeManagementPage: React.FC = () => {
                 submitting ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'
               }`}
             >
-              {submitting ? 'Đang cập nhật...' : 'Cập nhật Template'}
+              {submitting ? 'Đang cập nhật...' : 'Cập nhật Phần thi'}
             </button>
           </div>
         </form>
@@ -1324,12 +1324,12 @@ const TestTemplateTypeManagementPage: React.FC = () => {
       <Modal
         isOpen={isCreateConfigModalOpen}
         onClose={() => setIsCreateConfigModalOpen(false)}
-        title="Tạo Config mới"
+        title="Tạo Cấu hình câu hỏi mới"
       >
         <form onSubmit={handleCreateConfig} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              SubContent *
+              Nội dung con *
             </label>
             <select
               value={createConfigForm.subContentId}
@@ -1337,7 +1337,7 @@ const TestTemplateTypeManagementPage: React.FC = () => {
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
               required
             >
-              <option value="">Chọn SubContent</option>
+                                      <option value="">Chọn nội dung con</option>
               {subContents.map((subContent) => (
                 <option key={subContent.subContentId} value={subContent.subContentId}>
                   {subContent.subContentNameDescription} - {subContent.contentNameDescription} ({subContent.levelDescription})
@@ -1437,7 +1437,7 @@ const TestTemplateTypeManagementPage: React.FC = () => {
                 submitting ? 'bg-green-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'
               }`}
             >
-              {submitting ? 'Đang tạo...' : 'Tạo Config'}
+              {submitting ? 'Đang tạo...' : 'Tạo Cấu hình câu hỏi'}
             </button>
           </div>
         </form>
@@ -1447,7 +1447,7 @@ const TestTemplateTypeManagementPage: React.FC = () => {
       <Modal
         isOpen={isEditConfigModalOpen}
         onClose={() => setIsEditConfigModalOpen(false)}
-        title="Chỉnh sửa Config"
+        title="Chỉnh sửa Cấu hình câu hỏi"
       >
         <form onSubmit={handleEditConfig} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
@@ -1541,7 +1541,7 @@ const TestTemplateTypeManagementPage: React.FC = () => {
                 submitting ? 'bg-green-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'
               }`}
             >
-              {submitting ? 'Đang cập nhật...' : 'Cập nhật Config'}
+              {submitting ? 'Đang cập nhật...' : 'Cập nhật Cấu hình câu hỏi'}
             </button>
           </div>
         </form>

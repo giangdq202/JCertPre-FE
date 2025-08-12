@@ -283,7 +283,7 @@ class LivestreamApiService {
   // Get livestream timetable by user
   async getLivestreamTimetableByUser(userId: string): Promise<LivestreamTimetableDto[]> {
     try {
-      const response: AxiosResponse<LivestreamTimetableDto[]> = await this.api.get(`/api/livestreams?userId=${userId}&timetableFormat=true`);
+      const response: AxiosResponse<LivestreamTimetableDto[]> = await this.api.get(`/livestreams?userId=${userId}&timetableFormat=true`);
       return response.data;
     } catch (error: any) {
       if (error.response) {

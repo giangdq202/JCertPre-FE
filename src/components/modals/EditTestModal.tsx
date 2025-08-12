@@ -1,11 +1,36 @@
 import React, { useState, useEffect } from 'react';
-import NotificationModal from './NotificationModal';
-import { FaSave, FaTimes, FaExclamationCircle, FaPlus, FaTrash, FaEdit, FaCheck } from 'react-icons/fa';
-import { TestDto, TestType, CourseLevel, updateTest } from '../../services/testService';
-import { createQuestion, CreateQuestionDto, createChoice } from '../../services/questionService';
+import { FaEdit, FaTrash, FaSave, FaTimes, FaPlus, FaMinus, FaCheck, FaExclamationCircle } from 'react-icons/fa';
+import { 
+  updateQuestion,
+  deleteQuestion,
+  createChoice,
+  updateChoice,
+  deleteChoice,
+  getQuestionById,
+  getChoicesByQuestionId,
+  createQuestion,
+} from '../../services/questionService';
+import {
+  QuestionDifficulty, 
+  ContentName, 
+  CourseLevel, 
+  SubContentName,
+  UpdateQuestionDto,
+  QuestionDto,
+  CreateQuestionDto,
+} from '../../types/question.types';
+import { 
+  ChoiceReadDto,
+  ChoiceCreateDto,
+  ChoiceUpdateDto,
+  validateChoiceCreateDto,
+  validateChoiceUpdateDto,
+  CHOICE_VALIDATION_RULES
+} from '../../types/choice.types';
 import { addQuestionsCustomManual, getQuestionsByTestId, deleteTestQuestion } from '../../services/testQuestionService';
 import { getAllSubContents, SubContentDto } from '../../services/subContentService';
-import { QuestionDifficulty, ContentName, SubContentName, getQuestionById, QuestionDto, updateQuestion, UpdateQuestionDto, getChoicesByQuestionId, ChoiceReadDto, ChoiceCreateDto, ChoiceUpdateDto, updateChoice, deleteChoice } from '../../services/questionService';
+import { TestDto, TestType, updateTest } from '../../services/testService';
+import NotificationModal from './NotificationModal';
 
 interface EditTestModalProps {
   isOpen: boolean;
@@ -33,13 +58,23 @@ interface QuestionWithChoices {
   contentName: ContentName;
   level: CourseLevel;
   subContentName?: SubContentName;
-  choices?: { content: string; isCorrect: boolean }[];
+  choices?: ChoiceCreateDto[];
+  audioFile?: File;
 }
 
 interface ExistingQuestionWithChoices extends QuestionDto {
   testQuestionId: string;
   questionNumber: number;
   choices: ChoiceReadDto[];
+}
+
+interface EditQuestionFormState {
+  content: string;
+  explanation: string;
+  points: number;
+  difficulty: QuestionDifficulty;
+  isActive: boolean;
+  newAudioFile?: File;
 }
 
 interface ExistingQuestionItemProps {
@@ -61,12 +96,13 @@ const ExistingQuestionItem: React.FC<ExistingQuestionItemProps> = ({
   onDelete,
   showNotification
 }) => {
-  const [editForm, setEditForm] = useState({
+  const [editForm, setEditForm] = useState<EditQuestionFormState>({
     content: question.content,
     explanation: question.explanation || '',
     points: question.points,
     difficulty: question.difficulty,
-    isActive: question.isActive
+    isActive: question.isActive,
+    newAudioFile: undefined
   });
 
   const [editChoices, setEditChoices] = useState<Array<ChoiceReadDto & { isNew?: boolean }>>([]);
@@ -82,7 +118,7 @@ const ExistingQuestionItem: React.FC<ExistingQuestionItemProps> = ({
   const handleSave = async () => {
     setLoading(true);
     try {
-      // Validate choices
+      // Validate choices according to backend rules
       if (editChoices.length < 2) {
         showNotification('Thiếu lựa chọn', 'Phải có ít nhất 2 lựa chọn', 'warning');
         return;
@@ -93,16 +129,35 @@ const ExistingQuestionItem: React.FC<ExistingQuestionItemProps> = ({
         return;
       }
       
-      if (!editChoices.every(choice => choice.content.trim())) {
-        showNotification('Lựa chọn trống', 'Tất cả lựa chọn phải có nội dung', 'warning');
-        return;
+      // Validate each choice content
+      for (let i = 0; i < editChoices.length; i++) {
+        const choice = editChoices[i];
+        if (!choice.content.trim()) {
+          showNotification('Lựa chọn trống', `Lựa chọn ${i + 1} phải có nội dung`, 'warning');
+          return;
+        }
+        
+        // Validate choice content according to backend rules
+        if (choice.content.length > CHOICE_VALIDATION_RULES.CONTENT_MAX_LENGTH) {
+          showNotification('Lựa chọn quá dài', `Lựa chọn ${i + 1}: ${CHOICE_VALIDATION_RULES.CONTENT_TOO_LONG_MESSAGE}`, 'warning');
+          return;
+        }
       }
 
       // Handle choices first
       await updateChoices();
       
       // Update question
-      await onSave(editForm);
+      const updateData: UpdateQuestionDto = {
+        content: editForm.content,
+        explanation: editForm.explanation,
+        points: editForm.points,
+        difficulty: editForm.difficulty,
+        isActive: editForm.isActive,
+        audioFile: editForm.newAudioFile
+      };
+      
+      await onSave(updateData);
     } catch (error) {
       console.error('Error saving question:', error);
       showNotification('Lỗi', 'Có lỗi xảy ra khi lưu câu hỏi. Vui lòng thử lại.', 'error');
@@ -127,6 +182,13 @@ const ExistingQuestionItem: React.FC<ExistingQuestionItemProps> = ({
             content: choice.content,
             isCorrect: choice.isCorrect
           };
+          
+          // Validate update data
+          const validation = validateChoiceUpdateDto(updateData);
+          if (!validation.isValid) {
+            throw new Error(`Choice update validation failed: ${validation.message}`);
+          }
+          
           await updateChoice(choice.choiceId, updateData);
         }
       }
@@ -139,6 +201,13 @@ const ExistingQuestionItem: React.FC<ExistingQuestionItemProps> = ({
           content: choice.content,
           isCorrect: choice.isCorrect
         };
+        
+        // Validate create data
+        const validation = validateChoiceCreateDto(createData);
+        if (!validation.isValid) {
+          throw new Error(`Choice creation validation failed: ${validation.message}`);
+        }
+        
         await createChoice(question.id, createData);
       }
     }
@@ -194,7 +263,7 @@ const ExistingQuestionItem: React.FC<ExistingQuestionItemProps> = ({
               className={`${loading ? 'text-gray-400 cursor-not-allowed' : 'text-green-600 hover:text-green-800'}`}
               title={loading ? 'Đang lưu...' : 'Lưu'}
             >
-              <FaCheck size={16} />
+              <FaSave size={16} />
             </button>
             <button
               onClick={onCancelEdit}
@@ -334,6 +403,51 @@ const ExistingQuestionItem: React.FC<ExistingQuestionItemProps> = ({
               ))}
             </div>
           </div>
+
+          {/* Existing Audio Files */}
+          {question.questionAttachments && question.questionAttachments.length > 0 && 
+           question.questionAttachments.some(att => att.mediaType === 'audio') && (
+            <div className="mt-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                File âm thanh hiện tại
+              </label>
+              <div className="space-y-2">
+                {question.questionAttachments
+                  .filter(att => att.mediaType === 'audio')
+                  .map((att, index) => (
+                    <div key={index} className="flex items-center gap-2 p-2 bg-gray-50 rounded border">
+                      <span className="text-blue-600">🔊</span>
+                      <audio controls className="h-8">
+                        <source src={att.mediaUrl} type="audio/mpeg" />
+                        Trình duyệt của bạn không hỗ trợ phát audio.
+                      </audio>
+                      <span className="text-xs text-gray-500">Audio file</span>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          )}
+
+          {/* New Audio File Upload */}
+          <div className="mt-4">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Tải lên tệp âm thanh mới (tùy chọn)
+            </label>
+            <input
+              type="file"
+              accept="audio/*"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) {
+                  setEditForm(prev => ({ ...prev, newAudioFile: file }));
+                }
+              }}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Hỗ trợ: MP3, WAV, OGG. Kích thước tối đa: 10MB. Để trống nếu không muốn thay đổi.
+            </p>
+          </div>
         </div>
       </div>
     );
@@ -394,7 +508,7 @@ const ExistingQuestionItem: React.FC<ExistingQuestionItemProps> = ({
         <div>
           <span className="text-sm text-gray-600">Loại: </span>
           <span className="text-sm text-gray-700">
-            {question.contentNameDescription} - {question.subContentNameDescription}
+            {ContentName[question.contentName]} - {SubContentName[question.subContentName]}
           </span>
         </div>
 
@@ -415,6 +529,54 @@ const ExistingQuestionItem: React.FC<ExistingQuestionItemProps> = ({
                   <span>{choice.content}</span>
                   {choice.isCorrect && (
                     <span className="text-green-600 text-xs">✓</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Question Attachments */}
+        {question.questionAttachments && question.questionAttachments.length > 0 && (
+          <div>
+            <span className="text-sm text-gray-600 block mb-1">Tệp đính kèm:</span>
+            <div className="space-y-2">
+              {question.questionAttachments.map((attachment, index) => (
+                <div key={index} className="flex items-center gap-2">
+                  {attachment.mediaType === 'audio' && (
+                    <div className="flex items-center gap-2 p-2 bg-gray-50 rounded border">
+                      <span className="text-blue-600">🔊</span>
+                      <audio controls className="h-8">
+                        <source src={attachment.mediaUrl} type="audio/mpeg" />
+                        Trình duyệt của bạn không hỗ trợ phát audio.
+                      </audio>
+                      <span className="text-xs text-gray-500">Audio file</span>
+                    </div>
+                  )}
+                  {attachment.mediaType === 'image' && (
+                    <div className="flex items-center gap-2 p-2 bg-gray-50 rounded border">
+                      <span className="text-green-600">🖼️</span>
+                      <img 
+                        src={attachment.mediaUrl} 
+                        alt="Question attachment" 
+                        className="h-16 w-auto rounded border"
+                      />
+                      <span className="text-xs text-gray-500">Image file</span>
+                    </div>
+                  )}
+                  {attachment.mediaType !== 'audio' && attachment.mediaType !== 'image' && (
+                    <div className="flex items-center gap-2 p-2 bg-gray-50 rounded border">
+                      <span className="text-purple-600">📎</span>
+                      <a 
+                        href={attachment.mediaUrl} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:underline text-sm"
+                      >
+                        Xem tệp đính kèm
+                      </a>
+                      <span className="text-xs text-gray-500">Other file</span>
+                    </div>
                   )}
                 </div>
               ))}
@@ -619,7 +781,8 @@ const EditTestModal: React.FC<EditTestModalProps> = ({
       difficulty: QuestionDifficulty.Easy,
       isActive: true,
       contentName: ContentName.Kanji,
-      level: CourseLevel.N5
+      level: CourseLevel.N5,
+      audioFile: undefined
     });
     setChoices([
       { content: '', isCorrect: false },
@@ -652,9 +815,28 @@ const EditTestModal: React.FC<EditTestModalProps> = ({
       setEditingQuestionId(null);
       // Reload the questions to get updated data
       await loadExistingQuestions();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to update question:', error);
-      setError('Không thể cập nhật câu hỏi. Vui lòng thử lại.');
+      
+      // Handle backend validation errors
+      if (error?.response?.status === 400 && error?.response?.data?.errors) {
+        const validationErrors = error.response.data.errors;
+        let errorMessage = "Lỗi validation:\n";
+        
+        Object.entries(validationErrors).forEach(([field, messages]) => {
+          if (Array.isArray(messages)) {
+            errorMessage += `- ${field}: ${messages.join(', ')}\n`;
+          } else {
+            errorMessage += `- ${field}: ${messages}\n`;
+          }
+        });
+        
+        showNotification('Lỗi validation', errorMessage.trim(), 'error');
+      } else if (error?.response?.data?.message) {
+        showNotification('Lỗi', error.response.data.message, 'error');
+      } else {
+        showNotification('Lỗi', 'Không thể cập nhật câu hỏi. Vui lòng thử lại.', 'error');
+      }
       throw error; // Re-throw so ExistingQuestionItem can handle it
     }
   };
@@ -772,7 +954,8 @@ const EditTestModal: React.FC<EditTestModalProps> = ({
               isActive: question.isActive,
               contentName: question.contentName,
               level: question.level,
-              subContentName: question.subContentName as SubContentName
+              subContentName: question.subContentName as SubContentName,
+              audioFile: question.audioFile
             };
 
             console.log("Creating question:", questionData);
@@ -1220,6 +1403,27 @@ const EditTestModal: React.FC<EditTestModalProps> = ({
                      )}
                   </div>
                 ))}
+              </div>
+
+              {/* Audio File Upload */}
+              <div className="mt-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Tệp âm thanh (tùy chọn)
+                </label>
+                <input
+                  type="file"
+                  accept="audio/*"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      setCurrentQuestion(prev => ({ ...prev, audioFile: file }));
+                    }
+                  }}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Hỗ trợ: MP3, WAV, OGG. Kích thước tối đa: 10MB
+                </p>
               </div>
 
              {/* Add Question Button */}

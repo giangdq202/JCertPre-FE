@@ -9,6 +9,11 @@ import {
   UPDATE_TEST_STATUS_URL,
   GET_TEST_BY_ID_URL,
 } from "../consts/apiUrl/baseUrl";
+import {
+  validateTestCreateDto,
+  validateTestUpdateDto,
+  validateCreateAutoTestInput
+} from "../types/test.types";
 
 export enum TestType {
   JLPTAuto = 0,
@@ -32,7 +37,7 @@ export enum CourseLevel {
 
 export interface CreateTestDto {
   title: string;
-  description: string;
+  description?: string; // Made optional to match backend
   testType: TestType;
   courseLevel: CourseLevel;
   durationMinutes: number;
@@ -45,7 +50,7 @@ export interface CreateTestDto {
 export interface TestDto {
   testId: string;
   title: string;
-  description: string;
+  description?: string; // Made optional to match backend
   testType: TestType;
   courseLevel: CourseLevel;
   durationMinutes: number;
@@ -161,6 +166,23 @@ export const createByLessonId = async (
   createTestDto: CreateTestDto
 ): Promise<TestDto> => {
   try {
+    // Validate the DTO before sending to backend
+    const validation = validateTestCreateDto({
+      title: createTestDto.title,
+      description: createTestDto.description,
+      testType: createTestDto.testType as any, // Type conversion for legacy enum
+      courseLevel: createTestDto.courseLevel as any, // Type conversion for legacy enum
+      durationMinutes: createTestDto.durationMinutes,
+      availableFrom: createTestDto.availableFrom ? new Date(createTestDto.availableFrom) : undefined,
+      availableTo: createTestDto.availableTo ? new Date(createTestDto.availableTo) : undefined,
+      maxAttempts: createTestDto.maxAttempts,
+      passingPercentage: createTestDto.passingPercentage
+    });
+    
+    if (!validation.isValid) {
+      throw new Error(`Validation failed: ${validation.message}`);
+    }
+
     // Ensure all required fields are present and properly formatted
     const requestData = {
       title: createTestDto.title,
@@ -196,6 +218,23 @@ export const createByLessonId = async (
  */
 export const updateTest = async (testId: string, updateTestDto: UpdateTestDto): Promise<TestDto> => {
   try {
+    // Validate the DTO before sending to backend
+    const validation = validateTestUpdateDto({
+      title: updateTestDto.title,
+      description: updateTestDto.description,
+      testType: updateTestDto.testType as any, // Type conversion for legacy enum
+      courseLevel: updateTestDto.courseLevel as any, // Type conversion for legacy enum
+      durationMinutes: updateTestDto.durationMinutes,
+      availableFrom: updateTestDto.availableFrom ? new Date(updateTestDto.availableFrom) : undefined,
+      availableTo: updateTestDto.availableTo ? new Date(updateTestDto.availableTo) : undefined,
+      maxAttempts: updateTestDto.maxAttempts,
+      passingPercentage: updateTestDto.passingPercentage
+    });
+    
+    if (!validation.isValid) {
+      throw new Error(`Validation failed: ${validation.message}`);
+    }
+
     const response = await axiosInstance.put(UPDATE_TEST_URL(testId), updateTestDto);
     return response.data;
   } catch (error: any) {
@@ -264,6 +303,16 @@ export const createAutoTest = async (
   userId: string
 ): Promise<CreateAutoTestResult> => {
   try {
+    // Validate the input before sending to backend
+    const validation = validateCreateAutoTestInput({
+      testType: input.testType as any, // Type conversion for legacy enum
+      courseLevel: input.courseLevel as any // Type conversion for legacy enum
+    });
+    
+    if (!validation.isValid) {
+      throw new Error(`Validation failed: ${validation.message}`);
+    }
+
     console.log("Creating auto test:", input);
     const response = await axiosInstance.post(AUTO_CREATE_TEST_URL(userId), input);
     console.log("Auto test created successfully:", response.data);

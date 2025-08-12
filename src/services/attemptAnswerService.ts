@@ -1,22 +1,50 @@
 import axiosInstance from "../consts/axios/axiosInstance";
 import {
   ADD_OR_UPDATE_ATTEMPT_ANSWERS_URL,
+  CREATE_ATTEMPT_ANSWER_URL,
+  UPDATE_ATTEMPT_ANSWER_URL,
   GET_ATTEMPT_ANSWERS_URL,
 } from "../consts/apiUrl/baseUrl";
+import {
+  AttemptAnswerDto,
+  CreateAttemptAnswerDto,
+  UpdateAttemptAnswerDto,
+  AddOrUpdateAttemptAnswerDto
+} from "../types/attemptAnswer.types";
 
-export interface AttemptAnswerDto {
-  attemptAnswerId: string;
-  attemptId: string;
-  questionId: string;
-  choiceId?: string;
-  textAnswer?: string;
-}
+/**
+ * Create a new attempt answer.
+ * @param dto - The attempt answer data
+ * @returns Promise<AttemptAnswerDto>
+ */
+export const createAttemptAnswer = async (
+  dto: CreateAttemptAnswerDto
+): Promise<AttemptAnswerDto> => {
+  try {
+    const response = await axiosInstance.post(CREATE_ATTEMPT_ANSWER_URL, dto);
+    return response.data;
+  } catch (error) {
+    console.error("Failed to create attempt answer:", error);
+    throw error;
+  }
+};
 
-export interface AddOrUpdateAttemptAnswerDto {
-  attemptId: string;
-  questionId: string;
-  choiceId: string;
-}
+/**
+ * Update an existing attempt answer.
+ * @param dto - The attempt answer update data
+ * @returns Promise<AttemptAnswerDto>
+ */
+export const updateAttemptAnswer = async (
+  dto: UpdateAttemptAnswerDto
+): Promise<AttemptAnswerDto> => {
+  try {
+    const response = await axiosInstance.put(UPDATE_ATTEMPT_ANSWER_URL, dto);
+    return response.data;
+  } catch (error) {
+    console.error("Failed to update attempt answer:", error);
+    throw error;
+  }
+};
 
 /**
  * Add or update attempt answers for test questions.
