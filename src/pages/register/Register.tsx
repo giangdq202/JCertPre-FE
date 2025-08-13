@@ -6,11 +6,11 @@ import Lottie from "lottie-react";
 import sakuraAnimation from "../../animations/sakura.json";
 import { Link, useNavigate } from "react-router-dom";
 import { register } from "../../services/authService";
-import { RegisterPayload } from "../../types/common.types";
 import { toast } from "react-toastify";
-import { uploadImage } from "../../services/cloudSerivce";
+import { useAuth } from "../../auth/AuthContext";
+import paths from "../../routes/path";
 
-interface FormData {
+interface RegisterFormState {
   fullname: string;
   email: string;
   phone: string;
@@ -19,10 +19,11 @@ interface FormData {
 }
 
 const Register: React.FC = () => {
+  const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [avatar, setAvatar] = useState<File | null>(null);
-  const [formData, setFormData] = useState<FormData>({
+  const [formData, setFormData] = useState<RegisterFormState>({
     fullname: "",
     email: "",
     phone: "",
@@ -30,7 +31,7 @@ const Register: React.FC = () => {
     confirmPassword: "",
   });
   const [loading, setLoading] = useState(false);
-  const navigate = useNavigate();
+  const { setUserInfo, setIsAuthenticated } = useAuth();
 
   const handleAvatarChange = (e: ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
@@ -40,43 +41,52 @@ const Register: React.FC = () => {
 
   const handleInputChange = (
     e: ChangeEvent<HTMLInputElement>,
-    field: keyof FormData
+    field: keyof RegisterFormState
   ) => {
     setFormData({ ...formData, [field]: e.target.value });
   };
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-
     if (formData.password !== formData.confirmPassword) {
       toast.error("Mật khẩu và xác nhận mật khẩu không khớp!");
       return;
     }
-
     setLoading(true);
-
     try {
-      let avatarUrl = null;
-
-      // Nếu có ảnh, upload lên trước
-      if (avatar) {
-        const uploadResult = await uploadImage(avatar);
-        avatarUrl = uploadResult.imageUrl;
-      }
-
-      // Gửi payload đăng ký
-      const registerPayload: RegisterPayload = {
-        email: formData.email,
-        password: formData.password,
-        fullName: formData.fullname,
-        phone: formData.phone,
-        avatarUrl: avatarUrl || "",
-      };
-
-      await register(registerPayload);
-
+      const payload = new FormData();
+      payload.append("Email", formData.email);
+      payload.append("Password", formData.password);
+      payload.append("FullName", formData.fullname);
+      if (formData.phone) payload.append("Phone", formData.phone);
+      if (avatar) payload.append("AvatarFile", avatar, avatar.name);
+      
+      const response = await register(payload);
+      
+      // Set user auth info after successful registration
+      setUserInfo(response.user);
+      setIsAuthenticated(true);
+      
       toast.success("Đăng ký thành công!");
-      navigate("/login");
+      
+      // Navigate based on user role
+      switch (response.user.roleName) {
+        case "STUDENT":
+          navigate(paths.student_home);
+          break;
+        case "ACADEMIC_MANAGER":
+          navigate(paths.staff_home);
+          break;
+        case "INSTRUCTOR":
+          navigate(paths.instructor_home);
+          break;
+        case "ADMIN":
+          navigate(paths.admin_home);
+          break;
+        default:
+          navigate("/");
+          break;
+      }
     } catch (error) {
       toast.error("Đăng ký thất bại. Vui lòng thử lại!");
       console.error("Register error:", error);
@@ -116,18 +126,18 @@ const Register: React.FC = () => {
 
           <form className="space-y-6" onSubmit={handleSubmit}>
             {[
-              { type: "text", name: "fullname", placeholder: "Họ và tên" },
-              { type: "email", name: "email", placeholder: "Email" },
-              { type: "tel", name: "phone", placeholder: "Số điện thoại" },
-            ].map(({ type, name, placeholder }) => (
+              { type: "text", name: "fullname", placeholder: "Họ và tên", required: true },
+              { type: "email", name: "email", placeholder: "Email", required: true },
+              { type: "tel", name: "phone", placeholder: "Số điện thoại (tùy chọn)", required: false },
+            ].map(({ type, name, placeholder, required }) => (
               <div key={name} className="relative group">
                 <input
                   type={type}
                   name={name}
-                  value={formData[name as keyof FormData]}
-                  onChange={(e) => handleInputChange(e, name as keyof FormData)}
+                  value={formData[name as keyof RegisterFormState]}
+                  onChange={(e) => handleInputChange(e, name as keyof RegisterFormState)}
                   placeholder={placeholder}
-                  required
+                  required={required}
                   className="peer w-full px-4 py-3 bg-transparent border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-400 placeholder-transparent transition-all duration-200"
                 />
                 <label
@@ -161,9 +171,9 @@ const Register: React.FC = () => {
                   <input
                     type={isShown ? "text" : "password"}
                     name={name}
-                    value={formData[name as keyof FormData]}
+                    value={formData[name as keyof RegisterFormState]}
                     onChange={(e) =>
-                      handleInputChange(e, name as keyof FormData)
+                      handleInputChange(e, name as keyof RegisterFormState)
                     }
                     placeholder={label}
                     required
@@ -172,7 +182,7 @@ const Register: React.FC = () => {
                   <label
                     className={`absolute left-3 text-sm pointer-events-none transition-all duration-200 ease-in-out bg-white px-1
     ${
-      formData[name as keyof FormData]
+      formData[name as keyof RegisterFormState]
         ? "top-[-10px] text-sm text-red-500"
         : "top-3 text-base text-gray-400 peer-focus:top-[-10px] peer-focus:text-sm peer-focus:text-red-500"
     }
@@ -193,7 +203,7 @@ const Register: React.FC = () => {
 
             <div className="text-center">
               <label className="block text-gray-700 font-medium">
-                Ảnh đại diện
+                Ảnh đại diện (tùy chọn)
               </label>
               <div className="flex justify-center">
                 <div className="relative w-20 h-20">

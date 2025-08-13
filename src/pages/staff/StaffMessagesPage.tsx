@@ -2,90 +2,69 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import StaffHeader from '../../components/header/StaffHeader';
 import StaffSidebar from '../../components/sidebar/StaffSidebar';
+import ChatHeader from '../../components/chat/ChatHeader';
+import ChatMessage from '../../components/chat/ChatMessage';
+import ChatInput from '../../components/chat/ChatInput';
+import ChatStudyPlanSplitView from '../../components/studyplan/ChatStudyPlanSplitView';
 import { 
   HiOutlineChatBubbleLeftRight, 
-  HiOutlineClock,
-  HiOutlineUser,
-  HiOutlineArrowLeft
+  HiOutlineArrowLeft,
+  HiOutlineAcademicCap
 } from 'react-icons/hi2';
-import { MdOutlineSend } from 'react-icons/md';
-
-interface Message {
-  id: string;
-  content: string;
-  sender: 'student' | 'academic_manager';
-  timestamp: Date;
-  isRead: boolean;
-}
-
-interface StudentInfo {
-  id: string;
-  name: string;
-  email: string;
-  avatar?: string;
-}
+import { HiX } from 'react-icons/hi';
+import { getConversation, sendMessage, ConversationDto, MessageDto, MessageRequest } from '../../services/conversationService';
+import { useAuth } from '../../auth/AuthContext';
+import { toast } from 'react-toastify';
 
 const StaffMessagesPage: React.FC = () => {
-  const { inquiryId } = useParams<{ inquiryId: string }>();
+  const { inquiryId: conversationId } = useParams<{ inquiryId: string }>();
   const navigate = useNavigate();
-  const [messages, setMessages] = useState<Message[]>([]);
+  const { userInfo } = useAuth();
+  const [conversation, setConversation] = useState<ConversationDto | null>(null);
+  const [messages, setMessages] = useState<MessageDto[]>([]);
   const [newMessage, setNewMessage] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [studentInfo, setStudentInfo] = useState<StudentInfo | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSendingMessage, setIsSendingMessage] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [isStudyPlanMode, setIsStudyPlanMode] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Mock data for demonstration
+  // Load conversation data
   useEffect(() => {
-    // Mock student info based on inquiryId
-    const mockStudentInfo: StudentInfo = {
-      id: inquiryId || '1',
-      name: 'Nguyễn Văn An',
-      email: 'nguyenvanan@email.com',
-      avatar: 'https://placehold.co/40x40/cccccc/ffffff?text=NA'
+    const loadConversation = async () => {
+      if (!conversationId) {
+        setError('Không tìm thấy ID cuộc hội thoại');
+        setIsLoading(false);
+        return;
+      }
+
+      setIsLoading(true);
+      setError(null);
+
+      try {
+        const conversationData = await getConversation(conversationId);
+        setConversation(conversationData);
+        
+        // Sắp xếp messages theo thời gian (cũ nhất trước)
+        const sortedMessages = (conversationData.messages || []).sort((a, b) => 
+          new Date(a.sentAt).getTime() - new Date(b.sentAt).getTime()
+        );
+        setMessages(sortedMessages);
+      } catch (err) {
+        console.error('Failed to load conversation:', err);
+        setError('Không thể tải cuộc hội thoại');
+        toast.error('Không thể tải cuộc hội thoại');
+      } finally {
+        setIsLoading(false);
+      }
     };
 
-    // Mock messages
-    const mockMessages: Message[] = [
-      {
-        id: '1',
-        content: 'Chào cô! Em muốn hỏi về khóa học N1, em có thể học được không?',
-        sender: 'student',
-        timestamp: new Date(Date.now() - 1000 * 60 * 60),
-        isRead: true
-      },
-      {
-        id: '2',
-        content: 'Chào bạn! Tất nhiên rồi! Khóa học N1 phù hợp với những bạn đã có nền tảng N2. Bạn có thể chia sẻ trình độ hiện tại của mình không?',
-        sender: 'academic_manager',
-        timestamp: new Date(Date.now() - 1000 * 60 * 45),
-        isRead: true
-      },
-      {
-        id: '3',
-        content: 'Em đã học xong N2 và muốn thi N1 vào tháng 7. Em có thể học online được không?',
-        sender: 'student',
-        timestamp: new Date(Date.now() - 1000 * 60 * 30),
-        isRead: true
-      },
-      {
-        id: '4',
-        content: 'Hoàn toàn được! Chúng tôi có khóa học online với lịch học linh hoạt. Bạn có muốn tôi gửi thông tin chi tiết không?',
-        sender: 'academic_manager',
-        timestamp: new Date(Date.now() - 1000 * 60 * 20),
-        isRead: true
-      },
-      {
-        id: '5',
-        content: 'Vâng, em muốn xem thông tin chi tiết ạ!',
-        sender: 'student',
-        timestamp: new Date(Date.now() - 1000 * 60 * 10),
-        isRead: true
-      }
-    ];
+    loadConversation();
 
-    setStudentInfo(mockStudentInfo);
-    setMessages(mockMessages);
-  }, [inquiryId]);
+    // Auto-refresh conversation every 5 seconds
+    const interval = setInterval(loadConversation, 5000);
+    return () => clearInterval(interval);
+  }, [conversationId]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -96,24 +75,33 @@ const StaffMessagesPage: React.FC = () => {
   }, [messages]);
 
   const handleSendMessage = async () => {
-    if (!newMessage.trim()) return;
+    if (!newMessage.trim() || !conversation || !userInfo?.id) return;
 
-    setIsLoading(true);
+    setIsSendingMessage(true);
 
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 500));
+    try {
+      const messageRequest: MessageRequest = {
+        Content: newMessage.trim(),
+        senderId: userInfo.id
+      };
 
-    const newMsg: Message = {
-      id: Date.now().toString(),
-      content: newMessage,
-      sender: 'academic_manager',
-      timestamp: new Date(),
-      isRead: false
-    };
+      const sentMessage = await sendMessage(conversation.conversationId, messageRequest);
+      
+      // Add message to current messages (sắp xếp theo thời gian)
+      setMessages(prev => {
+        const updatedMessages = [...prev, sentMessage];
+        return updatedMessages.sort((a, b) => 
+          new Date(a.sentAt).getTime() - new Date(b.sentAt).getTime()
+        );
+      });
 
-    setMessages(prev => [...prev, newMsg]);
-    setNewMessage('');
-    setIsLoading(false);
+      setNewMessage('');
+    } catch (err) {
+      console.error('Failed to send message:', err);
+      toast.error('Không thể gửi tin nhắn');
+    } finally {
+      setIsSendingMessage(false);
+    }
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -123,14 +111,46 @@ const StaffMessagesPage: React.FC = () => {
     }
   };
 
-  const formatTime = (date: Date) => {
-    return date.toLocaleTimeString('vi-VN', { 
-      hour: '2-digit', 
-      minute: '2-digit' 
-    });
+  const getStudentFromConversation = () => {
+    if (!conversation) return null;
+    return conversation.participants?.find(p => 
+      p.id !== userInfo?.id && 
+      (p.roleName === 'STUDENT' || p.roleName === null)
+    );
   };
 
-  if (!studentInfo) {
+  const handleStudyPlanCreated = (studyPlanId: string) => {
+    toast.success('Lộ trình học đã được tạo thành công!');
+    setIsStudyPlanMode(false);
+    
+    // Optionally send a message to the chat about the study plan
+    const messageText = `📚 Tôi đã tạo một lộ trình học dành riêng cho bạn (ID: ${studyPlanId}). Vui lòng kiểm tra trong mục "Lộ trình học" để xem chi tiết.`;
+    setNewMessage(messageText);
+  };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <StaffHeader />
+        <div className="flex">
+          <StaffSidebar />
+          <div className="flex-1 flex items-center justify-center">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto mb-4"></div>
+              <h3 className="text-xl font-semibold text-gray-600 mb-2">
+                Đang tải cuộc hội thoại
+              </h3>
+              <p className="text-gray-500">
+                Vui lòng chờ trong giây lát...
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !conversation) {
     return (
       <div className="min-h-screen bg-gray-50">
         <StaffHeader />
@@ -140,17 +160,97 @@ const StaffMessagesPage: React.FC = () => {
             <div className="text-center">
               <HiOutlineChatBubbleLeftRight className="mx-auto text-6xl text-gray-300 mb-4" />
               <h3 className="text-xl font-semibold text-gray-600 mb-2">
-                Không tìm thấy thông tin học viên
+                {error || 'Không tìm thấy cuộc hội thoại'}
               </h3>
-              <p className="text-gray-500">
-                Vui lòng quay lại trang yêu cầu tư vấn
+              <p className="text-gray-500 mb-4">
+                Vui lòng quay lại trang cuộc hội thoại tư vấn
               </p>
+              <button
+                onClick={() => navigate('/staff/inquiries')}
+                className="bg-orange-500 text-white px-4 py-2 rounded-lg hover:bg-orange-600 transition-colors flex items-center gap-2 mx-auto"
+              >
+                <HiOutlineArrowLeft className="w-4 h-4" />
+                Quay lại
+              </button>
             </div>
           </div>
         </div>
       </div>
     );
   }
+
+  const student = getStudentFromConversation();
+  
+  // Debug log
+  console.log('Student:', student);
+  console.log('isStudyPlanMode:', isStudyPlanMode);
+
+  // Chat components for split view
+  const chatHeader = (
+    <ChatHeader
+      title={student?.fullName || 'Học viên'}
+      subtitle={student?.email || conversation.conversationName}
+      avatar={student?.avatarUrl}
+      showBackButton={true}
+      onBackClick={() => navigate('/staff/inquiries')}
+      theme="orange"
+      additionalActions={
+        !isStudyPlanMode ? (
+          <button
+            onClick={() => {
+              console.log('Button clicked, student:', student);
+              setIsStudyPlanMode(true);
+            }}
+            className="flex items-center gap-2 px-3 py-2 text-sm bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors min-w-[160px] whitespace-nowrap"
+            title="Thiết kế lộ trình học cho học viên"
+          >
+            <HiOutlineAcademicCap className="w-4 h-4" />
+            Thiết kế lộ trình học
+          </button>
+        ) : (
+          <button
+            onClick={() => setIsStudyPlanMode(false)}
+            className="flex items-center gap-2 px-3 py-2 text-sm bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
+            title="Đóng chế độ thiết kế lộ trình"
+          >
+            <HiX className="w-4 h-4" />
+            Đóng
+          </button>
+        )
+      }
+    />
+  );
+
+  const chatMessages = (
+    <div className="flex-1 overflow-y-auto p-6 space-y-4">
+      {messages.map((message) => {
+        const isOwnMessage = message.senderId === userInfo?.id;
+        return (
+          <ChatMessage
+            key={message.messageId}
+            content={message.content}
+            timestamp={message.sentAt}
+            isOwnMessage={isOwnMessage}
+            senderName={!isOwnMessage ? message.senderName : undefined}
+            messageTheme="orange"
+          />
+        );
+      })}
+      <div ref={messagesEndRef} />
+    </div>
+  );
+
+  const chatInput = (
+    <ChatInput
+      value={newMessage}
+      onChange={setNewMessage}
+      onSend={handleSendMessage}
+      onKeyPress={handleKeyPress}
+      isLoading={isSendingMessage}
+      placeholder="Nhập tin nhắn để trả lời học viên..."
+      theme="orange"
+    />
+  );
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -159,98 +259,23 @@ const StaffMessagesPage: React.FC = () => {
         <StaffSidebar />
         
         <div className="flex-1 flex flex-col bg-white">
-          {/* Chat Header */}
-          <div className="p-6 border-b border-gray-200 bg-white">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <button
-                  onClick={() => navigate('/staff/inquiries')}
-                  className="p-2 text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
-                >
-                  <HiOutlineArrowLeft className="w-5 h-5" />
-                </button>
-                <div className="flex items-center gap-3">
-                  <img
-                    src={studentInfo.avatar}
-                    alt="Avatar"
-                    className="w-10 h-10 rounded-full object-cover border border-gray-200"
-                  />
-                  <div>
-                    <h3 className="font-semibold text-gray-800">
-                      {studentInfo.name}
-                    </h3>
-                    <p className="text-sm text-gray-500">
-                      {studentInfo.email}
-                    </p>
-                  </div>
-                </div>
-              </div>
-              <div className="text-sm text-gray-500">
-                <span className="flex items-center gap-1 text-green-600">
-                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                  Đang hoạt động
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Messages */}
-          <div className="flex-1 overflow-y-auto p-6 space-y-4">
-            {messages.map((message) => (
-              <div
-                key={message.id}
-                className={`flex ${message.sender === 'academic_manager' ? 'justify-end' : 'justify-start'}`}
-              >
-                <div
-                  className={`max-w-xs lg:max-w-md px-4 py-3 rounded-2xl ${
-                    message.sender === 'academic_manager'
-                      ? 'bg-orange-500 text-white'
-                      : 'bg-gray-100 text-gray-800'
-                  }`}
-                >
-                  <p className="text-sm">{message.content}</p>
-                  <div className={`flex items-center justify-end gap-1 mt-2 text-xs ${
-                    message.sender === 'academic_manager' ? 'text-orange-100' : 'text-gray-500'
-                  }`}>
-                    <HiOutlineClock className="w-3 h-3" />
-                    {formatTime(message.timestamp)}
-                  </div>
-                </div>
-              </div>
-            ))}
-            <div ref={messagesEndRef} />
-          </div>
-
-          {/* Message Input */}
-          <div className="p-6 border-t border-gray-200 bg-white">
-            <div className="flex items-end gap-3">
-              <div className="flex-1">
-                <textarea
-                  value={newMessage}
-                  onChange={(e) => setNewMessage(e.target.value)}
-                  onKeyPress={handleKeyPress}
-                  placeholder="Nhập tin nhắn..."
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                  rows={1}
-                  style={{ minHeight: '44px', maxHeight: '120px' }}
-                />
-              </div>
-              <button
-                onClick={handleSendMessage}
-                disabled={!newMessage.trim() || isLoading}
-                className="bg-orange-500 text-white p-3 rounded-xl hover:bg-orange-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
-              >
-                {isLoading ? (
-                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                ) : (
-                  <MdOutlineSend className="w-5 h-5" />
-                )}
-              </button>
-            </div>
-            <p className="text-xs text-gray-500 mt-2">
-              Nhấn Enter để gửi, Shift + Enter để xuống dòng
-            </p>
-          </div>
+          {isStudyPlanMode && student ? (
+            <ChatStudyPlanSplitView
+              chatHeader={chatHeader}
+              chatMessages={chatMessages}
+              chatInput={chatInput}
+              studentId={student.id}
+              studentName={student.fullName || 'Học viên'}
+              onClose={() => setIsStudyPlanMode(false)}
+              onStudyPlanCreated={handleStudyPlanCreated}
+            />
+          ) : (
+            <>
+              {chatHeader}
+              {chatMessages}
+              {chatInput}
+            </>
+          )}
         </div>
       </div>
     </div>

@@ -1,30 +1,42 @@
 import React, { useEffect, useState } from "react";
-import { getAllQuestions, getActiveQuestions, getQuestionsPagingDetails, QuestionDto, QuestionDifficulty, ContentName, SubContentName, CourseLevel, updateQuestion, updateChoice, getChoicesByQuestionId, ChoiceReadDto, toggleQuestionActiveStatus } from "../services/questionService";
-import { getAllSubContents, SubContentDto } from "../services/subContentService";
+import { getAllQuestions, getActiveQuestions, getQuestionsPagingDetails, toggleQuestionActiveStatus, getQuestionById, getChoicesByQuestionId } from "../services/questionService";
+import { QuestionDto, QuestionDifficulty, ContentName, CourseLevel } from "../types/question.types";
+import { ChoiceReadDto } from "../types/choice.types";
+
 import { FaArrowLeft, FaPlus, FaTimes } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
+import { useNotification } from "../components/notifications";
 import paths from "../routes/path";
 import { useAuth } from "../auth/AuthContext";
 import StudentSideBar from "../components/sidebar/StudentSideBar";
 import StaffSidebar from "../components/sidebar/StaffSidebar";
 
+// Extended interface for editing questions - no longer needed for inline editing
+// interface EditingQuestion extends Omit<QuestionDto, 'contentName' | 'level' | 'subContentName'> {
+//   contentName: ContentName;
+//   level: CourseLevel;
+//   subContentName: string;
+//   contentNameDisplay?: string;
+//   levelDisplay?: string;
+//   subContentNameDisplay?: string;
+// }
+
 const QuestionManagementPage: React.FC = () => {
   const { userInfo } = useAuth();
   const isStaff = userInfo?.roleName === "ACADEMIC_MANAGER";
+  const { success, error, warning } = useNotification();
   
   const [questions, setQuestions] = useState<QuestionDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [difficulty, setDifficulty] = useState<QuestionDifficulty[]>([]);
   const [contentName, setContentName] = useState<ContentName[]>([]);
   const [courseLevel, setCourseLevel] = useState<CourseLevel[]>([]);
-  const [subContentName, setSubContentName] = useState<SubContentName[]>([]);
-  const [subContents, setSubContents] = useState<SubContentDto[]>([]);
   const [sidebarVisible, setSidebarVisible] = useState(false);
   
-  // Edit inline states
-  const [editingQuestion, setEditingQuestion] = useState<QuestionDto | null>(null);
-  const [editingChoices, setEditingChoices] = useState<ChoiceReadDto[]>([]);
-  const [editLoading, setEditLoading] = useState(false);
+  // Edit states - no longer needed for inline editing
+  // const [editingQuestion, setEditingQuestion] = useState<EditingQuestion | null>(null);
+  // const [editingChoices, setEditingChoices] = useState<ChoiceReadDto[]>([]);
+  // const [editLoading, setEditLoading] = useState(false);
   
   // Quiz mode states (for Student role)
   const [quizMode, setQuizMode] = useState(false);
@@ -50,63 +62,30 @@ const QuestionManagementPage: React.FC = () => {
   };
   const CONTENT_NAME_LABELS: Record<ContentName, string> = {
     [ContentName.Kanji]: "Chữ Hán",
-    [ContentName.Vocabulary]: "Từ vựng",
-    [ContentName.Grammar]: "Ngữ pháp",
-    [ContentName.Reading]: "Đọc hiểu",
-    [ContentName.Listening]: "Nghe hiểu",
+    [ContentName.Vocabulary]: "Từ Vựng",
+    [ContentName.Grammar]: "Ngữ Pháp",
+    [ContentName.Reading]: "Đọc Hiểu",
+    [ContentName.Listening]: "Nghe Hiểu",
   };
 
-  // Mapping ContentName to SubContentName
-  const CONTENT_SUBCONTENT_MAPPING: Record<ContentName, SubContentName[]> = {
-    [ContentName.Kanji]: [SubContentName.Mondai1, SubContentName.Mondai2],
-    [ContentName.Vocabulary]: [SubContentName.Mondai3, SubContentName.Mondai4],
-    [ContentName.Grammar]: [SubContentName.Mondai5, SubContentName.Mondai6, SubContentName.Mondai7],
-    [ContentName.Reading]: [SubContentName.Mondai8, SubContentName.Mondai9, SubContentName.Mondai10],
-    [ContentName.Listening]: [SubContentName.Mondai11, SubContentName.Mondai12, SubContentName.Mondai13, SubContentName.Mondai14]
-  };
-
-  // SubContentName labels
-  const SUBCONTENT_NAME_LABELS: Record<SubContentName, string> = {
-    [SubContentName.Mondai1]: "Đọc chữ Hán",
-    [SubContentName.Mondai2]: "Nhớ chữ Hán",
-    [SubContentName.Mondai3]: "Chọn từ phù hợp với câu",
-    [SubContentName.Mondai4]: "Tìm câu có cách diễn đạt giống",
-    [SubContentName.Mondai5]: "Chọn ngữ pháp phù hợp với câu",
-    [SubContentName.Mondai6]: "Sắp xếp câu",
-    [SubContentName.Mondai7]: "Tìm đáp án đúng để hoàn thành đoạn văn",
-    [SubContentName.Mondai8]: "Đoạn văn ngắn",
-    [SubContentName.Mondai9]: "Trung văn",
-    [SubContentName.Mondai10]: "Tìm kiếm thông tin",
-    [SubContentName.Mondai11]: "Hiểu đề bài",
-    [SubContentName.Mondai12]: "Hiểu điểm chính",
-    [SubContentName.Mondai13]: "Diễn đạt bằng lời nói",
-    [SubContentName.Mondai14]: "Phản hồi tức thời"
-  };
-
-  // Fetch subcontents theo tổ hợp contentName + courseLevel
-  useEffect(() => {
-    const fetchSubContents = async () => {
-      try {
-        let all: SubContentDto[] = [];
-        if (contentName.length === 0 && courseLevel.length === 0) {
-          const data = await getAllSubContents();
-          all = data.items;
-        } else {
-          // Lấy tất cả tổ hợp contentName + courseLevel
-          for (const cName of (contentName.length ? contentName : Object.values(ContentName))) {
-            for (const cLevel of (courseLevel.length ? courseLevel : Object.values(CourseLevel))) {
-              const data = await getAllSubContents(undefined, cLevel as CourseLevel, cName as ContentName);
-              all = all.concat(data.items);
-            }
-          }
-        }
-        setSubContents(all);
-      } catch {
-        setSubContents([]);
+  // Helper function to safely get content name label
+  const getContentNameLabel = (contentNameEnum: ContentName | number): string => {
+    try {
+      // Handle both enum and number inputs
+      const enumValue = typeof contentNameEnum === 'number' ? contentNameEnum : Number(contentNameEnum);
+      
+      // Check if it's a valid enum value
+      if (isNaN(enumValue) || enumValue < 0 || enumValue > 4) {
+        console.warn("Invalid contentName value:", contentNameEnum);
+        return "Unknown";
       }
-    };
-    fetchSubContents();
-  }, [contentName, courseLevel]);
+      
+      return CONTENT_NAME_LABELS[enumValue as ContentName] || "Unknown";
+    } catch (error) {
+      console.error("Error in getContentNameLabel:", error, contentNameEnum);
+      return "Unknown";
+    }
+  };
 
   // Fetch questions (with filter)
   useEffect(() => {
@@ -121,14 +100,18 @@ const QuestionManagementPage: React.FC = () => {
         // Students only see active questions, staff see all questions
         const fetchFunction = isStaff ? getAllQuestions : getActiveQuestions;
         
-        // Nếu không có filter nào được chọn, lấy tất cả
-        if (difficulty.length === 0 && subContentName.length === 0 && courseLevel.length === 0 && contentName.length === 0) {
-          const data = await fetchFunction();
-          setQuestions(data);
-        } else {
-          // Nếu có filter, sử dụng client-side filtering
-          const allQuestions = await fetchFunction();
-          let filteredQuestions = allQuestions;
+        // Lấy tất cả câu hỏi trước
+        const allQuestions = await fetchFunction();
+        
+        // Debug: Log first question to check data structure
+        if (allQuestions.length > 0) {
+          console.log("Sample question data:", allQuestions[0]);
+        }
+        
+        let filteredQuestions = allQuestions;
+        
+        // Áp dụng filter nếu có
+        if (difficulty.length > 0 || courseLevel.length > 0 || contentName.length > 0) {
           
           // Filter theo difficulty
           if (difficulty.length > 0) {
@@ -141,7 +124,7 @@ const QuestionManagementPage: React.FC = () => {
               // So sánh với string value từ API
               return courseLevel.some(level => {
                 const levelStr = COURSE_LEVEL_LABELS[level];
-                return levelStr === q.level || levelStr === q.levelDescription;
+                return levelStr === CourseLevel[q.level] || levelStr === q.level?.toString();
               });
             });
           }
@@ -149,29 +132,49 @@ const QuestionManagementPage: React.FC = () => {
           // Filter theo contentName
           if (contentName.length > 0) {
             filteredQuestions = filteredQuestions.filter(q => {
-              // So sánh với string value từ API (không phân biệt hoa thường)
               return contentName.some(cn => {
                 const contentStr = CONTENT_NAME_LABELS[cn];
-                return contentStr.toLowerCase() === q.contentName?.toLowerCase() || 
-                       contentStr.toLowerCase() === q.contentNameDescription?.toLowerCase();
+                
+                // So sánh với enum number value
+                if (typeof q.contentName === 'number' && q.contentName === cn) {
+                  return true;
+                }
+                
+                // So sánh với string description (case insensitive)
+                if (typeof q.contentName === 'string') {
+                  const questionContentName = q.contentName as string;
+                  // Check exact description match
+                  if (contentStr.toLowerCase() === questionContentName.toLowerCase()) {
+                    return true;
+                  }
+                  
+                  // Check if it's a parsed number
+                  const parsed = parseInt(questionContentName);
+                  if (!isNaN(parsed) && parsed === cn) {
+                    return true;
+                  }
+                }
+                
+                return false;
               });
             });
           }
-          
-          // Filter theo subContentName
-          if (subContentName.length > 0) {
-            filteredQuestions = filteredQuestions.filter(q => {
-              // So sánh với string value từ API (không phân biệt hoa thường)
-              return subContentName.some(scn => {
-                const subContentStr = SUBCONTENT_NAME_LABELS[scn];
-                return subContentStr.toLowerCase() === q.subContentName?.toLowerCase() || 
-                       subContentStr.toLowerCase() === q.subContentNameDescription?.toLowerCase();
-              });
-            });
-          }
-          
-          setQuestions(filteredQuestions);
         }
+        
+        // Fetch attachments cho tất cả câu hỏi (đã filter hoặc chưa filter)
+        const questionsWithAttachments = await Promise.all(
+          filteredQuestions.map(async (question) => {
+            try {
+              const questionWithAttachments = await getQuestionById(question.id);
+              return questionWithAttachments;
+            } catch (error) {
+              console.error(`Error fetching attachments for question ${question.id}:`, error);
+              return question; // Return original question if attachment fetch fails
+            }
+          })
+        );
+        
+        setQuestions(questionsWithAttachments);
       } catch (error) {
         console.error("Error fetching questions:", error);
         setQuestions([]);
@@ -180,153 +183,21 @@ const QuestionManagementPage: React.FC = () => {
       }
     };
     fetchQuestions();
-  }, [difficulty, subContentName, courseLevel, contentName, isStaff]);
-
-  // Filtered subcontent chỉ lấy unique subContentName
-  const filteredSubContents = Array.from(new Map(subContents.map(sc => [sc.subContentName, sc])).values());
+  }, [difficulty, courseLevel, contentName, isStaff]);
 
   const handleCreateQuestion = () => {
     navigate(paths.create_question);
   };
 
-  // Edit inline functions
+  // Edit functions - navigate to EditQuestionPage
   const handleEditQuestion = async (question: QuestionDto) => {
-    try {
-      setEditLoading(true);
-      const choices = await getChoicesByQuestionId(question.id);
-      setEditingChoices(choices);
-      setEditingQuestion(question);
-    } catch (error) {
-      console.error("Error fetching choices:", error);
-      alert("Không thể tải thông tin câu hỏi");
-    } finally {
-      setEditLoading(false);
-    }
-  };
-
-  const handleCancelEdit = () => {
-    setEditingQuestion(null);
-    setEditingChoices([]);
-  };
-
-  const handleSaveEdit = async () => {
-    if (!editingQuestion) return;
-    
-    try {
-      setEditLoading(true);
-      
-      // Map string values to enum values
-      const mapContentNameToEnum = (contentNameStr: string): ContentName => {
-        // Tìm key trong enum bằng cách so sánh string
-        const key = Object.keys(ContentName).find(k => k === contentNameStr);
-        if (key) {
-          return ContentName[key as keyof typeof ContentName];
-        }
-        // Fallback: tìm theo description
-        switch (contentNameStr) {
-          case "Kanji": return ContentName.Kanji;
-          case "Vocabulary": return ContentName.Vocabulary;
-          case "Grammar": return ContentName.Grammar;
-          case "Reading": return ContentName.Reading;
-          case "Listening": return ContentName.Listening;
-          default: return ContentName.Kanji;
-        }
-      };
-      
-      const mapLevelToEnum = (levelStr: string): CourseLevel => {
-        // Tìm key trong enum bằng cách so sánh string
-        const key = Object.keys(CourseLevel).find(k => k === levelStr);
-        if (key) {
-          return CourseLevel[key as keyof typeof CourseLevel];
-        }
-        // Fallback: tìm theo description
-        switch (levelStr) {
-          case "N5": return CourseLevel.N5;
-          case "N4": return CourseLevel.N4;
-          case "N3": return CourseLevel.N3;
-          case "N2": return CourseLevel.N2;
-          case "N1": return CourseLevel.N1;
-          default: return CourseLevel.N5;
-        }
-      };
-      
-      const mapSubContentNameToEnum = (subContentNameStr: string): SubContentName => {
-        // Tìm key trong enum bằng cách so sánh string
-        const key = Object.keys(SubContentName).find(k => k === subContentNameStr);
-        if (key) {
-          return SubContentName[key as keyof typeof SubContentName];
-        }
-        // Fallback: tìm theo description
-        switch (subContentNameStr) {
-          case "Mondai1": return SubContentName.Mondai1;
-          case "Mondai2": return SubContentName.Mondai2;
-          case "Mondai3": return SubContentName.Mondai3;
-          case "Mondai4": return SubContentName.Mondai4;
-          case "Mondai5": return SubContentName.Mondai5;
-          case "Mondai6": return SubContentName.Mondai6;
-          case "Mondai7": return SubContentName.Mondai7;
-          case "Mondai8": return SubContentName.Mondai8;
-          case "Mondai9": return SubContentName.Mondai9;
-          case "Mondai10": return SubContentName.Mondai10;
-          case "Mondai11": return SubContentName.Mondai11;
-          case "Mondai12": return SubContentName.Mondai12;
-          case "Mondai13": return SubContentName.Mondai13;
-          case "Mondai14": return SubContentName.Mondai14;
-          default: return SubContentName.Mondai1;
-        }
-      };
-      
-      // Update question
-      await updateQuestion(editingQuestion.id, {
-        content: editingQuestion.content,
-        explanation: editingQuestion.explanation,
-        points: editingQuestion.points,
-        difficulty: editingQuestion.difficulty,
-        isActive: editingQuestion.isActive,
-        contentName: mapContentNameToEnum(editingQuestion.contentName),
-        level: mapLevelToEnum(editingQuestion.level),
-        subContentName: mapSubContentNameToEnum(editingQuestion.subContentName),
-      });
-      
-      // Update choices
-      for (const choice of editingChoices) {
-        await updateChoice(choice.choiceId, {
-          content: choice.content,
-          isCorrect: choice.isCorrect,
-        });
-      }
-      
-      // Refresh questions list
-      const updatedQuestions = questions.map(q => 
-        q.id === editingQuestion.id ? editingQuestion : q
-      );
-      setQuestions(updatedQuestions);
-      
-      setEditingQuestion(null);
-      setEditingChoices([]);
-      alert("Cập nhật câu hỏi thành công!");
-      
-    } catch (error) {
-      console.error("Error updating question:", error);
-      alert("Có lỗi xảy ra khi cập nhật câu hỏi");
-    } finally {
-      setEditLoading(false);
-    }
-  };
-
-  const updateEditingChoice = (index: number, field: string, value: any) => {
-    const newChoices = [...editingChoices];
-    newChoices[index] = { ...newChoices[index], [field]: value };
-    setEditingChoices(newChoices);
-  };
-
-  const handleDeleteQuestion = (questionId: string) => {
-    // TODO: Implement delete question
-    console.log("Delete question:", questionId);
+    // Navigate to edit question page using paths
+    navigate(`/edit-question/${question.id}`);
   };
 
   const handleToggleActiveStatus = async (questionId: string, currentStatus: boolean) => {
     try {
+      // Fix: Pass the new status as a boolean value, not an object
       const updatedQuestion = await toggleQuestionActiveStatus(questionId, !currentStatus);
       
       // Update the questions list with the new status
@@ -334,10 +205,18 @@ const QuestionManagementPage: React.FC = () => {
         q.id === questionId ? { ...q, isActive: updatedQuestion.isActive } : q
       ));
       
-      alert(`Câu hỏi đã được ${updatedQuestion.isActive ? 'kích hoạt' : 'vô hiệu hóa'} thành công!`);
-    } catch (error) {
-      console.error("Error toggling question status:", error);
-      alert("Có lỗi xảy ra khi thay đổi trạng thái câu hỏi");
+      success(`Câu hỏi đã được ${updatedQuestion.isActive ? 'kích hoạt' : 'vô hiệu hóa'} thành công!`);
+    } catch (err: any) {
+      console.error("Error toggling question status:", err);
+      
+      // Enhanced error handling
+      if (err?.response?.status === 415) {
+        error("Lỗi định dạng dữ liệu", "Server không hỗ trợ định dạng dữ liệu được gửi");
+      } else if (err?.response?.data?.message) {
+        error("Lỗi", err.response.data.message);
+      } else {
+        error("Có lỗi xảy ra khi thay đổi trạng thái câu hỏi");
+      }
     }
   };
 
@@ -357,10 +236,10 @@ const QuestionManagementPage: React.FC = () => {
         allChoices.push(choices);
       }
       setQuizChoices(allChoices);
-    } catch (error) {
-      console.error("Error starting quiz:", error);
-      alert("Không thể tải câu hỏi");
-    }
+          } catch (err) {
+        console.error("Error starting quiz:", err);
+        error("Không thể tải câu hỏi");
+      }
   };
 
   const handleChoiceSelect = (choiceId: string) => {
@@ -479,12 +358,11 @@ const QuestionManagementPage: React.FC = () => {
             </label>
           </div>
           <h4 className="text-md font-semibold mb-2 text-gray-700">Lọc theo nội dung</h4>
-          {/* ContentName filter với SubContentName con */}
+          {/* ContentName filter - chỉ hiển thị contentName, không có subcontent */}
           {Object.keys(ContentName)
             .filter(k => isNaN(Number(k)))
             .map((key) => {
               const value = ContentName[key as keyof typeof ContentName] as unknown as ContentName;
-              const subContentsForThisContent = CONTENT_SUBCONTENT_MAPPING[value];
               const isContentSelected = contentName.includes(value);
               
               return (
@@ -493,36 +371,27 @@ const QuestionManagementPage: React.FC = () => {
                     <input
                       type="checkbox"
                       checked={isContentSelected}
-                      onChange={() => setContentName(contentName.includes(value) ? contentName.filter(c => c !== value) : [...contentName, value])}
+                      onChange={() => {
+                        if (contentName.includes(value)) {
+                          setContentName(contentName.filter(c => c !== value));
+                        } else {
+                          setContentName([...contentName, value]);
+                        }
+                      }}
                     />
                     <span>{CONTENT_NAME_LABELS[value]}</span>
                   </label>
-                  
-                  {/* SubContentName con */}
-                  {isContentSelected && (
-                    <div className="ml-6 mt-2 space-y-1">
-                      {subContentsForThisContent.map((subContent) => {
-                        const subContentLabel = SUBCONTENT_NAME_LABELS[subContent];
-                        return (
-                          <label key={subContent} className="flex items-center gap-2 cursor-pointer text-sm">
-                            <input
-                              type="checkbox"
-                              checked={subContentName.includes(subContent)}
-                              onChange={() => setSubContentName(subContentName.includes(subContent)
-                                ? subContentName.filter(s => s !== subContent)
-                                : [...subContentName, subContent])}
-                            />
-                            <span>{subContentLabel}</span>
-                          </label>
-                        );
-                      })}
-                    </div>
-                  )}
                 </div>
               );
             })}
           <label className="flex items-center gap-2 cursor-pointer">
-            <input type="checkbox" checked={contentName.length === 0} onChange={() => setContentName([])} />
+            <input 
+              type="checkbox" 
+              checked={contentName.length === 0} 
+              onChange={() => {
+                setContentName([]);
+              }} 
+            />
             <span>Tất cả</span>
           </label>
         </div>
@@ -570,12 +439,13 @@ const QuestionManagementPage: React.FC = () => {
         ) : !quizMode ? (
           <div className="bg-white rounded-xl shadow p-6">
             <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="border-b">
-                  <th className="py-2 px-3">Câu hỏi</th>
-                  <th className="py-2 px-3">Độ khó</th>
-                  <th className="py-2 px-3">Nội dung</th>
-                  <th className="py-2 px-3">Điểm</th>
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="py-2 px-3 text-left">Nội dung</th>
+                  <th className="py-2 px-3 text-left">Độ khó</th>
+                  <th className="py-2 px-3 text-left">Loại câu hỏi</th>
+                  <th className="py-2 px-3 text-left">Điểm</th>
+                  <th className="py-2 px-3 text-left">Audio</th>
                   {isStaff && <th className="py-2 px-3">Trạng thái</th>}
                   {isStaff && <th className="py-2 px-3">Hành động</th>}
                 </tr>
@@ -589,8 +459,68 @@ const QuestionManagementPage: React.FC = () => {
                   >
                     <td className="py-2 px-3 max-w-xs truncate" title={q.content}>{q.content}</td>
                     <td className="py-2 px-3">{DIFFICULTY_LABELS[q.difficulty]}</td>
-                    <td className="py-2 px-3">{q.contentNameDescription || q.contentName}</td>
+                    <td className="py-2 px-3">
+                      {(() => {
+                        // API có thể trả về description string thay vì enum number
+                        // Nếu contentName là string description, map ngược lại
+                        if (typeof q.contentName === 'string') {
+                          // Check if it's already a description
+                          const reverseMapping: Record<string, string> = {
+                            "Chữ Hán": "Chữ Hán",
+                            "Từ Vựng": "Từ Vựng", 
+                            "Ngữ Pháp": "Ngữ Pháp",
+                            "Đọc Hiểu": "Đọc Hiểu",
+                            "Nghe Hiểu": "Nghe Hiểu",
+                            "Kanji": "Chữ Hán",
+                            "Vocabulary": "Từ Vựng",
+                            "Grammar": "Ngữ Pháp", 
+                            "Reading": "Đọc Hiểu",
+                            "Listening": "Nghe Hiểu"
+                          };
+                          
+                          if (reverseMapping[q.contentName]) {
+                            return reverseMapping[q.contentName];
+                          }
+                          
+                          // If not found in mapping, try parsing as number
+                          const parsed = parseInt(q.contentName);
+                          if (!isNaN(parsed)) {
+                            return getContentNameLabel(parsed as ContentName);
+                          }
+                          
+                          // Return as-is if nothing works
+                          return q.contentName;
+                        } else if (typeof q.contentName === 'number') {
+                          return getContentNameLabel(q.contentName as ContentName);
+                        }
+                        
+                        return "Unknown";
+                      })()}
+                    </td>
                     <td className="py-2 px-3">{q.points}</td>
+                    <td className="py-2 px-3">
+                      {/* Audio Player */}
+                      {q.questionAttachments && q.questionAttachments.length > 0 && 
+                       q.questionAttachments.some(att => att.mediaType === 'audio' || att.mediaType.startsWith('audio/')) ? (
+                        <div className="flex items-center space-x-2">
+                          <audio 
+                            controls 
+                            className="h-8 w-32"
+                            preload="none"
+                          >
+                            {q.questionAttachments
+                              .filter(att => att.mediaType === 'audio' || att.mediaType.startsWith('audio/'))
+                              .map((att, index) => (
+                                <source key={index} src={att.mediaUrl} type="audio/mpeg" />
+                              ))
+                            }
+                            Trình duyệt của bạn không hỗ trợ phát audio.
+                          </audio>
+                        </div>
+                      ) : (
+                        <span className="text-gray-400 text-sm">Không có audio</span>
+                      )}
+                    </td>
                     {isStaff && (
                       <td className="py-2 px-3">
                         <span className={`px-2 py-1 rounded-full text-xs font-medium ${
@@ -605,23 +535,32 @@ const QuestionManagementPage: React.FC = () => {
                     {isStaff && (
                       <td className="py-2 px-3">
                         <button 
-                          onClick={() => handleEditQuestion(q)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleEditQuestion(q);
+                          }}
                           className="text-blue-600 hover:underline mr-2"
                         >
                           Sửa
                         </button>
                         <button 
-                          onClick={() => handleToggleActiveStatus(q.id, q.isActive)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleToggleActiveStatus(q.id, q.isActive);
+                          }}
                           className={`mr-2 ${q.isActive ? 'text-orange-600' : 'text-green-600'} hover:underline`}
                         >
                           {q.isActive ? 'Vô hiệu' : 'Kích hoạt'}
                         </button>
-                        <button 
-                          onClick={() => handleDeleteQuestion(q.id)}
+                        {/* <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteQuestion(q.id);
+                          }}
                           className="text-red-600 hover:underline"
                         >
                           Xóa
-                        </button>
+                        </button> */}
                       </td>
                     )}
                   </tr>
@@ -631,192 +570,6 @@ const QuestionManagementPage: React.FC = () => {
           </div>
         ) : null}
         
-        {/* Edit Inline Form */}
-        {editingQuestion && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-xl shadow-lg p-8 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold text-gray-800">Chỉnh sửa câu hỏi</h2>
-                <button
-                  onClick={handleCancelEdit}
-                  className="text-gray-500 hover:text-gray-700"
-                >
-                  <FaTimes className="text-xl" />
-                </button>
-              </div>
-              
-              <form onSubmit={(e) => { e.preventDefault(); handleSaveEdit(); }}>
-                {/* Question Content */}
-                <div className="mb-6">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Nội dung câu hỏi *
-                  </label>
-                  <textarea
-                    value={editingQuestion.content}
-                    onChange={(e) => setEditingQuestion({...editingQuestion, content: e.target.value})}
-                    rows={4}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none"
-                    required
-                  />
-                </div>
-                
-                {/* Question Info */}
-                <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Độ khó
-                    </label>
-                    <select
-                      value={editingQuestion.difficulty}
-                      onChange={(e) => setEditingQuestion({...editingQuestion, difficulty: Number(e.target.value)})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                    >
-                      {Object.keys(QuestionDifficulty)
-                        .filter(k => isNaN(Number(k)))
-                        .map((key) => {
-                          const value = QuestionDifficulty[key as keyof typeof QuestionDifficulty] as unknown as QuestionDifficulty;
-                          return (
-                            <option key={key} value={value}>
-                              {DIFFICULTY_LABELS[value]}
-                            </option>
-                          );
-                        })}
-                    </select>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Cấp độ
-                    </label>
-                    <select
-                      value={editingQuestion.level}
-                      onChange={(e) => setEditingQuestion({...editingQuestion, level: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                    >
-                      {Object.keys(CourseLevel)
-                        .filter(k => isNaN(Number(k)))
-                        .map((key) => {
-                          const value = CourseLevel[key as keyof typeof CourseLevel] as unknown as CourseLevel;
-                          return (
-                            <option key={key} value={value}>
-                              {COURSE_LEVEL_LABELS[value]}
-                            </option>
-                          );
-                        })}
-                    </select>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Loại câu hỏi
-                    </label>
-                    <select
-                      value={editingQuestion.contentName}
-                      onChange={(e) => setEditingQuestion({...editingQuestion, contentName: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                    >
-                      {Object.keys(ContentName)
-                        .filter(k => isNaN(Number(k)))
-                        .map((key) => {
-                          const value = ContentName[key as keyof typeof ContentName] as unknown as ContentName;
-                          return (
-                            <option key={key} value={value}>
-                              {CONTENT_NAME_LABELS[value]}
-                            </option>
-                          );
-                        })}
-                    </select>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Điểm
-                    </label>
-                    <input
-                      type="number"
-                      min="1"
-                      max="10"
-                      value={editingQuestion.points}
-                      onChange={(e) => setEditingQuestion({...editingQuestion, points: Number(e.target.value)})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                      required
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Trạng thái
-                    </label>
-                    <select
-                      value={editingQuestion.isActive ? "true" : "false"}
-                      onChange={(e) => setEditingQuestion({...editingQuestion, isActive: e.target.value === "true"})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                    >
-                      <option value="true">Hoạt động</option>
-                      <option value="false">Vô hiệu</option>
-                    </select>
-                  </div>
-                </div>
-                
-                {/* Choices */}
-                <div className="mb-6">
-                  <label className="block text-sm font-medium text-gray-700 mb-4">
-                    Đáp án *
-                  </label>
-                  <div className="space-y-4">
-                    {editingChoices.map((choice, index) => (
-                      <div key={choice.choiceId} className="flex items-start gap-3">
-                        <input
-                          type="radio"
-                          name="correctChoice"
-                          checked={choice.isCorrect}
-                          onChange={() => {
-                            const newChoices = editingChoices.map((c, i) => ({
-                              ...c,
-                              isCorrect: i === index
-                            }));
-                            setEditingChoices(newChoices);
-                          }}
-                          className="mt-2"
-                        />
-                        
-                        <div className="flex-1">
-                          <textarea
-                            value={choice.content}
-                            onChange={(e) => updateEditingChoice(index, 'content', e.target.value)}
-                            rows={2}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none"
-                            placeholder={`Đáp án ${index + 1}...`}
-                            required
-                          />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                
-                {/* Action buttons */}
-                <div className="flex justify-end gap-4">
-                  <button
-                    type="button"
-                    onClick={handleCancelEdit}
-                    className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-semibold transition-colors"
-                  >
-                    Hủy
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={editLoading}
-                    className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {editLoading ? "Đang lưu..." : "Lưu thay đổi"}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>  
-        )}
-
         {/* Quiz Interface (for Student role) */}
         {quizMode && quizQuestions.length > 0 && (
           <div className="bg-white rounded-xl shadow p-8">
@@ -932,4 +685,4 @@ const QuestionManagementPage: React.FC = () => {
   );
 };
 
-export default QuestionManagementPage; 
+export default QuestionManagementPage;

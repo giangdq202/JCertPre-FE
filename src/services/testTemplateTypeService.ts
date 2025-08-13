@@ -6,6 +6,10 @@ import {
   DELETE_TEST_TEMPLATE_TYPE_URL,
   UPDATE_TEST_TEMPLATE_TYPE_ACTIVE_URL,
 } from "../consts/apiUrl/baseUrl";
+import {
+  validateCreateTestTemplateTypeDto,
+  validateUpdateTestTemplateTypeDto
+} from "../types/testTemplateType.types";
 
 export enum CourseLevel {
   N5 = 0,
@@ -16,9 +20,10 @@ export enum CourseLevel {
 }
 
 export enum TestType {
-  CustomManual = 0,
-  CustomAuto = 1,
-  JLPTAuto = 2,
+  JLPTAuto = 0,
+  EntryAuto = 1,
+  CustomManual = 2,
+  CustomAuto = 3,
 }
 
 export interface CreateTestTemplateTypeDto {
@@ -106,6 +111,12 @@ export const getAllTestTemplateTypes = async (params: GetAllTestTemplateTypesPar
  */
 export const createTestTemplateType = async (dto: CreateTestTemplateTypeDto): Promise<TestTemplateTypeDto> => {
   try {
+    // Validate the DTO before sending to backend
+    const validation = validateCreateTestTemplateTypeDto(dto);
+    if (!validation.isValid) {
+      throw new Error(`Validation failed: ${validation.message}`);
+    }
+
     const response = await axiosInstance.post(CREATE_TEST_TEMPLATE_TYPE_URL, dto);
     return response.data;
   } catch (error) {
@@ -125,6 +136,12 @@ export const updateTestTemplateType = async (
   dto: UpdateTestTemplateTypeDto
 ): Promise<TestTemplateTypeDto> => {
   try {
+    // Validate the DTO before sending to backend
+    const validation = validateUpdateTestTemplateTypeDto(dto);
+    if (!validation.isValid) {
+      throw new Error(`Validation failed: ${validation.message}`);
+    }
+
     const response = await axiosInstance.put(UPDATE_TEST_TEMPLATE_TYPE_URL(testTemplateTypeId), dto);
     return response.data;
   } catch (error) {

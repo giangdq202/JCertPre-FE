@@ -7,28 +7,14 @@ import {
   GET_LESSON_PROGRESS_BY_USER_LESSON_URL,
   GET_COMPLETION_RATE_URL,
 } from "../consts/apiUrl/baseUrl";
-
-// ===== DTOs =====
-
-export interface CreateLessonProgressDto {
-  userId: string;
-  lessonId: string;
-  courseId: string;
-}
-
-export interface UpdateLessonProgressDto {
-  completionRate: number; // percent, 0-100
-}
-
-export interface LessonProgressDto {
-  progressId: string;
-  userId: string;
-  lessonId: string;
-  courseId: string;
-  completionRate: number;
-  userFullName?: string;
-  lessonTitle?: string;
-}
+import {
+  LessonProgressDto,
+  CreateLessonProgressDto,
+  UpdateLessonProgressDto,
+  CreateLessonProgressWithCourseDto,
+  validateLessonProgressCreateDto,
+  validateLessonProgressUpdateDto
+} from "../types/lessonProgress.types";
 
 // ===== API Functions =====
 
@@ -93,6 +79,12 @@ export const createLessonProgress = async (
   createDto: CreateLessonProgressDto
 ): Promise<LessonProgressDto> => {
   try {
+    // Validate the DTO before sending to backend
+    const validation = validateLessonProgressCreateDto(createDto);
+    if (!validation.isValid) {
+      throw new Error(`Validation failed: ${validation.message}`);
+    }
+
     const response = await axiosInstance.post<LessonProgressDto>(
       CREATE_LESSON_PROGRESS_URL,
       createDto
@@ -100,6 +92,34 @@ export const createLessonProgress = async (
     return response.data;
   } catch (error) {
     console.error("CreateLessonProgress API error:", error);
+    throw error;
+  }
+};
+
+/**
+ * Create a new lesson progress record with courseId (legacy support).
+ * POST /api/lesson-progress
+ */
+export const createLessonProgressWithCourse = async (
+  createDto: CreateLessonProgressWithCourseDto
+): Promise<LessonProgressDto> => {
+  try {
+    // Validate the DTO before sending to backend
+    const validation = validateLessonProgressCreateDto({
+      userId: createDto.userId,
+      lessonId: createDto.lessonId
+    });
+    if (!validation.isValid) {
+      throw new Error(`Validation failed: ${validation.message}`);
+    }
+
+    const response = await axiosInstance.post<LessonProgressDto>(
+      CREATE_LESSON_PROGRESS_URL,
+      createDto
+    );
+    return response.data;
+  } catch (error) {
+    console.error("CreateLessonProgressWithCourse API error:", error);
     throw error;
   }
 };
@@ -113,6 +133,12 @@ export const updateLessonProgress = async (
   updateDto: UpdateLessonProgressDto
 ): Promise<LessonProgressDto> => {
   try {
+    // Validate the DTO before sending to backend
+    const validation = validateLessonProgressUpdateDto(updateDto);
+    if (!validation.isValid) {
+      throw new Error(`Validation failed: ${validation.message}`);
+    }
+
     const response = await axiosInstance.put<LessonProgressDto>(
       UPDATE_LESSON_PROGRESS_URL(progressId),
       updateDto
@@ -215,7 +241,7 @@ export const markLessonAsCompleted = async (
       });
     } else {
       // Create new progress with 100% completion
-      return await createLessonProgress({
+      return await createLessonProgressWithCourse({
         userId,
         lessonId,
         courseId,
@@ -250,7 +276,7 @@ export const updateLessonProgressRate = async (
       });
     } else {
       // Create new progress
-      const newProgress = await createLessonProgress({
+      const newProgress = await createLessonProgressWithCourse({
         userId,
         lessonId,
         courseId,

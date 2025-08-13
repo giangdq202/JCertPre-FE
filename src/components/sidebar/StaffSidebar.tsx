@@ -9,6 +9,7 @@ import {
   MdOutlineCategory, // For Tags (Exam Structure)
   MdOutlineQuiz, // For Questions (Question Bank)
   MdOutlinePerson, // For Staff Profile
+  MdOutlineFormatListBulleted, // For Test Template Types
 } from "react-icons/md";
 import { FaChalkboardTeacher } from "react-icons/fa"; // For Course Management
 import logo from "../../assets/logo.png"; // Assuming logo asset exists
@@ -18,7 +19,7 @@ const menuItems = [
   {
     name: "Tổng quan",
     icon: <MdDashboard size={20} />,
-    path: "/staff_homepage",
+    path: "/staff_homepage/*",
   },
   {
     name: "Quản lý khóa học",
@@ -30,16 +31,16 @@ const menuItems = [
     icon: <MdOutlineQuestionAnswer size={20} />,
     path: "/staff/inquiries",
   },
-  {
-    name: "Kế hoạch học tập", // Staff can manage study plans
-    icon: <MdOutlineAssignment size={20} />,
-    path: "/staff/study-plan",
-  },
-  {
-    name: "Quản lý khiếu nại",
-    icon: <MdOutlineReport size={20} />,
-    path: "/staff/reports",
-  },
+  // {
+  //   name: "Kế hoạch học tập", // Staff can manage study plans
+  //   icon: <MdOutlineAssignment size={20} />,
+  //   path: "/staff/study-plan",
+  // },
+  // {
+  //   name: "Quản lý khiếu nại",
+  //   icon: <MdOutlineReport size={20} />,
+  //   path: "/staff/reports",
+  // },
   {
     name: "Cấu trúc câu hỏi", // Tags for exam structure
     icon: <MdOutlineCategory size={20} />,
@@ -48,9 +49,14 @@ const menuItems = [
   {
     name: "Ngân hàng câu hỏi",
     icon: <MdOutlineQuiz size={20} />,
-      path: paths.question_management,
-    },
-    // {
+    path: paths.question_management,
+  },
+  {
+    name: "Cấu trúc đề thi",
+    icon: <MdOutlineFormatListBulleted size={20} />,
+    path: paths.staff_test_template_types,
+  },
+  // {
   //   name: "Hồ sơ nhân viên",
   //   icon: <MdOutlinePerson size={20} />,
   //   path: "/nhan-vien/ho-so",

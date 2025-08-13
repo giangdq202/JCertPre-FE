@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import StudentSideBar from '../../components/sidebar/StudentSideBar';
 import StudentHeader from '../../components/header/StudentHeader';
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { toast } from 'react-toastify';
+import { useNotification } from '../../components/notifications';
 import {
     getCourseById,
     getCourses,
@@ -27,6 +27,7 @@ import { HiOutlineAcademicCap, HiOutlineClock, HiOutlineCalendar } from 'react-i
 
 const StudentCourseDetailPage = () => {
     const { courseId } = useParams<{ courseId: string }>();
+    const { success, error: showError, warning } = useNotification();
     const [course, setCourse] = useState<CourseDto | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -67,7 +68,7 @@ const StudentCourseDetailPage = () => {
                 console.error("Lỗi khi tải chi tiết khóa học hoặc kiểm tra trạng thái ghi danh:", err);
                 setError("Không thể tải chi tiết khóa học hoặc kiểm tra trạng thái ghi danh. Vui lòng thử lại sau.");
                 if (err.response?.status === 401) {
-                    toast.error("Bạn cần đăng nhập để xem chi tiết khóa học và trạng thái ghi danh.");
+                    showError("Chưa đăng nhập", "Bạn cần đăng nhập để xem chi tiết khóa học và trạng thái ghi danh.");
                     navigate(paths.login);
                 }
             } finally {
@@ -145,23 +146,23 @@ const StudentCourseDetailPage = () => {
 
     const handleEnrollCourse = async () => {
         if (!courseId) {
-            toast.error("Không có ID khóa học để đăng ký.");
+            showError("Lỗi đăng ký", "Không có ID khóa học để đăng ký.");
             return;
         }
 
         setIsEnrolling(true);
         try {
             const result = await enrollSelfInCourse({ courseId });
-            toast.success(`Đã đăng ký thành công khóa học: ${result.courseTitle}`);
+            success("Đăng ký thành công!", `Đã đăng ký khóa học: ${result.courseTitle}`);
             setIsUserEnrolled(true); // Cập nhật trạng thái sau khi ghi danh thành công
             // Không navigate ngay sau khi đăng ký thành công để người dùng thấy trạng thái "Đã đăng ký"
             // và có thể chọn "Đi đến khóa học của bạn"
         } catch (err: any) {
             console.error("Lỗi khi đăng ký khóa học:", err);
             if (err.response && err.response.data && err.response.data.message) {
-                toast.error(`Đăng ký thất bại: ${err.response.data.message}`);
+                showError("Đăng ký thất bại", err.response.data.message);
             } else {
-                toast.error("Đã xảy ra lỗi khi đăng ký khóa học. Vui lòng thử lại.");
+                showError("Lỗi đăng ký", "Đã xảy ra lỗi khi đăng ký khóa học. Vui lòng thử lại.");
             }
         } finally {
             setIsEnrolling(false);
@@ -174,21 +175,27 @@ const StudentCourseDetailPage = () => {
         const timeUntilStart = livestreamStart.diff(now, 'minute');
 
         if (timeUntilStart > 15) {
-            toast.warning(`Buổi livestream sẽ bắt đầu sau ${timeUntilStart} phút. Bạn chỉ có thể tham gia 15 phút trước khi bắt đầu.`);
+            warning("Chưa đến giờ", `Buổi livestream sẽ bắt đầu sau ${timeUntilStart} phút. Bạn chỉ có thể tham gia 15 phút trước khi bắt đầu.`);
             return;
         }
 
         if (timeUntilStart < -livestream.durationMinutes) {
-            toast.error("Buổi livestream đã kết thúc.");
+            showError("Livestream đã kết thúc", "Buổi livestream này đã kết thúc.");
             return;
         }
 
         try {
+            // Check if user is enrolled before allowing to join
+            if (!isUserEnrolled) {
+                showError("Chưa đăng ký khóa học", "Bạn cần đăng ký khóa học trước khi tham gia livestream.");
+                return;
+            }
+
             // Check if user can join
             const canJoin = await livestreamApi.canJoinLivestream(livestream.livestreamId, userInfo?.id || '');
             
             if (!canJoin) {
-                toast.error("Bạn không có quyền tham gia buổi livestream này.");
+                showError("Không có quyền truy cập", "Bạn không có quyền tham gia buổi livestream này.");
                 return;
             }
 
@@ -209,7 +216,13 @@ const StudentCourseDetailPage = () => {
             });
         } catch (error: any) {
             console.error("Error joining livestream:", error);
-            toast.error("Không thể tham gia buổi livestream. Vui lòng thử lại.");
+            if (error.response?.status === 415) {
+                showError("Lỗi định dạng dữ liệu", "Server không hỗ trợ định dạng dữ liệu được gửi. Có thể là lỗi hệ thống với API Course Update - không liên quan đến livestream.");
+            } else if (error.response?.data?.message) {
+                showError("Lỗi tham gia livestream", error.response.data.message);
+            } else {
+                showError("Lỗi tham gia livestream", "Không thể tham gia buổi livestream. Vui lòng thử lại.");
+            }
         }
     };
 
@@ -523,20 +536,24 @@ const StudentCourseDetailPage = () => {
                                                 </div>
                                                 
                                                 <div className="text-right">
-                                                    {canJoin ? (
-                                                        <button
-                                                            onClick={() => handleJoinLivestream(livestream)}
-                                                            className="bg-green-500 text-white py-2 px-4 rounded-lg hover:bg-green-600 transition-colors text-sm font-medium flex items-center gap-2"
-                                                        >
-                                                            <FaPlay className="text-xs" />
-                                                            Tham gia
-                                                        </button>
-                                                    ) : statusInfo.status === 'completed' ? (
-                                                        <span className="text-gray-400 text-sm">Đã kết thúc</span>
-                                                    ) : statusInfo.status === 'scheduled' ? (
-                                                        <span className="text-gray-500 text-sm">Chưa đến giờ</span>
+                                                    {isUserEnrolled ? (
+                                                        canJoin ? (
+                                                            <button
+                                                                onClick={() => handleJoinLivestream(livestream)}
+                                                                className="bg-green-500 text-white py-2 px-4 rounded-lg hover:bg-green-600 transition-colors text-sm font-medium flex items-center gap-2"
+                                                            >
+                                                                <FaPlay className="text-xs" />
+                                                                Tham gia
+                                                            </button>
+                                                        ) : statusInfo.status === 'completed' ? (
+                                                            <span className="text-gray-400 text-sm">Đã kết thúc</span>
+                                                        ) : statusInfo.status === 'scheduled' ? (
+                                                            <span className="text-gray-500 text-sm">Chưa đến giờ</span>
+                                                        ) : (
+                                                            <span className="text-orange-500 text-sm">Sắp bắt đầu</span>
+                                                        )
                                                     ) : (
-                                                        <span className="text-orange-500 text-sm">Sắp bắt đầu</span>
+                                                        <span className="text-gray-400 text-sm">Cần đăng ký khóa học</span>
                                                     )}
                                                 </div>
                                             </div>
@@ -595,7 +612,10 @@ const StudentCourseDetailPage = () => {
                             Hãy để chúng tôi giúp bạn tìm khóa học phù hợp nhất dựa trên mục tiêu và trình độ hiện tại của bạn.
                         </p>
                         <div className="flex flex-col sm:flex-row justify-center space-y-4 sm:space-y-0 sm:space-x-6">
-                            <button className="bg-green-600 text-white py-3 px-8 rounded-lg font-semibold hover:bg-green-700 transition-colors shadow-md">
+                            <button 
+                                onClick={() => navigate(paths.student_messages)}
+                                className="bg-green-600 text-white py-3 px-8 rounded-lg font-semibold hover:bg-green-700 transition-colors shadow-md"
+                            >
                                 Chat với Tư vấn viên
                             </button>
                         </div>

@@ -1,13 +1,14 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useAuth } from "../../auth/AuthContext";
 import { updateUserAvatar, updateUser } from "../../services/userService";
-import { toast } from "react-toastify";
+import { useNotification } from "../../components/notifications";
 import background from "../../assets/background_benefit.jpg";
 import BackButton from "../../components/BackButton";
 
 const ProfilePage: React.FC = () => {
   // Giả định useAuth cung cấp cả hàm để cập nhật userInfo trong context
   const { userInfo, setUserInfo } = useAuth();
+  const { success, error: showError } = useNotification();
 
   const [isEditing, setIsEditing] = useState(false);
   const [isUploading, setIsUploading] = useState(false); // State cho trạng thái upload
@@ -48,10 +49,10 @@ const ProfilePage: React.FC = () => {
       setUserInfo(updatedUserInfo);
 
       console.log("Cập nhật avatar thành công!");
-      toast.success("Cập nhật avatar thành công!");
+      success("Cập nhật thành công!", "Avatar của bạn đã được cập nhật");
     } catch (error) {
       console.error("Lỗi khi upload avatar:", error);
-      toast.error("Upload avatar thất bại. Vui lòng thử lại.");
+      showError("Lỗi upload avatar", "Upload avatar thất bại. Vui lòng thử lại.");
     } finally {
       setIsUploading(false);
     }
@@ -83,11 +84,11 @@ const ProfilePage: React.FC = () => {
       setUserInfo(updatedUserInfo);
 
       console.log("Thông tin đã được lưu thành công!");
-      toast.success("Cập nhật thông tin thành công!");
+      success("Cập nhật thành công!", "Thông tin cá nhân của bạn đã được lưu");
       setIsEditing(false);
-    } catch (error) {
-      console.error("Lỗi khi cập nhật thông tin:", error);
-      toast.error("Cập nhật thông tin thất bại. Vui lòng thử lại.");
+    } catch (err) {
+      console.error("Lỗi khi cập nhật thông tin:", err);
+      showError("Lỗi cập nhật", "Cập nhật thông tin thất bại. Vui lòng thử lại.");
     } finally {
       setIsSaving(false);
     }
@@ -110,7 +111,7 @@ const ProfilePage: React.FC = () => {
           <div className="flex justify-center pt-8 pb-4 bg-red-50">
             <div
               className="relative w-32 h-32 group cursor-pointer"
-              onClick={handleAvatarClick} // Thêm sự kiện click
+              onClick={handleAvatarClick}
             >
               {userInfo?.avatarUrl ? (
                 <img
@@ -184,15 +185,13 @@ const ProfilePage: React.FC = () => {
             {/* Phần form giữ nguyên */}
             {isEditing ? (
               <form onSubmit={handleFinish} className="space-y-5">
-                {/* ... form inputs for fullName and phone ... */}
                 <div>
-                  {" "}
                   <label
                     htmlFor="fullName"
                     className="block text-sm font-medium text-gray-700 mb-1"
                   >
                     Họ và tên
-                  </label>{" "}
+                  </label>
                   <input
                     type="text"
                     id="fullName"
@@ -201,16 +200,15 @@ const ProfilePage: React.FC = () => {
                     placeholder="Nhập họ và tên"
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
                     required
-                  />{" "}
-                </div>{" "}
+                  />
+                </div>
                 <div>
-                  {" "}
                   <label
                     htmlFor="phone"
                     className="block text-sm font-medium text-gray-700 mb-1"
                   >
                     Số điện thoại
-                  </label>{" "}
+                  </label>
                   <input
                     type="text"
                     id="phone"
@@ -220,58 +218,54 @@ const ProfilePage: React.FC = () => {
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
                     pattern="^\d{10,11}$"
                     title="Số điện thoại phải có 10 hoặc 11 chữ số"
-                  />{" "}
-                </div>{" "}
+                  />
+                </div>
                 <div className="flex gap-4 pt-2">
-                  {" "}
                   <button
                     type="submit"
                     disabled={isSaving}
                     className={`flex-1 py-2 px-4 rounded-lg transition-colors duration-200 shadow-md font-semibold ${
-                      isSaving 
-                        ? 'bg-red-400 cursor-not-allowed text-white' 
-                        : 'bg-red-600 text-white hover:bg-red-700'
+                      isSaving
+                        ? "bg-red-400 cursor-not-allowed text-white"
+                        : "bg-red-600 text-white hover:bg-red-700"
                     }`}
                   >
                     {isSaving ? "Đang lưu..." : "Lưu thay đổi"}
-                  </button>{" "}
+                  </button>
                   <button
                     type="button"
                     onClick={() => setIsEditing(false)}
                     disabled={isSaving}
                     className="flex-1 bg-gray-200 text-gray-800 py-2 px-4 rounded-lg hover:bg-gray-300 transition-colors duration-200 shadow-md font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    Hủy{" "}
-                  </button>{" "}
+                    Hủy
+                  </button>
                 </div>
               </form>
             ) : (
               <div className="space-y-4 text-gray-700">
-                {" "}
                 <div className="flex justify-between items-center border-b border-gray-100 pb-2">
-                  {" "}
-                  <span className="font-semibold">Họ và tên:</span>{" "}
-                  <span>{userInfo?.fullName || "N/A"}</span>{" "}
-                </div>{" "}
+                  <span className="font-semibold">Họ và tên:</span>
+                  <span>{userInfo?.fullName || "N/A"}</span>
+                </div>
                 <div className="flex justify-between items-center border-b border-gray-100 pb-2">
                   <span className="font-semibold">Email:</span>
-                  <span>{userInfo?.email || "N/A"}</span>{" "}
-                </div>{" "}
+                  <span>{userInfo?.email || "N/A"}</span>
+                </div>
                 <div className="flex justify-between items-center border-b border-gray-100 pb-2">
-                  {" "}
                   <span className="font-semibold">Số điện thoại:</span>
-                  <span>{userInfo?.phone || "N/A"}</span>{" "}
-                </div>{" "}
+                  <span>{userInfo?.phone || "N/A"}</span>
+                </div>
                 <div className="flex justify-between items-center">
                   <span className="font-semibold">Vai trò:</span>
-                  <span>{userInfo?.roleName || "N/A"}</span>{" "}
-                </div>{" "}
+                  <span>{userInfo?.roleName || "N/A"}</span>
+                </div>
                 <button
                   onClick={() => setIsEditing(true)}
                   className="w-full mt-6 bg-red-600 text-white py-2 px-4 rounded-lg hover:bg-red-700 transition-colors duration-200 shadow-md font-semibold"
                 >
-                  Chỉnh sửa{" "}
-                </button>{" "}
+                  Chỉnh sửa
+                </button>
               </div>
             )}
           </div>

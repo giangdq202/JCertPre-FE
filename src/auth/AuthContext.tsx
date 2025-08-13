@@ -120,6 +120,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         case "ACADEMIC_MANAGER":
           navigate(paths.staff_home);
           break;
+        case "INSTRUCTOR":
+          navigate(paths.instructor_home);
+          break;
+        case "ADMIN":
+          navigate(paths.admin_home);
+          break;
         default:
           navigate("/");
           break;

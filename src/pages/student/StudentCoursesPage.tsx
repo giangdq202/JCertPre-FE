@@ -9,7 +9,13 @@ import CourseCard, {
   CourseStatusEnum,
 } from "../../components/card/CourseCard";
 import Pagination from "../../components/pagination/Pagination";
-import { getCourses, CourseListDto, CourseStatus, CourseLevel } from "../../services/courseService";
+import {
+  getCourses,
+  CourseListDto,
+  CourseStatus,
+  CourseLevel,
+  CourseType,
+} from "../../services/courseService";
 import { getMyEnrollments } from "../../services/enrollmentService";
 
 interface Course {
@@ -48,11 +54,12 @@ const StudentCoursesPage: React.FC = () => {
       setError(null);
       
       try {
-        // Get all published courses
+        // Get all published courses with Public type only
         const queryParams = {
           pageNumber: 1,
           pageSize: 100, // Get more courses to filter from
           status: CourseStatus.Published,
+          courseType: CourseType.Public, // Only show Public courses
         };
 
         const response = await getCourses(queryParams);
@@ -116,19 +123,17 @@ const StudentCoursesPage: React.FC = () => {
 
   const getCourseTypeString = (courseType: number): CourseTypeEnum => {
     const typeMap: { [key: number]: CourseTypeEnum } = {
-      0: "Online",
-      1: "Offline",
-      2: "Hybrid"
+      0: "Personal",
+      1: "Public"
     };
-    return typeMap[courseType] || "Online";
+    return typeMap[courseType] || "Public";
   };
 
   const getStatusString = (status: CourseStatus): CourseStatusEnum => {
     const statusMap: { [key in CourseStatus]: CourseStatusEnum } = {
       [CourseStatus.Draft]: "Draft",
       [CourseStatus.Published]: "Published",
-      [CourseStatus.Archived]: "Archived",
-      [CourseStatus.Suspended]: "Suspended"
+      [CourseStatus.Archived]: "Archived"
     };
     return statusMap[status] || "Published";
   };

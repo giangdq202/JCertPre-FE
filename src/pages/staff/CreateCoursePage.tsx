@@ -31,7 +31,7 @@ const CreateCoursePage: React.FC = () => {
         title: values.title,
         description: values.description,
         level: values.level,
-        courseType: CourseType.Online, // Default to Online (0)
+        courseType: values.courseType, // Use the selected course type
         price: values.price,
         startDate: values.startDate.toISOString(),
         endDate: values.endDate.toISOString(),
@@ -71,7 +71,7 @@ const CreateCoursePage: React.FC = () => {
               onFinish={onFinish}
               initialValues={{
                 level: CourseLevel.N5, // Giá trị mặc định
-                courseType: CourseType.Online, // Giá trị mặc định
+                courseType: CourseType.Public, // Giá trị mặc định
                 price: 0, // Giá trị mặc định
               }}
             >
@@ -115,7 +115,16 @@ const CreateCoursePage: React.FC = () => {
                 </Select>
               </Form.Item>
 
-              {/* Course Type - Hidden, default to Online (0) */}
+              {/* Temporarily hidden Course Type - always defaults to Public */}
+              <Form.Item
+                name="courseType"
+                style={{ display: 'none' }}
+                initialValue={CourseType.Public}
+              >
+                <Select>
+                  <Option value={CourseType.Public}>Công khai</Option>
+                </Select>
+              </Form.Item>
 
               <Form.Item
                 name="price"

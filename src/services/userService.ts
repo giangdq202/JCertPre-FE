@@ -46,6 +46,23 @@ export interface PaginatedUserResponse {
   hasNextPage: boolean;
 }
 
+export interface CreateUserDto {
+  email: string;
+  password: string;
+  fullName: string;
+  phone?: string;
+  roleName: string;
+  status: UserStatus;
+  credit: number;
+  avatarFile?: File;
+}
+
+export interface RoleDto {
+  roleId: string;
+  roleName: string;
+  description?: string;
+}
+
 export interface UpdateUserDto {
   fullName?: string;
   phone?: string;
@@ -78,6 +95,58 @@ export const getAllUsers = async (parameters: UserQueryParameters = {}): Promise
     throw error;
   }
 };
+
+export const createUser = async (createUserDto: CreateUserDto): Promise<UserDto> => {
+  try {
+    const formData = new FormData();
+    
+    formData.append('email', createUserDto.email);
+    formData.append('password', createUserDto.password);
+    formData.append('fullName', createUserDto.fullName);
+    formData.append('roleName', createUserDto.roleName);
+    formData.append('status', createUserDto.status.toString());
+    formData.append('credit', createUserDto.credit.toString());
+    
+    if (createUserDto.phone) {
+      formData.append('phone', createUserDto.phone);
+    }
+    if (createUserDto.avatarFile) {
+      formData.append('avatarFile', createUserDto.avatarFile);
+    }
+
+    const response = await axiosInstance.post<UserDto>(USERS_BASE_URL, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
+  } catch (error) {
+    console.error("Create user API error:", error);
+    throw error;
+  }
+};
+
+export const getAvailableRoles = async (): Promise<RoleDto[]> => {
+  try {
+    const response = await axiosInstance.get<RoleDto[]>(`${USERS_BASE_URL}/roles`);
+    return response.data;
+  } catch (error) {
+    console.error("Get available roles API error:", error);
+    throw error;
+  }
+};
+
+export const getAllRoles = async (): Promise<RoleDto[]> => {
+  try {
+    const response = await axiosInstance.get<RoleDto[]>(`${USERS_BASE_URL}/roles`);
+    return response.data;
+  } catch (error) {
+    console.error("Get all roles API error:", error);
+    throw error;
+  }
+};
+
+
 
 export const getUserById = async (userId: string): Promise<UserDto> => {
   try {

@@ -128,6 +128,7 @@ export const DELETE_TEST_URL = (testId: string) => `${TEST_BASE_URL}/${testId}`;
 export const UPDATE_TEST_STATUS_URL = (testId: string) => `${TEST_BASE_URL}/${testId}/status`;
 export const GET_TEST_BY_LESSON_URL = (lessonId: string) => `${TEST_BASE_URL}/by-lesson/${lessonId}`;
 export const CREATE_TEST_BY_LESSON_URL = (lessonId: string) => `${TEST_BASE_URL}/by-lesson/${lessonId}`;
+export const AUTO_CREATE_TEST_URL = (userId: string) => `${TEST_BASE_URL}/auto-create?userId=${userId}`;
 export const GET_TESTS_BY_USER_URL = (userId: string) => `${TEST_BASE_URL}/by-user/${userId}`;
 
 // ===== TEST ATTEMPT ENDPOINTS =====
@@ -145,10 +146,13 @@ export const GET_QUESTIONS_FROM_TEST_URL = (testId: string) => `${TEST_QUESTION_
 export const DELETE_QUESTION_FROM_TEST_URL = (testQuestionId: string) => `${TEST_QUESTION_BASE_URL}/${testQuestionId}`;
 export const ADD_CUSTOM_MANUAL_QUESTIONS_URL = `${TEST_QUESTION_BASE_URL}/custom-manual/add`;
 export const ADD_QUESTIONS_JLPT_AUTO_URL = (testId: string) => `${TEST_QUESTION_BASE_URL}/jlpt-auto/${testId}`;
+export const DELETE_ALL_TEST_QUESTIONS_URL = (testId: string) => `${TEST_QUESTION_BASE_URL}/all/${testId}`;
 
 // ===== ATTEMPT ANSWER ENDPOINTS =====
 export const ATTEMPT_ANSWER_BASE_URL = `${BASE_URL}/attempt-answers`;
 export const ADD_OR_UPDATE_ATTEMPT_ANSWERS_URL = `${ATTEMPT_ANSWER_BASE_URL}/add-or-update`;
+export const CREATE_ATTEMPT_ANSWER_URL = `${ATTEMPT_ANSWER_BASE_URL}/create`;
+export const UPDATE_ATTEMPT_ANSWER_URL = `${ATTEMPT_ANSWER_BASE_URL}/update`;
 export const GET_ATTEMPT_ANSWERS_URL = (attemptId: string) => `${ATTEMPT_ANSWER_BASE_URL}/by-attempt/${attemptId}`;
 
 // ===== CONVERSATION ENDPOINTS =====
@@ -218,22 +222,6 @@ export const DELETE_LIVESTREAM_URL = (id: string) => `${LIVESTREAM_BASE_URL}/${i
 export const CHECK_CAN_JOIN_LIVESTREAM_URL = (id: string) => `${LIVESTREAM_BASE_URL}/${id}/can-join`;
 export const GET_LIVESTREAM_JOIN_TOKEN_URL = (id: string) => `${LIVESTREAM_BASE_URL}/${id}/join-token`;
 
-// ===== LIVEKIT ENDPOINTS =====
-export const LIVEKIT_BASE_URL = `${BASE_URL}/livekit`;
-export const GET_LIVEKIT_ADMIN_TOKEN_URL = `${LIVEKIT_BASE_URL}/admin-token`;
-export const GET_LIVEKIT_TOKEN_URL = `${LIVEKIT_BASE_URL}/token`;
-export const CREATE_LIVEKIT_ROOM_URL = `${LIVEKIT_BASE_URL}/rooms`;
-export const GET_LIVEKIT_ROOMS_URL = `${LIVEKIT_BASE_URL}/rooms`;
-export const GET_LIVEKIT_ROOM_URL = (roomName: string) => `${LIVEKIT_BASE_URL}/rooms/${roomName}`;
-export const DELETE_LIVEKIT_ROOM_URL = (roomName: string) => `${LIVEKIT_BASE_URL}/rooms/${roomName}`;
-export const BROADCAST_LIVEKIT_ROOM_URL = (roomName: string) => `${LIVEKIT_BASE_URL}/rooms/${roomName}/broadcast`;
-export const GET_LIVEKIT_ROOM_PARTICIPANTS_URL = (roomName: string) => `${LIVEKIT_BASE_URL}/rooms/${roomName}/participants`;
-export const REMOVE_LIVEKIT_PARTICIPANT_URL = (roomName: string, identity: string) => `${LIVEKIT_BASE_URL}/rooms/${roomName}/participants/${identity}`;
-export const DEMOTE_LIVEKIT_PARTICIPANT_URL = (roomName: string, identity: string) => `${LIVEKIT_BASE_URL}/rooms/${roomName}/participants/${identity}/demote`;
-export const MUTE_LIVEKIT_PARTICIPANT_URL = (roomName: string, identity: string) => `${LIVEKIT_BASE_URL}/rooms/${roomName}/participants/${identity}/mute`;
-export const PROMOTE_LIVEKIT_PARTICIPANT_URL = (roomName: string, identity: string) => `${LIVEKIT_BASE_URL}/rooms/${roomName}/participants/${identity}/promote`;
-export const GET_LIVEKIT_ROOM_STATISTICS_URL = (roomName: string) => `${LIVEKIT_BASE_URL}/rooms/${roomName}/statistics`;
-export const LIVEKIT_WEBHOOK_URL = `${LIVEKIT_BASE_URL}/webhook`;
 
 // ===== CACHE ENDPOINTS =====
 export const CACHE_BASE_URL = `${BASE_URL}/cache`;
@@ -250,11 +238,22 @@ export const CONFIRM_WEBHOOK_URL = `${PAYMENT_BASE_URL}/confirm-webhook`;
 export const PAYMENT_RETURN_URL = `${PAYMENT_BASE_URL}/return`;
 export const PAYMENT_CANCEL_URL = `${PAYMENT_BASE_URL}/cancel`;
 
-// ===== LEGACY CLOUDINARY ENDPOINTS (for backward compatibility) =====
-const CLOUDINARY_BASE_URL = "https://be.zd-dev.xyz/api/cloudinary-test";
-export const CLOUDINARY_UPLOAD_IMAGE_URL = `${CLOUDINARY_BASE_URL}/upload-image`;
-export const CLOUDINARY_UPLOAD_VIDEO_URL = `${CLOUDINARY_BASE_URL}/upload-video`;
-export const CLOUDINARY_UPLOAD_DOCUMENT_URL = `${CLOUDINARY_BASE_URL}/upload-document`;
-export const CLOUDINARY_DELETE_IMAGE_URL = `${CLOUDINARY_BASE_URL}/delete-image`;
-export const CLOUDINARY_DELETE_VIDEO_URL = `${CLOUDINARY_BASE_URL}/delete-video`;
-export const CLOUDINARY_DELETE_DOCUMENT_URL = `${CLOUDINARY_BASE_URL}/delete-document`;
+// // ===== LEGACY CLOUDINARY ENDPOINTS (for backward compatibility) =====
+// const CLOUDINARY_BASE_URL = "https://be.zd-dev.xyz/api/cloudinary-test";
+// export const CLOUDINARY_UPLOAD_IMAGE_URL = `${CLOUDINARY_BASE_URL}/upload-image`;
+// export const CLOUDINARY_UPLOAD_VIDEO_URL = `${CLOUDINARY_BASE_URL}/upload-video`;
+// export const CLOUDINARY_UPLOAD_DOCUMENT_URL = `${CLOUDINARY_BASE_URL}/upload-document`;
+// export const CLOUDINARY_DELETE_IMAGE_URL = `${CLOUDINARY_BASE_URL}/delete-image`;
+// export const CLOUDINARY_DELETE_VIDEO_URL = `${CLOUDINARY_BASE_URL}/delete-video`;
+// export const CLOUDINARY_DELETE_DOCUMENT_URL = `${CLOUDINARY_BASE_URL}/delete-document`;
+
+// WebSocket server URL for LiveKit
+export const LIVEKIT_WS_URL = "wss://livekit.zd-dev.xyz";
+
+// Admin Dashboard URLs
+export const GET_ADMIN_DASHBOARD_TOTAL_REVENUE_URL = `${BASE_URL}/admin-dashboard/revenue/total`;
+export const GET_ADMIN_DASHBOARD_TOTAL_ENROLLMENTS_URL = `${BASE_URL}/admin-dashboard/enrollments/total`;
+export const GET_ADMIN_DASHBOARD_ENROLLMENTS_BY_MONTH_URL = `${BASE_URL}/admin-dashboard/enrollments/by-month`;
+export const GET_ADMIN_DASHBOARD_CURRENT_MONTH_ENROLLMENTS_URL = `${BASE_URL}/admin-dashboard/enrollments/current-month`;
+export const GET_ADMIN_DASHBOARD_CURRENT_MONTH_REVENUE_URL = `${BASE_URL}/admin-dashboard/revenue/current-month`;
+export const GET_ADMIN_DASHBOARD_REVENUE_BY_MONTH_URL = `${BASE_URL}/admin-dashboard/revenue/by-month`;

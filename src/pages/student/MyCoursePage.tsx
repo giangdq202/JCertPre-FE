@@ -83,7 +83,7 @@ const MyCoursePage: React.FC = () => {
                 level: "N5", // Default level
                 price: 0,
                 thumbnail: "",
-                courseType: "Online" as CourseTypeEnum,
+                courseType: "Public" as CourseTypeEnum,
                 status: "Published" as CourseStatusEnum,
                 description: enrollment.courseDescription || "",
                 progress: 0,
@@ -160,19 +160,17 @@ const MyCoursePage: React.FC = () => {
 
   const getCourseTypeString = (courseType: number): CourseTypeEnum => {
     const typeMap: { [key: number]: CourseTypeEnum } = {
-      0: "Online",
-      1: "Offline",
-      2: "Hybrid"
+      0: "Personal",
+      1: "Public"
     };
-    return typeMap[courseType] || "Online";
+    return typeMap[courseType] || "Public";
   };
 
   const getStatusString = (status: number): CourseStatusEnum => {
     const statusMap: { [key: number]: CourseStatusEnum } = {
       0: "Draft",
       1: "Published",
-      2: "Archived", 
-      3: "Suspended"
+      2: "Archived"
     };
     return statusMap[status] || "Published";
   };

@@ -48,11 +48,11 @@ const menuItems = [
     icon: <PiExamBold size={20} />,
     path: "/student/exam-simulations",
   },
-  {
-    name: "Học từ vựng",
-    icon: <LuClipboardList size={20} />,
-    path: "/student/vocabulary",
-  },
+  // {
+  //   name: "Học từ vựng",
+  //   icon: <LuClipboardList size={20} />,
+  //   path: "/student/vocabulary",
+  // },
   {
     name: "Câu hỏi",
     icon: <GiGraduateCap size={20} />,

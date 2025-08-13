@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import StudentSideBar from "../../components/sidebar/StudentSideBar";
 import { Link, useNavigate } from "react-router-dom";
 import {
@@ -8,21 +8,26 @@ import {
 import {
   getCourses,
   CourseListDto,
+  CourseDto,
   CourseStatus,
   CourseLevel,
   getCourseById,
   getCourseInstructors,
+  CourseType,
 } from "../../services/courseService";
 import { InstructorInfoDto } from "../../services/courseService";
 import {
   getMyEnrollments,
   EnrollmentDetailDto,
 } from "../../services/enrollmentService";
+import { getByLessonId, TestDto } from "../../services/testService";
+import { getAllTestAttemptsByUserId, TestAttemptDto } from "../../services/testAttemptService";
 import StudentProfileModal from "../../components/modals/StudentProfileModal";
 import { useAuth } from "../../auth/AuthContext";
 import { useLessonProgress } from "../../hooks/useLessonProgress";
+import { useNotification } from "../../components/notifications";
 import paths from "../../routes/path";
-import { FaBookOpen, FaPenNib, FaArrowRight } from "react-icons/fa";
+import { FaBookOpen, FaPenNib, FaArrowRight, FaTrophy, FaClock } from "react-icons/fa";
 import { HiOutlineClock } from "react-icons/hi2";
 import Lottie from "lottie-react";
 import studyAnimation from "../../animations/study.json";
@@ -66,6 +71,7 @@ const StudentHomePage = () => {
   const { userInfo } = useAuth(); // Kept for user info
   const navigate = useNavigate();
   const { getCourseCompletionRate } = useLessonProgress();
+  const { success, error } = useNotification();
 
   const [studentProfile, setStudentProfile] =
     useState<StudentProfileDto | null>(null);
@@ -81,16 +87,26 @@ const StudentHomePage = () => {
   const [recommendedInstructors, setRecommendedInstructors] = useState<{ [courseId: string]: InstructorInfoDto[] }>({});
   const [courseCompletionRates, setCourseCompletionRates] = useState<{ [courseId: string]: number }>({});
   const [isLoadingCompletionRates, setIsLoadingCompletionRates] = useState(false);
+  const [enrolledCourseDetails, setEnrolledCourseDetails] = useState<{ [courseId: string]: CourseDto }>({});
   
   // Livestream states
   const [livestreams, setLivestreams] = useState<LivestreamTimetableDto[]>([]);
   const [isLoadingLivestreams, setIsLoadingLivestreams] = useState(false);
+  
+  // User tests states
+  interface UserTestDto extends TestDto {
+    courseName: string;
+    lessonTitle: string;
+    isCompleted: boolean;
+  }
+  const [userTests, setUserTests] = useState<UserTestDto[]>([]);
+  const [isLoadingUserTests, setIsLoadingUserTests] = useState(false);
 
   // Hàm xử lý khi hồ sơ được tạo thành công từ modal
   const handleProfileCreated = (profile: StudentProfileDto) => {
     setStudentProfile(profile);
     setShowProfileModal(false);
-    alert("Tạo hồ sơ thành công!"); // Using alert instead of Ant Design message
+    success("Thành công", "Tạo hồ sơ thành công!");
   };
 
   // Fetch student profile
@@ -109,9 +125,9 @@ const StudentHomePage = () => {
         } else {
           setShowProfileModal(true); // No profile found, show modal
         }
-      } catch (error) {
-        console.error("Error fetching student profile:", error);
-        alert("Failed to fetch student profile."); // Using alert
+      } catch (err) {
+        console.error("Error fetching student profile:", err);
+        error("Lỗi", "Không thể tải hồ sơ học viên.");
       } finally {
         setIsLoadingProfile(false);
       }
@@ -128,9 +144,21 @@ const StudentHomePage = () => {
         const enrollments = await getMyEnrollments();
         setEnrolledCourses(enrollments);
         setEnrolledCoursesLoaded(true);
-      } catch (error) {
-        console.error("Error fetching enrolled courses:", error);
-        alert("Failed to fetch enrolled courses.");
+        
+        // Fetch course details for each enrolled course to get description
+        const courseDetails: { [courseId: string]: CourseDto } = {};
+        for (const enrollment of enrollments) {
+          try {
+            const courseDetail = await getCourseById(enrollment.courseId);
+            courseDetails[enrollment.courseId] = courseDetail;
+          } catch (error) {
+            console.error(`Error fetching course details for ${enrollment.courseId}:`, error);
+          }
+        }
+        setEnrolledCourseDetails(courseDetails);
+      } catch (err) {
+        console.error("Error fetching enrolled courses:", err);
+        error("Lỗi", "Không thể tải danh sách khóa học đã đăng ký.");
         setEnrolledCoursesLoaded(true); // Mark as loaded even if error
       } finally {
         setIsLoadingEnrolledCourses(false);
@@ -195,17 +223,82 @@ const StudentHomePage = () => {
     fetchLivestreams();
   }, [userInfo?.id, enrolledCoursesLoaded]);
 
+  // Fetch user tests from enrolled courses
+  useEffect(() => {
+    const fetchUserTests = async () => {
+      if (!userInfo?.id || !enrolledCoursesLoaded) return;
+      
+      setIsLoadingUserTests(true);
+      try {
+        // Get enrolled courses with lessons
+        const enrolledCoursesData = await getMyEnrollments();
+        
+        // Get user's test attempts to check completion status
+        const testAttempts = await getAllTestAttemptsByUserId(userInfo.id);
+        
+        // Get all tests from enrolled courses
+        const allTests: UserTestDto[] = [];
+        
+        for (const enrollment of enrolledCoursesData) {
+          try {
+            // Get course details to access lessons
+            const courseDetail = await getCourseById(enrollment.courseId);
+            if (courseDetail?.lessons) {
+              for (const lesson of courseDetail.lessons) {
+                try {
+                  const tests = await getByLessonId(lesson.lessonId);
+                  if (tests && Array.isArray(tests)) {
+                    for (const test of tests) {
+                      // Check if user has completed this test (isPass = true)
+                      const completedAttempt = testAttempts.find(
+                        (attempt: TestAttemptDto) => attempt.testId === test.testId && attempt.isPass === true
+                      );
+                    
+                      allTests.push({
+                        ...test,
+                        courseName: enrollment.courseTitle || 'Unknown Course',
+                        lessonTitle: lesson.title || 'Unknown Lesson',
+                        isCompleted: !!completedAttempt
+                      });
+                    }
+                  }
+                } catch (error) {
+                  console.error(`Failed to load tests for lesson ${lesson.lessonId}:`, error);
+                }
+              }
+            }
+          } catch (error) {
+            console.error(`Failed to load course details for ${enrollment.courseId}:`, error);
+          }
+        }
+
+        // Filter to show only uncompleted tests and limit to 3 for display
+        const uncompletedTests = allTests.filter(test => !test.isCompleted).slice(0, 3);
+        setUserTests(uncompletedTests);
+        
+      } catch (error) {
+        console.error('Failed to load user tests:', error);
+        setUserTests([]);
+      } finally {
+        setIsLoadingUserTests(false);
+      }
+    };
+
+    fetchUserTests();
+  }, [userInfo?.id, enrolledCoursesLoaded]);
+
   // Fetch recommended courses based on student profile and enrolled courses
   useEffect(() => {
     const fetchRecommendedCourses = async () => {
       setIsLoadingRecommendedCourses(true);
 
       try {
-        // Get all published courses
+        // Get all published courses with Public type only
         const queryParams = {
           pageNumber: 1,
           pageSize: 20, // Get more courses to filter from
           status: CourseStatus.Published,
+          courseType: CourseType.Public, // Only show Public courses
         };
 
         const response = await getCourses(queryParams);
@@ -218,9 +311,9 @@ const StudentHomePage = () => {
         
         // Limit to 5 recommended courses
         setRecommendedCourses(filteredCourses.slice(0, 5));
-      } catch (error) {
-        console.error("Error fetching recommended courses:", error);
-        alert("Failed to fetch recommended courses."); // Using alert
+      } catch (err) {
+        console.error("Error fetching recommended courses:", err);
+        error("Lỗi", "Không thể tải danh sách khóa học gợi ý.");
       } finally {
         setIsLoadingRecommendedCourses(false);
       }
@@ -380,11 +473,7 @@ const StudentHomePage = () => {
                 <span className="text-green-600">{userInfo?.fullName || "Học viên"}</span>!
               </h2>
               <p className="text-gray-600 text-base mb-6">
-                Hãy tiếp tục hành trình chinh phục chứng chỉ{" "}
-                <span className="font-medium text-gray-800">
-                  {studentProfile?.currentLevel ? `JLPT ${studentProfile.currentLevel}` : "Nhật ngữ"}
-                </span>{" "}
-                của bạn.
+                Hãy tiếp tục hành trình chinh phục chứng chỉ JLPT của bạn.
               </p>
 
               <div className="flex flex-col sm:flex-row gap-4">
@@ -395,7 +484,10 @@ const StudentHomePage = () => {
                     <FaBookOpen className="mr-2 text-base" />
                     Đăng ký khóa học mới
                 </Link>
-                <button className="bg-white text-green-700 border border-green-500 py-2.5 px-6 rounded-xl shadow-md hover:bg-green-50 hover:scale-[1.02] active:scale-95 transition-all duration-150 flex items-center justify-center text-sm font-medium">
+                <button 
+                  onClick={() => navigate('/student/exam-simulations')}
+                  className="bg-white text-green-700 border border-green-500 py-2.5 px-6 rounded-xl shadow-md hover:bg-green-50 hover:scale-[1.02] active:scale-95 transition-all duration-150 flex items-center justify-center text-sm font-medium"
+                >
                   <FaPenNib className="mr-2 text-base" />
                   Làm bài kiểm tra thực hành
                 </button>
@@ -411,88 +503,16 @@ const StudentHomePage = () => {
             />
           </div>
 
-          {/* Grid for Study Progress, Upcoming Exams, and To-Do List */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-            {/* Study Progress Card */}
-            <div className="bg-white p-6 rounded-2xl shadow-xl">
-              <div className="flex justify-between items-center mb-6">
-                <h3 className="text-xl font-semibold text-gray-800 tracking-tight">
-                  Tiến độ học tập
-                </h3>
-                <Link
-                  to={paths.student_home} // Updated path
-                  className="text-sm text-green-600 hover:text-green-700 hover:underline font-medium transition"
-                >
-                  Xem chi tiết
-                </Link>
-              </div>
+          {/* Grid for Upcoming Exams and To-Do List */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            {/* Study Progress Card - Temporarily Hidden */}
+            {/* <div className="bg-white p-6 rounded-2xl shadow-xl">...</div> */}
 
-              <div className="flex flex-col items-center space-y-6">
-                {/* Progress Circle */}
-                <div className="relative w-32 h-32">
-                  <svg className="w-full h-full" viewBox="0 0 100 100">
-                    <circle
-                      className="text-gray-200 stroke-current"
-                      strokeWidth="10"
-                      cx="50"
-                      cy="50"
-                      r="40"
-                      fill="transparent"
-                    ></circle>
-                    <circle
-                      className="text-green-500 stroke-current"
-                      strokeWidth="10"
-                      strokeLinecap="round"
-                      cx="50"
-                      cy="50"
-                      r="40"
-                      fill="transparent"
-                      strokeDasharray="251.2"
-                      strokeDashoffset="80.4" // 68% (100-68) * 251.2 / 100
-                      style={{ transition: "stroke-dashoffset 0.5s ease-out" }}
-                    ></circle>
-                    <text
-                      x="50"
-                      y="50"
-                      textAnchor="middle"
-                      className="text-2xl font-bold text-gray-800"
-                      dy=".3em"
-                    >
-                      68%
-                    </text>
-                  </svg>
-                </div>
-
-                {/* Detailed progress bars */}
-                <div className="w-full space-y-4">
-                  {[
-                    { label: "Ngữ pháp", progress: 75 },
-                    { label: "Từ vựng", progress: 82 },
-                    { label: "Đọc hiểu", progress: 45 },
-                    { label: "Nghe hiểu", progress: 90 },
-                  ].map((item, index) => (
-                    <div key={index}>
-                      <div className="flex justify-between text-sm font-medium text-gray-700 mb-1">
-                        <span>{item.label}</span>
-                        <span>{item.progress}%</span>
-                      </div>
-                      <div className="w-full h-3 bg-gray-200 rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-gradient-to-r from-green-400 to-green-600 transition-all duration-500"
-                          style={{ width: `${item.progress}%` }}
-                        ></div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Upcoming Exams Card */}
+            {/* User's Tests Card */}
             <div className="bg-white p-6 rounded-2xl shadow-md border border-gray-100">
               <div className="flex justify-between items-center mb-6">
                 <h3 className="text-xl font-semibold text-gray-900">
-                  Các kỳ thi sắp tới
+                  Các bài test của bạn
                 </h3>
                 <Link
                   to={paths.student_home} // Updated path
@@ -502,76 +522,69 @@ const StudentHomePage = () => {
                 </Link>
               </div>
 
-              <div className="space-y-6">
-                {/* Exam Item */}
-                <div className="flex items-start gap-4">
-                  <div className="flex flex-col items-center pt-1">
-                    <div className="w-3 h-3 rounded-full bg-green-500 mt-1" />
-                    <div className="h-full w-px bg-gray-300" />
-                  </div>
-                  <div className="flex-1 pb-4 border-b border-gray-200">
-                    <p className="text-sm text-gray-500">Ngày mai, 10:00 SA</p>
-                    <h4 className="font-semibold text-gray-800 text-base">
-                      Bài thi thử JLPT N3
-                    </h4>
-                    <div className="flex flex-wrap gap-2 mt-2">
-                      <span className="bg-gray-100 text-gray-700 text-xs px-2 py-1 rounded-full">
-                        Ngữ pháp
-                      </span>
-                      <span className="bg-gray-100 text-gray-700 text-xs px-2 py-1 rounded-full">
-                        Đọc hiểu
-                      </span>
-                      <span className="bg-gray-100 text-gray-700 text-xs px-2 py-1 rounded-full">
-                        Nghe hiểu
-                      </span>
+              {isLoadingUserTests ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-green-600"></div>
+                  <span className="ml-2 text-gray-600 text-sm">Đang tải...</span>
+                </div>
+              ) : userTests.length > 0 ? (
+                <div className="space-y-4">
+                  {userTests.map((test, index) => (
+                    <div key={test.testId} className="flex items-start gap-4">
+                      <div className="flex flex-col items-center pt-1">
+                        <div className={`w-3 h-3 rounded-full mt-1 ${
+                          test.status === 1 ? 'bg-green-500' : 'bg-gray-400'
+                        }`} />
+                        {index < userTests.length - 1 && <div className="h-12 w-px bg-gray-300" />}
+                      </div>
+                      <div className="flex-1 pb-4">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <h4 className="font-semibold text-gray-800 text-base mb-1">
+                              {test.title}
+                            </h4>
+                            <p className="text-sm text-gray-600 mb-1">{test.courseName}</p>
+                            <p className="text-xs text-gray-500 mb-2">{test.lessonTitle}</p>
+                            <div className="flex flex-wrap gap-2">
+                              <span className="bg-blue-100 text-blue-700 text-xs px-2 py-1 rounded-full">
+                                {test.durationMinutes} phút
+                              </span>
+                              <span className={`text-xs px-2 py-1 rounded-full ${
+                                test.status === 1 
+                                  ? 'bg-green-100 text-green-700' 
+                                  : 'bg-gray-100 text-gray-600'
+                              }`}>
+                                {test.status === 1 ? 'Đang mở' : 'Đã đóng'}
+                              </span>
+                            </div>
+                          </div>
+                          <button 
+                            onClick={() => navigate(`/student/learn-course/${test.testId}`)}
+                            className="text-green-600 hover:text-green-700 font-medium text-sm ml-4"
+                            disabled={test.status !== 1}
+                          >
+                            Làm bài →
+                          </button>
+                        </div>
+                      </div>
                     </div>
+                  ))}
+                  <div className="pt-2 border-t">
+                    <button 
+                      onClick={() => navigate('/student/courses')}
+                      className="w-full text-center py-2 text-green-600 hover:text-green-700 font-medium text-sm hover:bg-green-50 rounded-lg transition-colors"
+                    >
+                      Xem tất cả bài test
+                    </button>
                   </div>
                 </div>
-
-                {/* Exam Item */}
-                <div className="flex items-start gap-4">
-                  <div className="flex flex-col items-center pt-1">
-                    <div className="w-3 h-3 rounded-full bg-yellow-500 mt-1" />
-                    <div className="h-full w-px bg-gray-300" />
-                  </div>
-                  <div className="flex-1 pb-4 border-b border-gray-200">
-                    <p className="text-sm text-gray-500">
-                      Ngày 20 tháng 10, 2:30 CH
-                    </p>
-                    <h4 className="font-semibold text-gray-800 text-base">
-                      Bài kiểm tra Kanji
-                    </h4>
-                    <div className="flex flex-wrap gap-2 mt-2">
-                      <span className="bg-gray-100 text-gray-700 text-xs px-2 py-1 rounded-full">
-                        Từ vựng
-                      </span>
-                      <span className="bg-gray-100 text-gray-700 text-xs px-2 py-1 rounded-full">
-                        Viết
-                      </span>
-                    </div>
-                  </div>
+              ) : (
+                <div className="text-center py-8">
+                  <div className="text-gray-400 text-4xl mb-4">📝</div>
+                  <p className="text-gray-500 mb-2">Không có bài test nào</p>
+                  <p className="text-sm text-gray-400">Bạn đã hoàn thành tất cả bài test hoặc chưa có bài test nào</p>
                 </div>
-
-                {/* Exam Item */}
-                <div className="flex items-start gap-4">
-                  <div className="flex flex-col items-center pt-1">
-                    <div className="w-3 h-3 rounded-full bg-blue-500 mt-1" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm text-gray-500">
-                      Ngày 21 tháng 10, 9:00 SA
-                    </p>
-                    <h4 className="font-semibold text-gray-800 text-base">
-                      Bài kiểm tra Nghe hiểu
-                    </h4>
-                    <div className="flex flex-wrap gap-2 mt-2">
-                      <span className="bg-gray-100 text-gray-700 text-xs px-2 py-1 rounded-full">
-                        Nghe hiểu
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              )}
             </div>
 
             {/* To-Do List Card */}
@@ -688,7 +701,7 @@ const StudentHomePage = () => {
                 Khóa học của tôi
               </h3>
               <Link
-                to={paths.student_home}
+                to={paths.student_my_courses}
                 className="text-green-600 hover:text-green-700 hover:underline text-base font-semibold transition"
               >
                 Xem tất cả
@@ -705,7 +718,7 @@ const StudentHomePage = () => {
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                {enrolledCourses.map((enrollment) => {
+                {enrolledCourses.slice(0, 3).map((enrollment) => {
                   const instructorNode = (() => {
                     const instructor = enrolledInstructors[enrollment.courseId]?.[0];
                     if (instructor) {
@@ -737,11 +750,11 @@ const StudentHomePage = () => {
                       id={enrollment.courseId}
                       thumbnail={enrolledThumbnails[enrollment.courseId] || "https://placehold.co/400x200/E0F2F1/004D40?text=Course+Thumbnail"}
                       title={enrollment.courseTitle}
-                      description={enrollment.courseDescription}
+                      description={enrolledCourseDetails[enrollment.courseId]?.description || enrollment.courseDescription}
                       level="N5" // Mock level since it's not in EnrollmentDetailDto
                       price={0} // Mock price since it's not in EnrollmentDetailDto
                       progress={isLoadingCompletionRates ? undefined : (courseCompletionRates[enrollment.courseId] || 0)} // Use completion rate with loading state
-                      courseType="Online" // Mock course type
+                      courseType="Public" // Mock course type
                       buttonText="Xem chi tiết"
                       onClick={() => navigate(`/student/course-detail/${enrollment.courseId}`)}
                       studentName={userInfo?.fullName || "Học viên"}
@@ -771,12 +784,12 @@ const StudentHomePage = () => {
               <h3 className="text-2xl font-bold text-gray-900 tracking-tight">
                 Danh sách khóa học
               </h3>
-              <Link
-                to={paths.student_home} // Updated path
-                className="text-green-600 hover:text-green-700 hover:underline text-base font-semibold transition"
-              >
-                Xem tất cả gợi ý
-              </Link>
+                             <Link
+                 to={paths.student_course}
+                 className="text-green-600 hover:text-green-700 hover:underline text-base font-semibold transition"
+               >
+                 Xem tất cả gợi ý
+               </Link>
             </div>
 
             {isLoadingRecommendedCourses ? (
@@ -789,8 +802,8 @@ const StudentHomePage = () => {
                 <p className="text-gray-600">Không tìm thấy khóa học nào phù hợp.</p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {recommendedCourses.map((course) => {
+                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                 {recommendedCourses.slice(0, 3).map((course) => {
                   const recInstructorNode = (() => {
                     const instructor = recommendedInstructors[course.courseId]?.[0];
                     if (instructor) {
@@ -825,7 +838,7 @@ const StudentHomePage = () => {
                       description={course.description}
                       level={CourseLevel[course.level]}
                       price={course.price}
-                      courseType="Online" // Mock course type
+                      courseType="Public" // Mock course type
                       onClick={() => navigate(`/student/course-detail/${course.courseId}`)}
                       instructor={(() => {
                         const instructor = recommendedInstructors[course.courseId]?.[0];
@@ -852,45 +865,51 @@ const StudentHomePage = () => {
                 Gợi ý học tập cá nhân hóa
               </h3>
 
-              <div className="space-y-5">
-                {[
-                  {
-                    title: "Ôn tập các dạng câu điều kiện",
-                    description:
-                      "Bài kiểm tra gần đây cho thấy bạn cần luyện tập thêm với các mẫu ngữ pháp điều kiện.",
-                    action: "Bắt đầu luyện tập",
-                  },
-                  {
-                    title: "Luyện nghe hiểu",
-                    description:
-                      "Cải thiện kỹ năng nghe của bạn với các bài tập âm thanh trình độ N3 này.",
-                    action: "Bắt đầu nghe",
-                  },
-                  {
-                    title: "Luyện viết Kanji",
-                    description:
-                      "Thực hành viết 15 ký tự Kanji thường bị nhầm lẫn này.",
-                    action: "Bắt đầu viết",
-                  },
-                ].map((rec, index) => (
-                  <div
-                    key={index}
-                    className="flex items-start p-4 border rounded-xl hover:shadow-md transition-shadow duration-200"
-                  >
-                    <div className="flex-1">
-                      <h4 className="text-md font-semibold text-gray-800 mb-1">
-                        {rec.title}
-                      </h4>
-                      <p className="text-gray-600 text-sm mb-3">
-                        {rec.description}
-                      </p>
-                      <button className="inline-block bg-green-500 hover:bg-green-600 text-white text-sm px-4 py-2 rounded-lg transition-colors duration-200">
-                        {rec.action}
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                             <div className="space-y-5">
+                 {[
+                   {
+                     title: "Ôn tập theo các dạng câu hỏi",
+                     description:
+                       "Luyện tập các dạng câu hỏi khác nhau để cải thiện kỹ năng làm bài thi.",
+                     action: "Bắt đầu luyện tập",
+                     path: paths.question_management,
+                   },
+                   {
+                     title: "Luyện thi JLPT",
+                     description:
+                       "Luyện tập các đề thi JLPT với quy trình thi thực tế.",
+                     action: "Bắt đầu luyện tập",
+                     path: paths.student_exam,
+                   },
+                   {
+                     title: "Tư vấn lộ trình học",
+                     description:
+                       "Nhận tư vấn từ Tư vấn viên về lộ trình học tập phù hợp với trình độ của bạn.",
+                     action: "Liên hệ tư vấn",
+                     path: paths.student_messages,
+                   },
+                 ].map((rec, index) => (
+                   <div
+                     key={index}
+                     className="flex items-start p-4 border rounded-xl hover:shadow-md transition-shadow duration-200"
+                   >
+                     <div className="flex-1">
+                       <h4 className="text-md font-semibold text-gray-800 mb-1">
+                         {rec.title}
+                       </h4>
+                       <p className="text-gray-600 text-sm mb-3">
+                         {rec.description}
+                       </p>
+                       <button 
+                         onClick={() => navigate(rec.path)}
+                         className="inline-block bg-green-500 hover:bg-green-600 text-white text-sm px-4 py-2 rounded-lg transition-colors duration-200"
+                       >
+                         {rec.action}
+                       </button>
+                     </div>
+                   </div>
+                 ))}
+               </div>
             </div>
 
             {/* Announcements */}

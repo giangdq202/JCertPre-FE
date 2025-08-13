@@ -3,20 +3,18 @@ import { FaBookOpen, FaArrowRight, FaCheckCircle } from "react-icons/fa";
 import clsx from "clsx";
 import CertificateGenerator from "../CertificateGenerator";
 
-export type CourseTypeEnum = "Online" | "Offline" | "Hybrid";
-export type CourseStatusEnum = "Draft" | "Published" | "Archived" | "Suspended";
+export type CourseTypeEnum = "Personal" | "Public";
+export type CourseStatusEnum = "Draft" | "Published" | "Archived";
 
 export const CourseTypeLabel: Record<CourseTypeEnum, string> = {
-  Online: "Trực tuyến",
-  Offline: "Trực tiếp",
-  Hybrid: "Kết hợp",
+  Personal: "Cá nhân",
+  Public: "Công khai",
 };
 
 export const CourseStatusLabel: Record<CourseStatusEnum, string> = {
   Draft: "Nháp",
   Published: "Xuất bản",
   Archived: "Lưu trữ",
-  Suspended: "Tạm ngưng",
 };
 
 interface CourseCardProps {
@@ -39,9 +37,8 @@ interface CourseCardProps {
 }
 
 const typeColorMap: Record<CourseTypeEnum, string> = {
-  Online: "bg-red-100 text-red-700",
-  Offline: "bg-green-100 text-green-700",
-  Hybrid: "bg-pink-100 text-pink-700",
+  Personal: "bg-red-100 text-red-700",
+  Public: "bg-green-100 text-green-700",
 };
 
 const CourseCard: React.FC<CourseCardProps> = ({
@@ -70,7 +67,7 @@ const CourseCard: React.FC<CourseCardProps> = ({
   };
 
   return (
-    <div className="group relative block bg-white rounded-xl shadow-md hover:shadow-lg hover:ring-2 hover:ring-green-400 transition duration-300 overflow-hidden">
+    <div className="group relative block bg-white rounded-xl shadow-md hover:shadow-lg hover:ring-2 hover:ring-green-400 transition duration-300 overflow-hidden h-full flex flex-col">
       {/* Badge loại khóa học */}
       {courseType && (
         <div className="absolute top-3 left-3 z-10">
@@ -105,8 +102,8 @@ const CourseCard: React.FC<CourseCardProps> = ({
       </div>
 
       {/* Nội dung */}
-      <div className="p-6 flex flex-col justify-between min-h-[260px]">
-        <div className="space-y-3">
+      <div className="p-6 flex flex-col h-full">
+        <div className="flex-1 space-y-3">
           <h4 className="text-xl font-semibold text-gray-900 group-hover:text-green-600 transition-colors duration-300">
             {title}
           </h4>
@@ -116,34 +113,35 @@ const CourseCard: React.FC<CourseCardProps> = ({
               {description}
             </p>
           )}
+        </div>
 
-          <div className="text-xs text-gray-500 flex items-center gap-2 mt-2">
+        {/* Thông tin cố định trên nút */}
+        <div className="mt-6 space-y-3">
+          {/* Trình độ - luôn hiển thị */}
+          <div className="text-xs text-gray-500 flex items-center gap-2">
             <FaBookOpen className="text-green-500" />
             <span>Trình độ: {level}</span>
           </div>
 
-          {/* Hiển thị thông tin giáo viên nếu có */}
-          {instructor && (
-            <div className="flex items-center gap-2 mt-2">
-              <img
-                src={instructor.avatarUrl || "https://placehold.co/24x24/cccccc/ffffff?text=GV"}
-                alt={instructor.fullName}
-                className="w-6 h-6 rounded-full object-cover"
-              />
-              <span className="text-xs text-gray-600 truncate">{instructor.fullName}</span>
-            </div>
-          )}
+          {/* Thông tin giáo viên - luôn hiển thị */}
+          <div className="flex items-center gap-2">
+            <img
+              src={instructor?.avatarUrl || "https://placehold.co/24x24/cccccc/ffffff?text=GV"}
+              alt={instructor?.fullName || "Giáo viên"}
+              className="w-6 h-6 rounded-full object-cover"
+            />
+            <span className="text-xs text-gray-600 truncate">
+              {instructor?.fullName || "Giáo viên"}
+            </span>
+          </div>
 
-          {/* Hiển thị giá nếu chưa mua */}
-          {!isPurchased && price !== undefined && (
-            <p className="text-green-600 font-semibold">
+          {/* Giá hoặc tiến độ - tùy theo trạng thái */}
+          {!isPurchased && price !== undefined ? (
+            <p className="text-green-600 font-semibold text-sm">
               {price === 0 ? "Miễn phí" : price.toLocaleString("vi-VN") + "₫"}
             </p>
-          )}
-
-          {/* Thanh tiến độ nếu đã mua */}
-          {isPurchased && (
-            <div className="mt-3">
+          ) : isPurchased && (
+            <div>
               <div className="w-full bg-gray-200 rounded-full h-2">
                 <div
                   className="bg-green-500 h-2 rounded-full transition-all duration-300"
@@ -155,11 +153,9 @@ const CourseCard: React.FC<CourseCardProps> = ({
               </p>
             </div>
           )}
-        </div>
 
-        {/* Button hoặc trạng thái hoàn thành */}
-        {isCompleted ? (
-          <div className="mt-6">
+          {/* Button hoặc trạng thái hoàn thành */}
+          {isCompleted ? (
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-green-600 font-semibold">
                 <FaCheckCircle className="w-5 h-5" />
@@ -170,18 +166,18 @@ const CourseCard: React.FC<CourseCardProps> = ({
                 onDownload={onCertificateDownload}
               />
             </div>
-          </div>
-        ) : (
-          <button
-            onClick={onClick}
-            className="mt-6 flex items-center justify-center gap-2 bg-green-600 text-white text-sm font-semibold py-3 rounded-lg
-                       group-hover:bg-green-700 transition-colors duration-300 cursor-pointer select-none
-                       focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-2 w-full"
-          >
-            <span>{buttonText || (isPurchased ? "Tiếp tục học" : "Đăng ký")}</span>
-            <FaArrowRight className="w-4 h-4" />
-          </button>
-        )}
+          ) : (
+            <button
+              onClick={onClick}
+              className="w-full flex items-center justify-center gap-2 bg-green-600 text-white text-sm font-semibold py-3 rounded-lg
+                         group-hover:bg-green-700 transition-colors duration-300 cursor-pointer select-none
+                         focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-2"
+            >
+              <span>{buttonText || (isPurchased ? "Tiếp tục học" : "Đăng ký")}</span>
+              <FaArrowRight className="w-4 h-4" />
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );

@@ -5,6 +5,10 @@ import {
   UPDATE_TEST_TEMPLATE_URL,
   DELETE_TEST_TEMPLATE_URL,
 } from "../consts/apiUrl/baseUrl";
+import {
+  validateCreateTestTemplateDto,
+  validateUpdateTestTemplateDto
+} from "../types/testTemplate.types";
 
 export interface CreateTestTemplateDto {
   testTemplateTypeId: string;
@@ -55,6 +59,12 @@ export const getAllByTypeId = async (testTemplateTypeId: string): Promise<TestTe
  */
 export const createTestTemplate = async (dto: CreateTestTemplateDto): Promise<TestTemplateDto> => {
   try {
+    // Validate the DTO before sending to backend
+    const validation = validateCreateTestTemplateDto(dto);
+    if (!validation.isValid) {
+      throw new Error(`Validation failed: ${validation.message}`);
+    }
+
     const response = await axiosInstance.post(CREATE_TEST_TEMPLATE_URL, dto);
     return response.data;
   } catch (error) {
@@ -74,6 +84,12 @@ export const updateTestTemplate = async (
   dto: UpdateTestTemplateDto
 ): Promise<TestTemplateDto> => {
   try {
+    // Validate the DTO before sending to backend
+    const validation = validateUpdateTestTemplateDto(dto);
+    if (!validation.isValid) {
+      throw new Error(`Validation failed: ${validation.message}`);
+    }
+
     const response = await axiosInstance.put(UPDATE_TEST_TEMPLATE_URL(templateId), dto);
     return response.data;
   } catch (error) {

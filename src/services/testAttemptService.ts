@@ -7,6 +7,7 @@ import {
   GET_TEST_ATTEMPT_WITH_SCORE_URL,
 } from "../consts/apiUrl/baseUrl";
 
+
 export enum TestAttemptStatus {
   InProgress = 0,
   Completed = 1,
@@ -65,6 +66,11 @@ export interface TestAttemptWithScoreSummary {
  */
 export const startTestAttempt = async (dto: StartTestAttemptDto): Promise<TestAttemptDto> => {
   try {
+    // Basic validation
+    if (!dto.testId || !dto.userId) {
+      throw new Error("Validation failed: testId and userId are required");
+    }
+
     const response = await axiosInstance.post(START_TEST_ATTEMPT_URL, dto);
     return response.data;
   } catch (error) {
@@ -80,6 +86,11 @@ export const startTestAttempt = async (dto: StartTestAttemptDto): Promise<TestAt
  */
 export const submitTestAttempt = async (dto: SubmitTestAttemptDto): Promise<TestAttemptDto> => {
   try {
+    // Basic validation
+    if (!dto.attemptId) {
+      throw new Error("Validation failed: attemptId is required");
+    }
+
     const response = await axiosInstance.post(SUBMIT_TEST_ATTEMPT_URL, dto);
     return response.data;
   } catch (error) {

@@ -4,6 +4,7 @@ import {
   getLessonProgressByUserAndCourse,
   getLessonProgressByUserAndLesson,
   createLessonProgress,
+  createLessonProgressWithCourse,
   updateLessonProgress,
   deleteLessonProgress,
   getUserCourseCompletionRate,
@@ -11,10 +12,15 @@ import {
   getLessonCompletionRate as getLessonCompletionRateService,
   markLessonAsCompleted as markLessonAsCompletedService,
   updateLessonProgressRate as updateLessonProgressRateService,
+} from '../services/lessonProgressService';
+import {
   type LessonProgressDto,
   type CreateLessonProgressDto,
   type UpdateLessonProgressDto,
-} from '../services/lessonProgressService';
+  type CreateLessonProgressWithCourseDto,
+  validateLessonProgressCreateDto,
+  validateLessonProgressUpdateDto
+} from '../types/lessonProgress.types';
 
 export const useLessonProgress = () => {
   const { userInfo, isLoading: authLoading } = useAuth();
@@ -87,7 +93,7 @@ export const useLessonProgress = () => {
   // Create lesson progress
   const createProgress = useCallback(async (
     lessonId: string,
-    courseId: string
+    courseId?: string
   ): Promise<LessonProgressDto> => {
     if (!checkAuth()) {
       throw new Error('User not authenticated');
@@ -97,14 +103,32 @@ export const useLessonProgress = () => {
     setError(null);
     
     try {
-      const createDto: CreateLessonProgressDto = {
-        userId: userInfo!.id,
-        lessonId,
-        courseId,
-      };
-      
-      const result = await createLessonProgress(createDto);
-      return result;
+      if (courseId) {
+        // Use legacy function with courseId for backward compatibility
+        const createDto: CreateLessonProgressWithCourseDto = {
+          userId: userInfo!.id,
+          lessonId,
+          courseId,
+        };
+        
+        const result = await createLessonProgressWithCourse(createDto);
+        return result;
+      } else {
+        // Use new backend DTO structure
+        const createDto: CreateLessonProgressDto = {
+          userId: userInfo!.id,
+          lessonId,
+        };
+        
+        // Validate before sending
+        const validation = validateLessonProgressCreateDto(createDto);
+        if (!validation.isValid) {
+          throw new Error(`Validation failed: ${validation.message}`);
+        }
+        
+        const result = await createLessonProgress(createDto);
+        return result;
+      }
     } catch (err: any) {
       const errorMessage = err.response?.data?.message || err.message || 'Failed to create lesson progress';
       setError(errorMessage);
@@ -126,6 +150,12 @@ export const useLessonProgress = () => {
       const updateDto: UpdateLessonProgressDto = {
         completionRate,
       };
+      
+      // Validate before sending
+      const validation = validateLessonProgressUpdateDto(updateDto);
+      if (!validation.isValid) {
+        throw new Error(`Validation failed: ${validation.message}`);
+      }
       
       const result = await updateLessonProgress(progressId, updateDto);
       return result;

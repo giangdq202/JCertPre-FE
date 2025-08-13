@@ -18,7 +18,6 @@ export enum CourseStatus {
   Draft = 0,
   Published = 1,
   Archived = 2,
-  Suspended = 3,
 }
 
 export enum CourseLevel {
@@ -30,9 +29,8 @@ export enum CourseLevel {
 }
 
 export enum CourseType {
-  Online = 0,
-  Offline = 1,
-  Hybrid = 2,
+  Personal = 0,
+  Public = 1,
 }
 
 export interface CourseQueryParameters {
@@ -226,6 +224,7 @@ export const createCourse = async (
     formData.append("Description", createCourseDto.description);
     formData.append("Level", createCourseDto.level.toString());
     formData.append("CourseType", createCourseDto.courseType.toString());
+    // Revert back to .toString() as per working version
     formData.append("Price", createCourseDto.price.toString());
     formData.append("StartDate", createCourseDto.startDate);
     formData.append("EndDate", createCourseDto.endDate);
@@ -239,7 +238,12 @@ export const createCourse = async (
     // Gửi yêu cầu POST đến API khóa học
     const response = await axiosInstance.post<CourseDto>(
       CREATE_COURSE_URL,
-      formData
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      }
     );
     return response.data;
   } catch (error) {
@@ -254,6 +258,8 @@ export const updateCourse = async (
 ): Promise<CourseDto> => {
   try {
     const formData = new FormData();
+    
+    // Only append non-null and non-undefined values
     if (updateCourseDto.title !== undefined && updateCourseDto.title !== null) {
       formData.append("Title", updateCourseDto.title);
     }
@@ -267,13 +273,15 @@ export const updateCourse = async (
       formData.append("CourseType", updateCourseDto.courseType.toString());
     }
     if (updateCourseDto.price !== undefined && updateCourseDto.price !== null) {
+      // Revert back to .toString() as per working version
       formData.append("Price", updateCourseDto.price.toString());
     }
     if (updateCourseDto.thumbnailFile) {
       formData.append("ThumbnailFile", updateCourseDto.thumbnailFile);
     }
-    if (updateCourseDto.thumbnailUrl) {
-      formData.append("ThumbnailUrl", updateCourseDto.thumbnailUrl);
+    if (updateCourseDto.thumbnailUrl !== undefined) {
+      // Allow setting thumbnailUrl to null by sending empty string or the actual URL
+      formData.append("ThumbnailUrl", updateCourseDto.thumbnailUrl || "");
     }
     if (updateCourseDto.startDate !== undefined && updateCourseDto.startDate !== null) {
       formData.append("StartDate", updateCourseDto.startDate);
@@ -285,15 +293,20 @@ export const updateCourse = async (
       formData.append("Status", updateCourseDto.status.toString());
     }
 
-    // Gửi yêu cầu PUT đến API khóa học với ID cụ thể, sử dụng URL từ baseUrl.ts
+    // Remove the detailed logging to match working version
     const response = await axiosInstance.put<CourseDto>(
       UPDATE_COURSE_URL(id),
-      formData
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      }
     );
     return response.data;
-  } catch (error) {
+  } catch (error: any) {
     console.error(`UpdateCourse API error for ID ${id}:`, error);
-    throw error; // Ném lỗi để component gọi có thể bắt và xử lý
+    throw error;
   }
 };
 

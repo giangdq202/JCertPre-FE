@@ -2,7 +2,6 @@
 
 import axiosInstance from "../consts/axios/axiosInstance"; // Assuming axiosInstance is correctly configured
 import { Pagination } from "../types/pagination"; // Assuming you have a common Pagination type
-import { Description } from "@mui/icons-material"; // Keep this if you use it for other purposes, though not directly in this file's logic
 
 const BASE_SUB_CONTENTS_URL = "/subcontents"; // Base URL for subcontent API
 
@@ -42,6 +41,52 @@ export enum ContentName {
   Reading = 3, // đọc hiểu
   Listening = 4, // nghe hiểu
 }
+
+// --- Validation rules for sub-content fields ---
+export const SUB_CONTENT_VALIDATION_RULES = {
+  SUB_CONTENT_NAME_REQUIRED_MESSAGE: "SubContentName is required.",
+  LEVEL_REQUIRED_MESSAGE: "Level is required.",
+  CONTENT_NAME_REQUIRED_MESSAGE: "ContentName is required."
+} as const;
+
+// --- Validation functions ---
+/**
+ * Validate sub-content creation DTO according to backend rules
+ */
+export const validateSubContentCreateDto = (dto: CreateSubContentDto): { isValid: boolean; message?: string } => {
+  if (dto.subContentName === undefined || dto.subContentName === null) {
+    return { isValid: false, message: SUB_CONTENT_VALIDATION_RULES.SUB_CONTENT_NAME_REQUIRED_MESSAGE };
+  }
+
+  if (dto.level === undefined || dto.level === null) {
+    return { isValid: false, message: SUB_CONTENT_VALIDATION_RULES.LEVEL_REQUIRED_MESSAGE };
+  }
+
+  if (dto.contentName === undefined || dto.contentName === null) {
+    return { isValid: false, message: SUB_CONTENT_VALIDATION_RULES.CONTENT_NAME_REQUIRED_MESSAGE };
+  }
+
+  return { isValid: true };
+};
+
+/**
+ * Validate sub-content update DTO according to backend rules
+ */
+export const validateSubContentUpdateDto = (dto: UpdateSubContentDto): { isValid: boolean; message?: string } => {
+  if (dto.subContentName === undefined || dto.subContentName === null) {
+    return { isValid: false, message: SUB_CONTENT_VALIDATION_RULES.SUB_CONTENT_NAME_REQUIRED_MESSAGE };
+  }
+
+  if (dto.level === undefined || dto.level === null) {
+    return { isValid: false, message: SUB_CONTENT_VALIDATION_RULES.LEVEL_REQUIRED_MESSAGE };
+  }
+
+  if (dto.contentName === undefined || dto.contentName === null) {
+    return { isValid: false, message: SUB_CONTENT_VALIDATION_RULES.CONTENT_NAME_REQUIRED_MESSAGE };
+  }
+
+  return { isValid: true };
+};
 
 // --- Interfaces for Dạng câu hỏi DTOs ---
 
@@ -115,17 +160,26 @@ export const getAllSubContents = async (
   pageSize: number = 10
 ): Promise<Pagination<SubContentDto>> => {
   try {
-    const params = {
-      search,
+    const params: any = {
       pageIndex,
       pageSize,
-      // Khi gửi lên query string, thường thì backend C# có thể tự parse tên chuỗi của enum.
-      // Vì vậy, chúng ta sẽ chuyển từ số sang tên chuỗi ở đây.
-      // Nếu backend mong đợi số trong query string, hãy bỏ `Enum[value]` và chỉ gửi `value`.
-      level: level !== undefined ? CourseLevel[level] : undefined,
-      contentName: contentName !== undefined ? ContentName[contentName] : undefined,
-      subContentName: subContentName !== undefined ? SubContentName[subContentName] : undefined,
     };
+    
+    // Only add search parameter if it's not undefined
+    if (search !== undefined) {
+      params.search = search;
+    }
+    
+    // Only add enum parameters if they are defined - gửi số enum thay vì string
+    if (level !== undefined) {
+      params.level = level; // Gửi số enum (0, 1, 2, 3, 4)
+    }
+    if (contentName !== undefined) {
+      params.contentName = contentName; // Gửi số enum (0, 1, 2, 3, 4)
+    }
+    if (subContentName !== undefined) {
+      params.subContentName = subContentName; // Gửi số enum (0, 1, 2, ..., 13)
+    }
 
     const response = await axiosInstance.get<Pagination<SubContentDto>>(
       BASE_SUB_CONTENTS_URL,
@@ -148,6 +202,12 @@ export const createSubContent = async (
   createSubContentDto: CreateSubContentDto // DTO này đã dùng numeric enum
 ): Promise<SubContentDto> => {
   try {
+    // Validate the DTO before sending to backend
+    const validation = validateSubContentCreateDto(createSubContentDto);
+    if (!validation.isValid) {
+      throw new Error(`Validation failed: ${validation.message}`);
+    }
+
     const response = await axiosInstance.post<SubContentDto>(
       BASE_SUB_CONTENTS_URL,
       createSubContentDto // Axios sẽ tự tuần tự hóa các số thành JSON
@@ -171,6 +231,12 @@ export const updateSubContent = async (
   updateSubContentDto: UpdateSubContentDto // DTO này đã dùng numeric enum
 ): Promise<SubContentDto> => {
   try {
+    // Validate the DTO before sending to backend
+    const validation = validateSubContentUpdateDto(updateSubContentDto);
+    if (!validation.isValid) {
+      throw new Error(`Validation failed: ${validation.message}`);
+    }
+
     const response = await axiosInstance.put<SubContentDto>(
       `${BASE_SUB_CONTENTS_URL}/${subContentId}`,
       updateSubContentDto // Axios sẽ tự tuần tự hóa các số thành JSON
