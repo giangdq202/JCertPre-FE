@@ -1,4 +1,5 @@
 import axios, { AxiosInstance, AxiosResponse } from 'axios';
+import { BASE_URL } from '../consts/apiUrl/baseUrl';
 
 // Types for API requests and responses
 interface CreateLivestreamDto {
@@ -92,7 +93,7 @@ export { LivestreamStatus, UserRoleInCourse };
 class LivestreamApiService {
   private api: AxiosInstance;
 
-  constructor(baseUrl: string = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5001/api') {
+  constructor(baseUrl: string = BASE_URL) {
     this.api = axios.create({
       baseURL: baseUrl,
       headers: {
