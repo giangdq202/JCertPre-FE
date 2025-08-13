@@ -61,6 +61,7 @@ const ChatStudyPlanSplitView: React.FC<ChatStudyPlanSplitViewProps> = ({
         <div className="flex-1 overflow-y-auto">
           <StudyPlanCreator
             studentId={studentId}
+            studentName={studentName}
             onStudyPlanCreated={onStudyPlanCreated}
           />
         </div>

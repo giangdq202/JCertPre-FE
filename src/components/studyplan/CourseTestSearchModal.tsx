@@ -6,7 +6,6 @@ import {
   HiOutlineClipboardList
 } from 'react-icons/hi';
 import { HiExclamationTriangle } from 'react-icons/hi2';
-import { useAuth } from '../../auth/AuthContext';
 import { 
   getCourses, 
   CourseListDto, 
@@ -15,15 +14,39 @@ import {
   CourseLevel as CourseLevelEnum 
 } from '../../services/courseService';
 import { 
-  getAllByUserId, 
-  TestDto, 
   TestType, 
   CourseLevel as TestCourseLevelEnum 
 } from '../../services/testService';
+import { 
+  getAllTestTemplateTypes, 
+  TestTemplateTypeDto 
+} from '../../services/testTemplateTypeService';
+import { 
+  getAllByTypeId as getTemplatesByTypeId, 
+  TestTemplateDto 
+} from '../../services/testTemplateService';
+import { 
+  getAllByTemplateId as getConfigsByTemplateId, 
+  TestTemplateConfigDto 
+} from '../../services/testTemplateConfigService';
+
+// Define a unified test option interface for search modal
+export interface TestOption {
+  testId: string; // This will be used for study plan creation
+  title: string; // e.g., "JLPT N4"
+  description?: string;
+  testType: TestType;
+  courseLevel: TestCourseLevelEnum;
+  durationMinutes: number;
+  maxAttempts: number;
+  // Additional metadata
+  testTemplateTypeId: string; // For reference
+  testTemplateId?: string; // Optional template ID
+}
 
 interface CourseTestSearchModalProps {
   type: 'course' | 'test';
-  onSelect: (item: CourseListDto | TestDto) => void;
+  onSelect: (item: CourseListDto | TestOption) => void;
   onClose: () => void;
 }
 
@@ -32,7 +55,6 @@ const CourseTestSearchModal: React.FC<CourseTestSearchModalProps> = ({
   onSelect,
   onClose
 }) => {
-  const { userInfo } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedLevel, setSelectedLevel] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
@@ -42,7 +64,7 @@ const CourseTestSearchModal: React.FC<CourseTestSearchModalProps> = ({
   const [courses, setCourses] = useState<CourseListDto[]>([]);
   
   // Test data
-  const [tests, setTests] = useState<TestDto[]>([]);
+  const [tests, setTests] = useState<TestOption[]>([]);
 
   // Load data based on type
   useEffect(() => {
@@ -73,19 +95,67 @@ const CourseTestSearchModal: React.FC<CourseTestSearchModalProps> = ({
   };
 
   const loadTests = async () => {
-    if (!userInfo?.id) {
-      setError('Không thể xác định thông tin người dùng');
-      return;
-    }
-
     setIsLoading(true);
     setError('');
     try {
-      const response = await getAllByUserId({
-        userId: userInfo.id,
-        pageSize: 100
-      });
-      setTests(response.items);
+      // Fetch active template types for JLPTAuto and EntryAuto
+      const [jlptTypes, entryTypes] = await Promise.all([
+        getAllTestTemplateTypes({ type: TestType.JLPTAuto, isActive: true, pageSize: 100 }),
+        getAllTestTemplateTypes({ type: TestType.EntryAuto, isActive: true, pageSize: 100 })
+      ]);
+
+      const allTypes: TestTemplateTypeDto[] = [
+        ...jlptTypes.items,
+        ...entryTypes.items
+      ];
+
+      const testOptions: TestOption[] = [];
+
+      // For each type, load templates and ensure type has at least one template with configs
+      for (const type of allTypes) {
+        const templates: TestTemplateDto[] = await getTemplatesByTypeId(type.testTemplateTypeId);
+        
+        // Filter templates that have configs
+        const validTemplates: TestTemplateDto[] = [];
+        for (const template of templates) {
+          const configs: TestTemplateConfigDto[] = await getConfigsByTemplateId(template.templateId);
+          if (configs && configs.length > 0) {
+            validTemplates.push(template);
+          }
+        }
+        
+        // Only add option if there are valid templates
+        if (validTemplates.length > 0) {
+          // Calculate average duration from all valid templates
+          const avgDuration = validTemplates.reduce((sum, template) => 
+            sum + (template.durationMinutes || 0), 0) / validTemplates.length;
+          
+          // Use the first valid template's ID as the testId
+          const firstTemplate = validTemplates[0];
+          
+          // Try both testTemplateTypeId and testTemplateId approaches
+          // You can comment/uncomment based on what your backend expects
+          
+          testOptions.push({
+            // Option 1: Use testTemplateTypeId (for referencing test type)
+            testId: type.testTemplateTypeId,
+            
+            // Option 2: Use testTemplateId (for specific template instance)
+            // testId: firstTemplate.templateId,
+            
+            title: type.typeName, // Just the type name, e.g., "JLPT N4"
+            description: '', // TestTemplateType không có description field
+            testType: type.testType as TestType,
+            courseLevel: type.courseLevel as TestCourseLevelEnum,
+            durationMinutes: Math.round(avgDuration),
+            maxAttempts: 3, // Default max attempts
+            testTemplateTypeId: type.testTemplateTypeId, // For reference
+            testTemplateId: firstTemplate.templateId // The actual template ID
+          });
+        }
+      }
+
+      setTests(testOptions);
     } catch (err) {
       console.error('Error loading tests:', err);
       setError('Không thể tải danh sách bài test');
@@ -150,7 +220,7 @@ const CourseTestSearchModal: React.FC<CourseTestSearchModalProps> = ({
     return tests.filter(test => {
       const matchesSearch = !searchTerm ||
         test.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (test.description?.toLowerCase() || '').includes(searchTerm.toLowerCase());
+        (test.description && test.description.toLowerCase().includes(searchTerm.toLowerCase()));
       
       const matchesLevel = !selectedLevel ||
         getTestLevelString(test.courseLevel) === selectedLevel;
@@ -159,7 +229,7 @@ const CourseTestSearchModal: React.FC<CourseTestSearchModalProps> = ({
     });
   }, [tests, searchTerm, selectedLevel]);
 
-  const handleItemClick = (item: CourseListDto | TestDto) => {
+  const handleItemClick = (item: CourseListDto | TestOption) => {
     onSelect(item);
   };
 
@@ -287,9 +357,11 @@ const CourseTestSearchModal: React.FC<CourseTestSearchModalProps> = ({
                               {getTestTypeString(test.testType)}
                             </span>
                           </div>
-                          <p className="text-sm text-gray-600 mb-2 line-clamp-2">
-                            {test.description}
-                          </p>
+                          {test.description && (
+                            <p className="text-sm text-gray-600 mb-2 line-clamp-2">
+                              {test.description}
+                            </p>
+                          )}
                           <div className="flex items-center gap-4 text-xs text-gray-500">
                             <span>Thời gian: {test.durationMinutes} phút</span>
                             <span>Số lần làm tối đa: {test.maxAttempts}</span>

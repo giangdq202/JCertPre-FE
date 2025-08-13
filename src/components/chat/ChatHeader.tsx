@@ -22,7 +22,6 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({
   theme = 'green',
   additionalActions
 }) => {
-  console.log('ChatHeader additionalActions:', additionalActions);
   const getStatusColor = () => {
     return theme === 'green' ? 'text-green-600' : 'text-orange-600';
   };

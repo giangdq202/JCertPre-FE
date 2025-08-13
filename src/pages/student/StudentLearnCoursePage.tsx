@@ -1,14 +1,18 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { getLessonsByCourseId, LessonDto } from "../../services/lessonService";
+import { getLessonsByCourseId } from "../../services/lessonService";
+import { LessonDto } from "../../types/lesson.types";
 import { getDocumentsByLessonId, DocumentDto } from "../../services/documentService";
 import { getCourseById, CourseDto } from "../../services/courseService";
-import { getByLessonId, TestDto, TestStatus } from "../../services/testService";
+import { getByLessonId, TestDto } from "../../services/testService";
 import { getAllTestAttemptsByUserId, TestAttemptDto, TestAttemptStatus } from "../../services/testAttemptService";
+import { 
+  getLessonProgressByUserAndLesson
+} from "../../services/lessonProgressService";
 import { livestreamApi, LivestreamDto, LivestreamStatus } from "../../services/livestreamService";
 import StudentHeader from "../../components/header/StudentHeader";
 import StudentSideBar from "../../components/sidebar/StudentSideBar";
-import { FaChevronRight, FaFilePdf, FaDownload, FaVideo, FaEdit, FaPlay, FaClock, FaCalendarAlt, FaUser } from "react-icons/fa";
+import { FaChevronRight, FaFilePdf, FaDownload, FaVideo, FaEdit, FaPlay, FaClock, FaCalendarAlt, FaUser, FaExclamationTriangle } from "react-icons/fa";
 import { FiCheckCircle, FiCircle } from "react-icons/fi";
 import { HiOutlineClock } from "react-icons/hi2";
 import { useLessonProgress } from "../../hooks/useLessonProgress";
@@ -51,8 +55,6 @@ const StudentLearnCoursePage: React.FC = () => {
   const [loadingLessons, setLoadingLessons] = useState(true);
   const [videoDoc, setVideoDoc] = useState<DocumentDto | null>(null);
   const [lessonProgress, setLessonProgress] = useState<{ [key: string]: number }>({});
-  const [showCompletionMessage, setShowCompletionMessage] = useState(false);
-  const [completedLessonTitle, setCompletedLessonTitle] = useState('');
   const [lessonTests, setLessonTests] = useState<{ [key: string]: TestDto | null }>({});
   const [loadingTests, setLoadingTests] = useState<{ [key: string]: boolean }>({});
   const [activeTest, setActiveTest] = useState<TestDto | null>(null);
@@ -67,8 +69,20 @@ const StudentLearnCoursePage: React.FC = () => {
   
   // Auth and lesson progress hooks
   const { isLoading: authLoading, userInfo } = useAuth();
-  const { getLessonCompletionRate } = useLessonProgress();
+  const { 
+    getLessonCompletionRate, 
+    getPassedTestIds,
+    updateProgress
+  } = useLessonProgress();
   const { error: showError, warning } = useNotification();
+
+  // Helper function to check if course has expired
+  const isCourseExpired = (endDate: string) => {
+    return dayjs(endDate).isBefore(dayjs(), 'day');
+  };
+
+  // Get course expiry status
+  const courseExpired = course?.endDate ? isCourseExpired(course.endDate) : false;
 
   useEffect(() => {
     if (!courseId || authLoading) return;
@@ -193,30 +207,6 @@ const StudentLearnCoursePage: React.FC = () => {
     }
   };
 
-
-  const handleLessonCompleted = async (lessonId: string) => {
-    try {
-      // Refresh progress from API
-      const progress = await getLessonCompletionRate(lessonId);
-      setLessonProgress(prev => ({
-        ...prev,
-        [lessonId]: progress
-      }));
-      
-      // Show completion message
-      const lessonTitle = lessons.find(l => l.lessonId === lessonId)?.title || '';
-      setCompletedLessonTitle(lessonTitle);
-      setShowCompletionMessage(true);
-      
-      // Hide message after 5 seconds
-      setTimeout(() => {
-        setShowCompletionMessage(false);
-      }, 5000);
-    } catch (error) {
-      console.error('Failed to refresh lesson progress:', error);
-    }
-  };
-
   const isLessonCompleted = (lessonId: string) => {
     return lessonProgress[lessonId] >= 100;
   };
@@ -333,22 +323,42 @@ const StudentLearnCoursePage: React.FC = () => {
     if (!userInfo?.id) return;
     
     try {
-      const allAttempts = await getAllTestAttemptsByUserId(userInfo.id);
-      
-      // Store all attempts
-      setTestAttempts(allAttempts);
-      
-      // Find test IDs that have at least one passed attempt
-      const passedTestIdsSet = new Set<string>();
-      allAttempts.forEach(attempt => {
-        if (attempt.status === TestAttemptStatus.Completed && attempt.isPass === true) {
-          passedTestIdsSet.add(attempt.testId);
-        }
-      });
-      
+      // Use the new service to get passed test IDs
+      const passedTestIdsSet = await getPassedTestIds();
       setPassedTestIds(passedTestIdsSet);
+      
+      // Check for newly completed tests and update lesson progress
+      await checkAndUpdateLessonProgress(passedTestIdsSet);
     } catch (error) {
       console.error('Failed to refresh test results:', error);
+      // Fallback to empty set on error
+      setPassedTestIds(new Set());
+    }
+  };
+
+  // Check and update lesson progress for completed tests
+  const checkAndUpdateLessonProgress = async (passedTestIds: Set<string>) => {
+    if (!userInfo?.id || !courseId) return;
+    
+    try {
+      // Get all lessons and their tests
+      for (const lesson of lessons) {
+        const test = lessonTests[lesson.lessonId];
+        if (!test) continue;
+        
+        // If test is passed, check and update lesson progress
+        if (passedTestIds.has(test.testId)) {
+          const existingProgress = await getLessonProgressByUserAndLesson(userInfo.id, lesson.lessonId);
+          
+          if (existingProgress && existingProgress.completionRate < 100) {
+            // Update lesson progress to 100% if test is passed but progress is not 100%
+            await updateProgress(existingProgress.progressId, 100);
+            console.log(`Updated lesson progress for lesson ${lesson.lessonId} to 100%`);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Failed to update lesson progress:', error);
     }
   };
 
@@ -360,26 +370,6 @@ const StudentLearnCoursePage: React.FC = () => {
       <div className="flex-1 flex flex-col overflow-hidden">
         <StudentHeader />
         <main className="flex-1 p-6 overflow-y-auto">
-          {/* Completion Message */}
-          {showCompletionMessage && (
-            <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg flex items-center gap-3">
-              <FiCheckCircle className="h-5 w-5 text-green-600 flex-shrink-0" />
-              <div className="flex-1">
-                <p className="text-sm font-medium text-green-800">
-                  Chúc mừng! Bạn đã hoàn thành bài học "{completedLessonTitle}"
-                </p>
-                <p className="text-xs text-green-600 mt-1">
-                  Tiếp tục với bài học tiếp theo để hoàn thành khóa học
-                </p>
-              </div>
-              <button
-                onClick={() => setShowCompletionMessage(false)}
-                className="text-green-600 hover:text-green-800"
-              >
-                ×
-              </button>
-            </div>
-          )}
           
           {/* Breadcrumb */}
           <nav className="text-sm text-gray-500 mb-4 flex items-center gap-2">
@@ -387,23 +377,48 @@ const StudentLearnCoursePage: React.FC = () => {
             <FaChevronRight className="inline mx-1" />
             <span className="font-semibold text-green-700">{course?.title || "..."}</span>
           </nav>
+          
+          {/* Course Expiry Warning */}
+          {courseExpired && course?.endDate && (
+            <div className="bg-red-50 border-l-4 border-red-400 p-4 mb-6 rounded-lg">
+              <div className="flex items-center">
+                <FaExclamationTriangle className="text-red-400 mr-3" />
+                <div>
+                  <h3 className="text-red-800 font-semibold text-lg">Khóa học đã hết hạn</h3>
+                  <p className="text-red-700 mt-1">
+                    Khóa học này đã kết thúc vào ngày {dayjs(course.endDate).format('DD/MM/YYYY')}. 
+                    Bạn không thể thực hiện các bài kiểm tra sau thời hạn này.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+          
           <div className="flex flex-row gap-8">
             {/* Main Content */}
             <div className="flex-1">
               {showTestInterface && activeTest ? (
-                <TestInterface test={activeTest} onBack={handleBackFromTest} />
+                <TestInterface 
+                  test={activeTest} 
+                  lessonId={selectedLessonId || undefined}
+                  courseId={courseId}
+                  onBack={handleBackFromTest} 
+                  onTestCompleted={async () => {
+                    // Refresh test results and lesson progress after test completion
+                    await refreshTestResults();
+                  }}
+                />
               ) : (
                 <>
                   <h2 className="text-2xl font-bold text-gray-800 mb-4">{selectedLessonId && lessons.find(l => l.lessonId === selectedLessonId)?.title}</h2>
               
-                             {/* Video player with progress tracking */}
+               {/* Video player without progress tracking */}
                {videoDoc && selectedLessonId ? (
                  <VideoLessonPlayer
                    courseId={courseId!}
                    lessonId={selectedLessonId}
                    lessonTitle={lessons.find(l => l.lessonId === selectedLessonId)?.title || ''}
                    videoUrl={videoDoc.fileUrl}
-                   onLessonCompleted={() => handleLessonCompleted(selectedLessonId)}
                  />
               ) : videoDoc ? (
                 <div className="bg-white rounded-xl shadow-xl p-6 mb-6">
@@ -646,31 +661,86 @@ const StudentLearnCoursePage: React.FC = () => {
                                   </div>
 
                                 </div>
-                                {lessonTests[lesson.lessonId]?.status === TestStatus.Open && (
+                                {lessonTests[lesson.lessonId] && (
                                   <>
                                     {isTestPassed(lessonTests[lesson.lessonId]!.testId) ? (
                                       <button
-                                        onClick={() => handleStartTest(lessonTests[lesson.lessonId]!)}
-                                        className="w-full flex items-center justify-center gap-2 p-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 transition-colors"
+                                        onClick={() => {
+                                          if (courseExpired) {
+                                            warning('Khóa học đã hết hạn. Bạn không thể thực hiện các bài kiểm tra.');
+                                            return;
+                                          }
+                                          handleStartTest(lessonTests[lesson.lessonId]!);
+                                        }}
+                                        disabled={courseExpired}
+                                        className={`w-full flex items-center justify-center gap-2 p-2 text-sm rounded-lg transition-colors ${
+                                          courseExpired 
+                                            ? 'bg-gray-400 text-gray-600 cursor-not-allowed' 
+                                            : 'bg-green-600 text-white hover:bg-green-700'
+                                        }`}
                                       >
                                         <FaEdit />
-                                        Làm lại bài test
+                                        {courseExpired ? 'Khóa học đã hết hạn' : 'Làm lại bài test'}
                                       </button>
                                     ) : (
                                       <button
-                                        onClick={() => handleStartTest(lessonTests[lesson.lessonId]!)}
-                                        className="w-full flex items-center justify-center gap-2 p-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
+                                        onClick={() => {
+                                          if (courseExpired) {
+                                            warning('Khóa học đã hết hạn. Bạn không thể thực hiện các bài kiểm tra.');
+                                            return;
+                                          }
+                                          handleStartTest(lessonTests[lesson.lessonId]!);
+                                        }}
+                                        disabled={courseExpired}
+                                        className={`w-full flex items-center justify-center gap-2 p-2 text-sm rounded-lg transition-colors ${
+                                          courseExpired 
+                                            ? 'bg-gray-400 text-gray-600 cursor-not-allowed' 
+                                            : 'bg-blue-600 text-white hover:bg-blue-700'
+                                        }`}
                                       >
                                         <FaEdit />
-                                        Làm bài test
+                                        {courseExpired ? 'Khóa học đã hết hạn' : 'Làm bài test'}
                                       </button>
+                                    )}
+                                    
+                                    {courseExpired && (
+                                      <div className="text-center py-1 bg-yellow-50 border border-yellow-200 rounded-lg mt-2">
+                                        <div className="text-yellow-800 text-xs">
+                                          ⚠️ Đã hết hạn vào {dayjs(course?.endDate).format('DD/MM/YYYY')}
+                                        </div>
+                                      </div>
                                     )}
                                   </>
                                 )}
                               </div>
-                            ) : !loadingTests[lesson.lessonId] && (
+                            ) : loadingTests[lesson.lessonId] ? (
                               <div className="text-xs text-gray-500 p-2">
-                                Chưa có bài kiểm tra
+                                Đang tải bài kiểm tra...
+                              </div>
+                            ) : (
+                              // Hiển thị nút test mặc định nếu không có test được load
+                              <div className="flex flex-col gap-2">
+                                <button
+                                  onClick={() => {
+                                    if (courseExpired) {
+                                      warning('Khóa học đã hết hạn. Bạn không thể thực hiện các bài kiểm tra.');
+                                      return;
+                                    }
+                                    // Thử load lại test nếu chưa có
+                                    if (!lessonTests[lesson.lessonId] && !loadingTests[lesson.lessonId]) {
+                                      loadLessonTest(lesson.lessonId);
+                                    }
+                                  }}
+                                  disabled={courseExpired}
+                                  className={`w-full flex items-center justify-center gap-2 p-2 text-sm rounded-lg transition-colors ${
+                                    courseExpired 
+                                      ? 'bg-gray-400 text-gray-600 cursor-not-allowed' 
+                                      : 'bg-blue-600 text-white hover:bg-blue-700'
+                                  }`}
+                                >
+                                  <FaEdit />
+                                  {courseExpired ? 'Khóa học đã hết hạn' : 'Kiểm tra bài test'}
+                                </button>
                               </div>
                             )}
                           </div>

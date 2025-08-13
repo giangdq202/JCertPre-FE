@@ -19,11 +19,13 @@ import {
 } from "../../services/testTemplateConfigService";
 
 interface TestOption {
-  id: string; // use templateId for uniqueness
-  title: string; // e.g., "JLPT N5 Auto - Đề 1"
+  id: string; // use testTemplateTypeId for uniqueness
+  title: string; // e.g., "JLPT N5"
   testType: TestType;
   courseLevel: CourseLevel;
   estimatedDuration: number;
+  // Keep reference to templates for test execution
+  templates: TestTemplateDto[];
 }
 
 const StudentExamPage: React.FC = () => {
@@ -31,6 +33,7 @@ const StudentExamPage: React.FC = () => {
   const [isInTest, setIsInTest] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>("");
+  
   const [testOptions, setTestOptions] = useState<TestOption[]>([]);
 
   // Load available options from template types, templates and configs
@@ -52,24 +55,36 @@ const StudentExamPage: React.FC = () => {
 
         const options: TestOption[] = [];
 
-        // For each type, load templates and ensure templates have at least one config
+        // For each type, load templates and ensure type has at least one template with configs
         for (const type of allTypes) {
           const templates: TestTemplateDto[] = await getTemplatesByTypeId(type.testTemplateTypeId);
+          
+          // Filter templates that have configs
+          const validTemplates: TestTemplateDto[] = [];
           for (const template of templates) {
-            // Check if template has configs
             const configs: TestTemplateConfigDto[] = await getConfigsByTemplateId(template.templateId);
             if (configs && configs.length > 0) {
-              console.log('Template Type testType:', type.testType, 'Type of:', typeof type.testType);
-              console.log('Template Type courseLevel:', type.courseLevel, 'Type of:', typeof type.courseLevel);
-              
-              options.push({
-                id: template.templateId,
-                title: `${type.typeName} - ${template.templateName}`,
-                testType: type.testType as TestType,
-                courseLevel: type.courseLevel as CourseLevel,
-                estimatedDuration: template.durationMinutes || 0,
-              });
+              validTemplates.push(template);
             }
+          }
+          
+          // Only add option if there are valid templates
+          if (validTemplates.length > 0) {
+            console.log('Template Type testType:', type.testType, 'Type of:', typeof type.testType);
+            console.log('Template Type courseLevel:', type.courseLevel, 'Type of:', typeof type.courseLevel);
+            
+            // Calculate average duration from all valid templates
+            const avgDuration = validTemplates.reduce((sum, template) => 
+              sum + (template.durationMinutes || 0), 0) / validTemplates.length;
+            
+            options.push({
+              id: type.testTemplateTypeId,
+              title: type.typeName, // Just the type name, e.g., "JLPT N4"
+              testType: type.testType as TestType,
+              courseLevel: type.courseLevel as CourseLevel,
+              estimatedDuration: Math.round(avgDuration),
+              templates: validTemplates
+            });
           }
         }
 
