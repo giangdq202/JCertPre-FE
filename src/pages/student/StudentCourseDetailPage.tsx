@@ -22,7 +22,7 @@ import CertificateGenerator from '../../components/CertificateGenerator';
 import { livestreamApi, LivestreamDto, LivestreamStatus } from '../../services/livestreamService';
 import paths from "../../routes/path";
 import dayjs from 'dayjs';
-import { FaPlay, FaClock, FaCalendarAlt, FaUser, FaVideo } from 'react-icons/fa';
+import { FaPlay, FaClock, FaCalendarAlt, FaUser, FaVideo, FaExclamationTriangle } from 'react-icons/fa';
 import { HiOutlineAcademicCap, HiOutlineClock, HiOutlineCalendar } from 'react-icons/hi2';
 
 const StudentCourseDetailPage = () => {
@@ -46,6 +46,14 @@ const StudentCourseDetailPage = () => {
     // Livestream states
     const [livestreams, setLivestreams] = useState<LivestreamDto[]>([]);
     const [isLoadingLivestreams, setIsLoadingLivestreams] = useState(false);
+
+    // Helper function to check if course has expired
+    const isCourseExpired = (endDate: string) => {
+        return dayjs(endDate).isBefore(dayjs(), 'day');
+    };
+
+    // Get course expiry status
+    const courseExpired = course?.endDate ? isCourseExpired(course.endDate) : false;
 
     useEffect(() => {
         const fetchCourseDetailsAndEnrollmentStatus = async () => {
@@ -322,6 +330,23 @@ const StudentCourseDetailPage = () => {
                 <StudentHeader />
                 <main className="flex-1 p-6 overflow-y-auto mt-16 lg:mt-0">
                     <h1 className="text-3xl font-bold text-gray-800 mb-6">Chi tiết khóa học</h1>
+                    
+                    {/* Course Expiry Warning */}
+                    {courseExpired && course?.endDate && (
+                        <div className="bg-red-50 border-l-4 border-red-400 p-4 mb-6 rounded-lg">
+                            <div className="flex items-center">
+                                <FaExclamationTriangle className="text-red-400 mr-3" />
+                                <div>
+                                    <h3 className="text-red-800 font-semibold text-lg">Khóa học đã hết hạn</h3>
+                                    <p className="text-red-700 mt-1">
+                                        Khóa học này đã kết thúc vào ngày {dayjs(course.endDate).format('DD/MM/YYYY')}. 
+                                        Bạn không thể thực hiện các bài kiểm tra sau thời hạn này.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                    
                     <div className="bg-white rounded-xl shadow-lg p-8 mb-8">
                         <div className="text-sm text-gray-500 mb-6">
                             <Link to={paths.student_home} className="text-green-600 hover:underline">Tất cả Khóa học</Link>
@@ -408,11 +433,34 @@ const StudentCourseDetailPage = () => {
                                             ) : (
                                                 <>
                                                     <button
-                                                        onClick={() => courseId && navigate(paths.learn_course.replace(':courseId', courseId))}
-                                                        className="w-full bg-blue-600 text-white font-bold py-3 rounded-lg hover:bg-blue-700 transition-colors shadow-lg"
+                                                        onClick={() => {
+                                                            if (courseExpired) {
+                                                                warning('Khóa học đã hết hạn. Bạn không thể thực hiện các bài kiểm tra.');
+                                                                return;
+                                                            }
+                                                            courseId && navigate(paths.learn_course.replace(':courseId', courseId));
+                                                        }}
+                                                        disabled={courseExpired}
+                                                        className={`w-full font-bold py-3 rounded-lg transition-colors shadow-lg ${
+                                                            courseExpired 
+                                                                ? 'bg-gray-400 text-gray-600 cursor-not-allowed' 
+                                                                : 'bg-blue-600 text-white hover:bg-blue-700'
+                                                        }`}
                                                     >
-                                                        Đi đến khóa học của bạn
+                                                        {courseExpired ? 'Khóa học đã hết hạn' : 'Đi đến khóa học của bạn'}
                                                     </button>
+                                                    
+                                                    {courseExpired && (
+                                                        <div className="text-center py-2 bg-yellow-50 border border-yellow-200 rounded-lg mt-2">
+                                                            <div className="text-yellow-800 text-sm">
+                                                                ⚠️ Khóa học đã kết thúc vào {dayjs(course.endDate).format('DD/MM/YYYY')}
+                                                            </div>
+                                                            <div className="text-yellow-700 text-xs mt-1">
+                                                                Bạn có thể xem nội dung nhưng không thể làm bài kiểm tra
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                    
                                                     {!isLoadingCompletion && (
                                                         <div className="text-center py-2">
                                                             <div className="text-sm text-gray-600 mb-1">

@@ -7,7 +7,6 @@ export interface LessonProgressDto {
   progressId: string;
   userId: string;
   lessonId: string;
-  courseId: string;
   completionRate: number;
   userFullName?: string;
   lessonTitle?: string;

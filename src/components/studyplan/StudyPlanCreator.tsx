@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  HiPlus, 
   HiTrash, 
   HiSearch, 
   HiSave,
@@ -11,9 +10,9 @@ import { toast } from 'react-toastify';
 import { useAuth } from '../../auth/AuthContext';
 import { createStudyPlan } from '../../services/studyPlanService';
 import { createStudyPlanItem, CreateStudyPlanItemRequest } from '../../services/studyPlanItemService';
-import { getCourses, CourseListDto, CourseStatus, CourseType } from '../../services/courseService';
-import { getAllByUserId, TestDto, TestType, CourseLevel } from '../../services/testService';
-import CourseTestSearchModal from './CourseTestSearchModal';
+import { CourseListDto } from '../../services/courseService';
+import CourseTestSearchModal, { TestOption } from './CourseTestSearchModal';
+import StudentStudyPlans from './StudentStudyPlans';
 
 interface StudyPlanItem {
   id: string; // temporary ID for frontend
@@ -27,11 +26,13 @@ interface StudyPlanItem {
 
 interface StudyPlanCreatorProps {
   studentId: string;
+  studentName?: string;
   onStudyPlanCreated?: (studyPlanId: string) => void;
 }
 
 const StudyPlanCreator: React.FC<StudyPlanCreatorProps> = ({
   studentId,
+  studentName,
   onStudyPlanCreated
 }) => {
   const { userInfo } = useAuth();
@@ -46,6 +47,7 @@ const StudyPlanCreator: React.FC<StudyPlanCreatorProps> = ({
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [items, setItems] = useState<StudyPlanItem[]>([]);
+  const [refreshStudyPlans, setRefreshStudyPlans] = useState(0);
 
   // Initialize dates
   useEffect(() => {
@@ -85,7 +87,7 @@ const StudyPlanCreator: React.FC<StudyPlanCreatorProps> = ({
     setShowSearchModal(true);
   };
 
-  const handleItemSelected = (selectedItem: CourseListDto | TestDto) => {
+  const handleItemSelected = (selectedItem: CourseListDto | TestOption) => {
     if (editingItemIndex === null) return;
 
     const newItems = [...items];
@@ -97,10 +99,27 @@ const StudyPlanCreator: React.FC<StudyPlanCreatorProps> = ({
         courseName: course.title
       };
     } else {
-      const test = selectedItem as TestDto;
+      const test = selectedItem as TestOption;
+      
+      // DEBUG: Log all possible test IDs
+      console.log('=== DEBUG TEST SELECTION ===');
+      console.log('Selected test object:', test);
+      console.log('testId (will be used):', test.testId);
+      console.log('testTemplateTypeId:', test.testTemplateTypeId);
+      console.log('testTemplateId:', test.testTemplateId);
+      
+      // Try different approaches - you can uncomment to test:
+      const testIdOptions = {
+        option1: test.testId, // current (testTemplateTypeId)
+        option2: test.testTemplateId, // actual template ID
+        option3: test.testTemplateTypeId, // explicit type ID
+      };
+      console.log('Test ID options:', testIdOptions);
+      console.log('=== END DEBUG ===');
+      
       newItems[editingItemIndex] = {
         ...newItems[editingItemIndex],
-        testId: test.testId,
+        testId: test.testId, // Change this to test.testTemplateId if needed
         testName: test.title
       };
     }
@@ -170,6 +189,9 @@ const StudyPlanCreator: React.FC<StudyPlanCreatorProps> = ({
           testId: item.testId,
           status: 0 // NOT_STARTED
         };
+        
+        console.log('Creating study plan item:', itemRequest);
+        
         return createStudyPlanItem(itemRequest);
       });
 
@@ -181,6 +203,9 @@ const StudyPlanCreator: React.FC<StudyPlanCreatorProps> = ({
       setPlanName('');
       setDescription('');
       setItems([]);
+      
+      // Trigger refresh of existing study plans
+      setRefreshStudyPlans(prev => prev + 1);
       
       // Notify parent
       onStudyPlanCreated?.(studyPlan.planId);
@@ -195,6 +220,29 @@ const StudyPlanCreator: React.FC<StudyPlanCreatorProps> = ({
 
   return (
     <div className="p-6 space-y-6">
+      {/* Current Study Plans */}
+      {studentName && (
+        <>
+          <StudentStudyPlans 
+            studentId={studentId}
+            studentName={studentName}
+            refreshKey={refreshStudyPlans}
+          />
+          
+          {/* Separator */}
+          <div className="border-t border-gray-200 pt-6">
+            <div className="text-center mb-4">
+              <h3 className="text-xl font-semibold text-gray-800">
+                Tạo lộ trình học mới
+              </h3>
+              <p className="text-gray-600 text-sm mt-1">
+                Thiết kế lộ trình học phù hợp cho {studentName}
+              </p>
+            </div>
+          </div>
+        </>
+      )}
+
       {/* Study Plan Basic Info */}
       <div className="bg-white rounded-lg p-6 shadow-sm border">
         <h4 className="text-lg font-semibold text-gray-800 mb-4">
@@ -269,13 +317,14 @@ const StudyPlanCreator: React.FC<StudyPlanCreatorProps> = ({
               <HiOutlineBookOpen className="w-4 h-4" />
               Thêm khóa học
             </button>
-            <button
+            {/* Temporarily hidden due to backend issues */}
+            {/* <button
               onClick={() => addItem('test')}
               className="flex items-center gap-2 px-3 py-2 text-sm bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
             >
               <HiOutlineClipboardList className="w-4 h-4" />
               Thêm bài test
-            </button>
+            </button> */}
           </div>
         </div>
 

@@ -1,8 +1,7 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   FaClock, 
   FaCheckCircle, 
-  FaTimesCircle, 
   FaQuestion,
   FaPlay,
   FaFlag,
@@ -14,7 +13,6 @@ import { QuestionDto } from '../types/question.types';
 import { TestQuestionDto, getQuestionsByTestId } from '../services/testQuestionService';
 import { 
   TestAttemptDto, 
-  TestAttemptStatus, 
   StartTestAttemptDto,
   SubmitTestAttemptDto,
   TestAttemptWithScoreSummary,
@@ -23,8 +21,7 @@ import {
   getTestAttemptWithScoreSummary
 } from '../services/testAttemptService';
 import {
-  CreateAttemptAnswerDto,
-  AttemptAnswerDto
+  CreateAttemptAnswerDto
 } from '../types/attemptAnswer.types';
 import {
   addOrUpdateAttemptAnswer,
@@ -33,10 +30,14 @@ import {
 import { getQuestionById } from '../services/questionService';
 import { useAuth } from '../auth/AuthContext';
 import { useNotification } from './notifications';
+import { useLessonProgress } from '../hooks/useLessonProgress';
 
 interface TestInterfaceProps {
   test: TestDto;
+  lessonId?: string;
+  courseId?: string;
   onBack: () => void;
+  onTestCompleted?: () => void;
 }
 
 interface QuestionWithDetails {
@@ -50,9 +51,10 @@ interface UserAnswer {
   textAnswer?: string;
 }
 
-export const TestInterface: React.FC<TestInterfaceProps> = ({ test, onBack }) => {
+export const TestInterface: React.FC<TestInterfaceProps> = ({ test, lessonId, courseId, onBack, onTestCompleted }) => {
   const { userInfo } = useAuth();
   const { success, error } = useNotification();
+  const { markLessonCompleted } = useLessonProgress();
   const [currentAttempt, setCurrentAttempt] = useState<TestAttemptDto | null>(null);
   const [questions, setQuestions] = useState<QuestionWithDetails[]>([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -118,7 +120,6 @@ export const TestInterface: React.FC<TestInterfaceProps> = ({ test, onBack }) =>
       setCurrentAttempt(attempt);
 
       // Calculate time left
-      const startTime = new Date(attempt.startTime).getTime();
       const endTime = new Date(attempt.endTime).getTime();
       const currentTime = Date.now();
       const remainingTime = Math.max(0, Math.floor((endTime - currentTime) / 1000));
@@ -225,7 +226,23 @@ export const TestInterface: React.FC<TestInterfaceProps> = ({ test, onBack }) =>
       setTestResult(result);
       setTestStatus('completed');
       
-      success('Nộp bài thành công!', 'Kết quả test đã được lưu và chấm điểm');
+      // Create lesson progress if test is passed and lessonId/courseId are provided
+      if (result.attempt.isPass && lessonId && courseId) {
+        try {
+          await markLessonCompleted(lessonId, courseId);
+          success('Chúc mừng!', 'Bạn đã pass bài test và hoàn thành bài học!');
+        } catch (progressError) {
+          console.error('Failed to create lesson progress:', progressError);
+          success('Nộp bài thành công!', 'Kết quả test đã được lưu và chấm điểm');
+        }
+      } else {
+        success('Nộp bài thành công!', 'Kết quả test đã được lưu và chấm điểm');
+      }
+
+      // Call onTestCompleted callback if provided
+      if (onTestCompleted) {
+        onTestCompleted();
+      }
     } catch (err) {
       console.error('Failed to submit test:', err);
       error('Lỗi nộp bài', 'Không thể nộp bài. Vui lòng thử lại.');

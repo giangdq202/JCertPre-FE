@@ -35,6 +35,7 @@ import PaymentErrorPage from "../pages/PaymentErrorPage";
 import PaymentPendingPage from "../pages/PaymentPendingPage";
 import MessagesPage from "../pages/student/MessagesPage";
 import VocabularyPage from "../pages/student/VocabularyPage";
+import StudentStudyPlanPage from "../pages/student/StudentStudyPlanPage";
 // Instructor imports
 import InstructorHomePage from "../pages/instructor/InstructorHomePage";
 import InstructorSchedulePage from "../pages/instructor/InstructorSchedulePage";
@@ -142,6 +143,14 @@ const AppRoutes: React.FC = () => {
           element={
             <ProtectedRoute allowedRoles={["STUDENT"]}>
               <VocabularyPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path={paths.student_study_plans}
+          element={
+            <ProtectedRoute allowedRoles={["STUDENT"]}>
+              <StudentStudyPlanPage />
             </ProtectedRoute>
           }
         />

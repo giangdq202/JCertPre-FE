@@ -44,6 +44,11 @@ const menuItems = [
     path: "/student/schedule",
   },
   {
+    name: "Kế hoạch học tập",
+    icon: <LuClipboardList size={20} />,
+    path: "/student/study-plans",
+  },
+  {
     name: "Thi thử JLPT",
     icon: <PiExamBold size={20} />,
     path: "/student/exam-simulations",

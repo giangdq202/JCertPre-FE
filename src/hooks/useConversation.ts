@@ -195,12 +195,12 @@ export const useConversation = (): UseConversationReturn => {
 
     initializeConversations();
 
-    // Auto-refresh conversations every 5 seconds
+    // Auto-refresh conversations every 10 seconds (increased from 5 seconds)
     const interval = setInterval(() => {
       if (userInfo?.id) {
         loadConversations(false); // Silent refresh without loading indicators
       }
-    }, 5000);
+    }, 10000);
 
     // Cleanup interval on unmount
     return () => clearInterval(interval);

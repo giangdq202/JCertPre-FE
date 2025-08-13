@@ -21,7 +21,6 @@ import {
   EnrollmentDetailDto,
 } from "../../services/enrollmentService";
 import { getByLessonId, TestDto } from "../../services/testService";
-import { getAllTestAttemptsByUserId, TestAttemptDto } from "../../services/testAttemptService";
 import StudentProfileModal from "../../components/modals/StudentProfileModal";
 import { useAuth } from "../../auth/AuthContext";
 import { useLessonProgress } from "../../hooks/useLessonProgress";
@@ -97,6 +96,7 @@ const StudentHomePage = () => {
   interface UserTestDto extends TestDto {
     courseName: string;
     lessonTitle: string;
+    courseId: string;
     isCompleted: boolean;
   }
   const [userTests, setUserTests] = useState<UserTestDto[]>([]);
@@ -226,15 +226,17 @@ const StudentHomePage = () => {
   // Fetch user tests from enrolled courses
   useEffect(() => {
     const fetchUserTests = async () => {
-      if (!userInfo?.id || !enrolledCoursesLoaded) return;
+      if (!userInfo?.id || !enrolledCoursesLoaded) {
+        console.log('Skipping fetchUserTests - userInfo:', !!userInfo?.id, 'enrolledCoursesLoaded:', enrolledCoursesLoaded);
+        return;
+      }
       
+      console.log('Starting fetchUserTests...');
       setIsLoadingUserTests(true);
       try {
         // Get enrolled courses with lessons
         const enrolledCoursesData = await getMyEnrollments();
-        
-        // Get user's test attempts to check completion status
-        const testAttempts = await getAllTestAttemptsByUserId(userInfo.id);
+        console.log('Enrolled courses:', enrolledCoursesData);
         
         // Get all tests from enrolled courses
         const allTests: UserTestDto[] = [];
@@ -243,24 +245,22 @@ const StudentHomePage = () => {
           try {
             // Get course details to access lessons
             const courseDetail = await getCourseById(enrollment.courseId);
+            console.log(`Course ${enrollment.courseId} details:`, courseDetail);
             if (courseDetail?.lessons) {
+              console.log(`Course ${enrollment.courseId} has ${courseDetail.lessons.length} lessons`);
               for (const lesson of courseDetail.lessons) {
                 try {
-                  const tests = await getByLessonId(lesson.lessonId);
-                  if (tests && Array.isArray(tests)) {
-                    for (const test of tests) {
-                      // Check if user has completed this test (isPass = true)
-                      const completedAttempt = testAttempts.find(
-                        (attempt: TestAttemptDto) => attempt.testId === test.testId && attempt.isPass === true
-                      );
-                    
-                      allTests.push({
-                        ...test,
-                        courseName: enrollment.courseTitle || 'Unknown Course',
-                        lessonTitle: lesson.title || 'Unknown Lesson',
-                        isCompleted: !!completedAttempt
-                      });
-                    }
+                  const test = await getByLessonId(lesson.lessonId);
+                  console.log(`Lesson ${lesson.lessonId} test:`, test);
+                  if (test) {
+                    console.log(`Found 1 test in lesson ${lesson.lessonId}`);
+                    allTests.push({
+                      ...test,
+                      courseName: enrollment.courseTitle || 'Unknown Course',
+                      lessonTitle: lesson.title || 'Unknown Lesson',
+                      courseId: enrollment.courseId,
+                      isCompleted: false // Not checking completion status anymore
+                    });
                   }
                 } catch (error) {
                   console.error(`Failed to load tests for lesson ${lesson.lessonId}:`, error);
@@ -272,9 +272,11 @@ const StudentHomePage = () => {
           }
         }
 
-        // Filter to show only uncompleted tests and limit to 3 for display
-        const uncompletedTests = allTests.filter(test => !test.isCompleted).slice(0, 3);
-        setUserTests(uncompletedTests);
+        console.log('All tests found:', allTests);
+        // Show all tests and limit to 3 for display
+        const displayTests = allTests.slice(0, 3);
+        console.log('Display tests:', displayTests);
+        setUserTests(displayTests);
         
       } catch (error) {
         console.error('Failed to load user tests:', error);
@@ -559,7 +561,7 @@ const StudentHomePage = () => {
                             </div>
                           </div>
                           <button 
-                            onClick={() => navigate(`/student/learn-course/${test.testId}`)}
+                            onClick={() => navigate(`/student/learn-course/${test.courseId}`)}
                             className="text-green-600 hover:text-green-700 font-medium text-sm ml-4"
                             disabled={test.status !== 1}
                           >
@@ -582,7 +584,7 @@ const StudentHomePage = () => {
                 <div className="text-center py-8">
                   <div className="text-gray-400 text-4xl mb-4">📝</div>
                   <p className="text-gray-500 mb-2">Không có bài test nào</p>
-                  <p className="text-sm text-gray-400">Bạn đã hoàn thành tất cả bài test hoặc chưa có bài test nào</p>
+                  <p className="text-sm text-gray-400">Bạn chưa có khóa học nào hoặc khóa học chưa có bài test</p>
                 </div>
               )}
             </div>
@@ -912,60 +914,136 @@ const StudentHomePage = () => {
                </div>
             </div>
 
-            {/* Announcements */}
+            {/* Livestream Announcements */}
             <div className="bg-white p-6 rounded-2xl shadow-lg">
               <h3 className="text-xl font-bold text-gray-800 mb-5">
-                Thông báo
+                Thông báo Livestream
               </h3>
 
-              <div className="space-y-5">
-                {[
-                  {
-                    title: "Lịch thi thử JLPT N3",
-                    description:
-                      "Bài thi thử N3 tiếp theo sẽ được tổ chức vào ngày 15 tháng 10. Đăng ký ngay để giữ chỗ.",
-                    time: "2 ngày trước",
-                  },
-                  {
-                    title: "Khóa học mới: Tiếng Nhật thương mại",
-                    description:
-                      "Khám phá cơ hội nghề nghiệp mới với khóa học Tiếng Nhật thương mại của chúng tôi bắt đầu vào tháng tới.",
-                    time: "1 tuần trước",
-                  },
-                  {
-                    title: "Bảo trì hệ thống",
-                    description:
-                      "JCertPre sẽ được bảo trì vào ngày 20 tháng 10 từ 2-4 giờ sáng JST. Một số tính năng có thể không khả dụng.",
-                    time: "2 tuần trước",
-                  },
-                ].map((ann, index) => (
-                  <div
-                    key={index}
-                    className="rounded-xl border border-gray-200 p-4 hover:shadow-md transition-shadow duration-200"
-                  >
-                    <div className="flex items-start justify-between mb-2">
-                      <h4 className="text-md font-semibold text-gray-800">
-                        {ann.title}
-                      </h4>
-                      <div className="flex items-center gap-1 text-xs text-gray-500">
-                        <HiOutlineClock className="text-base" />
-                        <span>{ann.time}</span>
-                      </div>
-                    </div>
-
-                    <p className="text-sm text-gray-600 mb-3">
-                      {ann.description}
-                    </p>
-
-                    <a
-                      href="#"
-                      className="text-sm text-green-600 hover:text-green-700 font-medium inline-block transition-colors duration-200"
-                    >
-                      Tìm hiểu thêm →
-                    </a>
+              {isLoadingLivestreams ? (
+                <div className="flex justify-center items-center h-32">
+                  <div className="animate-spin rounded-full h-8 w-8 border-4 border-t-4 border-green-500 border-opacity-25"></div>
+                  <p className="ml-4 text-gray-600">Đang tải lịch livestream...</p>
+                </div>
+              ) : livestreams.filter((livestream) => {
+                const scheduledTime = dayjs(livestream.scheduledDateTime);
+                const now = dayjs();
+                const timeUntil = scheduledTime.diff(now, 'minute');
+                return timeUntil >= -livestream.durationMinutes;
+              }).length === 0 ? (
+                <div className="text-center py-8">
+                  <div className="text-gray-400 mb-4">
+                    <svg className="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
                   </div>
-                ))}
-              </div>
+                  <h4 className="text-lg font-semibold text-gray-700 mb-2">Chưa có livestream nào</h4>
+                  <p className="text-gray-500">Hiện tại chưa có buổi livestream nào được lên lịch cho các khóa học của bạn.</p>
+                </div>
+              ) : (
+                <div className="space-y-5">
+                  {livestreams
+                    .filter((livestream) => {
+                      const scheduledTime = dayjs(livestream.scheduledDateTime);
+                      const now = dayjs();
+                      const timeUntil = scheduledTime.diff(now, 'minute');
+                      // Chỉ hiển thị livestream chưa kết thúc (chưa quá thời gian kết thúc)
+                      return timeUntil >= -livestream.durationMinutes;
+                    })
+                    .sort((a, b) => dayjs(a.scheduledDateTime).valueOf() - dayjs(b.scheduledDateTime).valueOf())
+                    .slice(0, 3)
+                    .map((livestream) => {
+                      const scheduledTime = dayjs(livestream.scheduledDateTime);
+                      const now = dayjs();
+                      const timeUntil = scheduledTime.diff(now, 'minute');
+                      const isUpcoming = timeUntil > 0;
+                      const canJoin = timeUntil <= 15 && timeUntil >= -livestream.durationMinutes;
+                      
+                      return (
+                        <div
+                          key={livestream.livestreamId}
+                          className="rounded-xl border border-gray-200 p-4 hover:shadow-md transition-shadow duration-200"
+                        >
+                          <div className="flex items-start justify-between mb-2">
+                            <div className="flex-1">
+                              <h4 className="text-md font-semibold text-gray-800 mb-1">
+                                {livestream.description || 'Buổi học trực tuyến'}
+                              </h4>
+                              <p className="text-sm text-gray-600 mb-2">
+                                Khóa học: {livestream.courseName}
+                              </p>
+                              <div className="flex items-center gap-4 text-sm text-gray-500">
+                                <div className="flex items-center gap-1">
+                                  <HiOutlineClock className="text-base" />
+                                  <span>{scheduledTime.format('DD/MM/YYYY - HH:mm')}</span>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <FaClock className="text-sm" />
+                                  <span>{livestream.durationMinutes} phút</span>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="flex flex-col items-end gap-2">
+                              {isUpcoming ? (
+                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                  Sắp diễn ra
+                                </span>
+                              ) : canJoin ? (
+                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                  Đang diễn ra
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                  Đã kết thúc
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="flex items-center justify-between">
+                            <div className="text-sm text-gray-500">
+                              {isUpcoming ? (
+                                timeUntil > 60 ? (
+                                  `Bắt đầu sau ${Math.ceil(timeUntil / 60)} giờ`
+                                ) : (
+                                  `Bắt đầu sau ${timeUntil} phút`
+                                )
+                              ) : canJoin ? (
+                                'Có thể tham gia ngay'
+                              ) : (
+                                'Đã kết thúc'
+                              )}
+                            </div>
+                            <button
+                              onClick={() => navigate(paths.student_livestreams)}
+                              className="text-sm text-green-600 hover:text-green-700 font-medium inline-flex items-center gap-1 transition-colors duration-200"
+                            >
+                              Đi tới livestream
+                              <FaArrowRight className="text-xs" />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  
+                  {livestreams.filter((livestream) => {
+                    const scheduledTime = dayjs(livestream.scheduledDateTime);
+                    const now = dayjs();
+                    const timeUntil = scheduledTime.diff(now, 'minute');
+                    return timeUntil >= -livestream.durationMinutes;
+                  }).length > 3 && (
+                    <div className="text-center pt-2">
+                      <button
+                        onClick={() => navigate(paths.student_livestreams)}
+                        className="text-green-600 hover:text-green-700 font-medium text-sm inline-flex items-center gap-1"
+                      >
+                        Xem tất cả livestream
+                        <FaArrowRight className="text-xs" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </main>

@@ -14,6 +14,12 @@ import {
   updateLessonProgressRate as updateLessonProgressRateService,
 } from '../services/lessonProgressService';
 import {
+  hasUserPassedTest,
+  getUserPassedTestIds,
+  canUserProceedToNextLesson,
+  getTestCompletionSummary
+} from '../services/testCompletionService';
+import {
   type LessonProgressDto,
   type CreateLessonProgressDto,
   type UpdateLessonProgressDto,
@@ -292,6 +298,62 @@ export const useLessonProgress = () => {
     }
   }, [userInfo?.id, checkAuth]);
 
+  // Check if user has passed a specific test
+  const checkTestPassed = useCallback(async (testId: string): Promise<boolean> => {
+    if (!checkAuth()) {
+      throw new Error('User not authenticated');
+    }
+
+    try {
+      return await hasUserPassedTest(userInfo!.id, testId);
+    } catch (err: any) {
+      console.error('Failed to check test completion:', err);
+      return false;
+    }
+  }, [userInfo?.id, checkAuth]);
+
+  // Get all passed test IDs for user
+  const getPassedTestIds = useCallback(async (): Promise<Set<string>> => {
+    if (!checkAuth()) {
+      return new Set();
+    }
+
+    try {
+      return await getUserPassedTestIds(userInfo!.id);
+    } catch (err: any) {
+      console.error('Failed to get passed test IDs:', err);
+      return new Set();
+    }
+  }, [userInfo?.id, checkAuth]);
+
+  // Check if user can proceed to next lesson
+  const checkCanProceedToNextLesson = useCallback(async (testId?: string): Promise<boolean> => {
+    if (!checkAuth()) {
+      return false;
+    }
+
+    try {
+      return await canUserProceedToNextLesson(userInfo!.id, testId);
+    } catch (err: any) {
+      console.error('Failed to check lesson progression:', err);
+      return false;
+    }
+  }, [userInfo?.id, checkAuth]);
+
+  // Get test completion summary for multiple tests
+  const getTestCompletionSummaryForUser = useCallback(async (testIds: string[]): Promise<Map<string, boolean>> => {
+    if (!checkAuth()) {
+      return new Map();
+    }
+
+    try {
+      return await getTestCompletionSummary(userInfo!.id, testIds);
+    } catch (err: any) {
+      console.error('Failed to get test completion summary:', err);
+      return new Map();
+    }
+  }, [userInfo?.id, checkAuth]);
+
   return {
     loading,
     error,
@@ -306,5 +368,10 @@ export const useLessonProgress = () => {
     getLessonCompletionRate,
     markLessonCompleted,
     updateLessonProgressRate,
+    // New test completion functions
+    checkTestPassed,
+    getPassedTestIds,
+    checkCanProceedToNextLesson,
+    getTestCompletionSummaryForUser,
   };
 }; 

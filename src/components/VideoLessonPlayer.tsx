@@ -1,22 +1,18 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useLessonProgress } from '../hooks/useLessonProgress';
 import { useAuth } from '../auth/AuthContext';
-import { FiCheckCircle, FiCircle, FiPlay, FiPause, FiVolume2, FiVolumeX } from 'react-icons/fi';
+import { FiPlay, FiPause, FiVolume2, FiVolumeX } from 'react-icons/fi';
 
 interface VideoLessonPlayerProps {
   courseId: string;
   lessonId: string;
   lessonTitle: string;
   videoUrl: string;
-  onLessonCompleted?: () => void;
 }
 
 export const VideoLessonPlayer: React.FC<VideoLessonPlayerProps> = ({
-  courseId,
   lessonId,
-  lessonTitle,
   videoUrl,
-  onLessonCompleted,
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const { isLoading: authLoading } = useAuth();
@@ -24,50 +20,22 @@ export const VideoLessonPlayer: React.FC<VideoLessonPlayerProps> = ({
     loading,
     error,
     getLessonCompletionRate,
-    markLessonCompleted,
-    updateLessonProgressRate,
   } = useLessonProgress();
 
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
-  const [progress, setProgress] = useState(0);
-  const [isCompleted, setIsCompleted] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [volume, setVolume] = useState(1);
 
-  // Load initial progress
+  // Load initial progress for display only (no longer needed)
   useEffect(() => {
-    if (authLoading) return; // Don't load progress while auth is loading
-    
-    const loadProgress = async () => {
-      try {
-        const rate = await getLessonCompletionRate(lessonId);
-        setProgress(rate);
-        setIsCompleted(rate >= 100);
-      } catch (error) {
-        console.error('Failed to load lesson progress:', error);
-      }
-    };
-
-    loadProgress();
+    // Progress loading removed - video player is now independent of lesson progress
   }, [lessonId, getLessonCompletionRate, authLoading]);
 
-  // Create lesson progress when video starts playing (if not exists)
+  // No longer create lesson progress when video starts playing
   const handleVideoStart = async () => {
-    if (authLoading) return; // Don't create progress while auth is loading
-    
-    try {
-      // Check if progress exists, if not create it
-      const existingProgress = await getLessonCompletionRate(lessonId);
-      if (existingProgress === 0) {
-        // Create initial progress record
-        await updateLessonProgressRate(lessonId, courseId, 0);
-      }
-    } catch (error) {
-      console.error('Failed to create initial lesson progress:', error);
-      // Don't throw the error, just log it to avoid breaking the video player
-    }
+    // Video start logic removed - no API calls
   };
 
   // Video event handlers
@@ -80,30 +48,15 @@ export const VideoLessonPlayer: React.FC<VideoLessonPlayerProps> = ({
   const handleTimeUpdate = () => {
     if (videoRef.current) {
       const current = videoRef.current.currentTime;
-      const total = videoRef.current.duration;
-      
       setCurrentTime(current);
       
-      // Calculate progress percentage (chỉ hiển thị, không gọi API)
-      const progressPercent = total > 0 ? (current / total) * 100 : 0;
-      setProgress(progressPercent);
-
-      // Check if video is completed (watched 90% or more)
-      if (progressPercent >= 90 && !isCompleted) {
-        handleVideoCompleted();
-      }
+      // Video progress tracking removed - no API calls or progress updates
     }
   };
 
+  // Video completion handler removed - no longer auto-complete lessons
   const handleVideoCompleted = async () => {
-    try {
-      await markLessonCompleted(lessonId, courseId);
-      setIsCompleted(true);
-      setProgress(100);
-      onLessonCompleted?.();
-    } catch (error) {
-      console.error('Failed to mark lesson as completed:', error);
-    }
+    // Video completion logic removed - no API calls
   };
 
   const handlePlayPause = () => {
@@ -150,12 +103,6 @@ export const VideoLessonPlayer: React.FC<VideoLessonPlayerProps> = ({
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
     return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
-
-  const getProgressColor = () => {
-    if (isCompleted) return 'text-green-600';
-    if (progress >= 50) return 'text-yellow-600';
-    return 'text-gray-600';
   };
 
   return (
@@ -321,94 +268,6 @@ export const VideoLessonPlayer: React.FC<VideoLessonPlayerProps> = ({
           </div>
         </div>
       )}
-    </div>
-  );
-};
-
-// Lesson List Item with Progress
-interface LessonListItemProps {
-  courseId: string;
-  lessonId: string;
-  lessonTitle: string;
-  lessonOrder: number;
-  isActive?: boolean;
-  onLessonClick: () => void;
-}
-
-export const LessonListItem: React.FC<LessonListItemProps> = ({
-  courseId,
-  lessonId,
-  lessonTitle,
-  lessonOrder,
-  isActive = false,
-  onLessonClick,
-}) => {
-  const { isLoading: authLoading } = useAuth();
-  const { getLessonCompletionRate } = useLessonProgress();
-  const [progress, setProgress] = useState(0);
-  const [isCompleted, setIsCompleted] = useState(false);
-
-  useEffect(() => {
-    if (authLoading) return; // Don't load progress while auth is loading
-    
-    const loadProgress = async () => {
-      try {
-        const rate = await getLessonCompletionRate(lessonId);
-        setProgress(rate);
-        setIsCompleted(rate >= 100);
-      } catch (error) {
-        console.error('Failed to load lesson progress:', error);
-      }
-    };
-
-    loadProgress();
-  }, [lessonId, getLessonCompletionRate, authLoading]);
-
-  return (
-    <div
-      className={`p-4 border rounded-lg cursor-pointer transition-all duration-200 ${
-        isActive
-          ? 'border-blue-500 bg-blue-50'
-          : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-      }`}
-      onClick={onLessonClick}
-    >
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          {isCompleted ? (
-            <FiCheckCircle className="h-5 w-5 text-green-600" />
-          ) : (
-            <div className="h-5 w-5 rounded-full border-2 border-gray-300 flex items-center justify-center">
-              <span className="text-xs text-gray-500">{lessonOrder}</span>
-            </div>
-          )}
-          
-          <div className="flex-1">
-            <h4 className="font-medium text-gray-900">{lessonTitle}</h4>
-            <p className="text-sm text-gray-500">
-              {isCompleted ? 'Đã hoàn thành' : 'Chưa hoàn thành'}
-            </p>
-          </div>
-        </div>
-
-        <div className="text-right">
-          <div className={`text-sm font-medium ${
-            isCompleted ? 'text-green-600' : progress > 0 ? 'text-yellow-600' : 'text-gray-500'
-          }`}>
-            {Math.round(progress)}%
-          </div>
-          
-          {/* Mini Progress Bar */}
-          <div className="w-16 h-1 bg-gray-200 rounded-full mt-1">
-            <div
-              className={`h-1 rounded-full transition-all duration-300 ${
-                isCompleted ? 'bg-green-500' : progress > 0 ? 'bg-yellow-500' : 'bg-gray-300'
-              }`}
-              style={{ width: `${progress}%` }}
-            />
-          </div>
-        </div>
-      </div>
     </div>
   );
 };

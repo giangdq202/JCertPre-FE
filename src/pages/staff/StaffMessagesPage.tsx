@@ -61,10 +61,14 @@ const StaffMessagesPage: React.FC = () => {
 
     loadConversation();
 
-    // Auto-refresh conversation every 5 seconds
-    const interval = setInterval(loadConversation, 5000);
+    // Auto-refresh conversation every 10 seconds, but not when in study plan mode
+    const interval = setInterval(() => {
+      if (!isStudyPlanMode) {
+        loadConversation();
+      }
+    }, 10000);
     return () => clearInterval(interval);
-  }, [conversationId]);
+  }, [conversationId, isStudyPlanMode]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -180,10 +184,6 @@ const StaffMessagesPage: React.FC = () => {
   }
 
   const student = getStudentFromConversation();
-  
-  // Debug log
-  console.log('Student:', student);
-  console.log('isStudyPlanMode:', isStudyPlanMode);
 
   // Chat components for split view
   const chatHeader = (
@@ -194,30 +194,6 @@ const StaffMessagesPage: React.FC = () => {
       showBackButton={true}
       onBackClick={() => navigate('/staff/inquiries')}
       theme="orange"
-      additionalActions={
-        !isStudyPlanMode ? (
-          <button
-            onClick={() => {
-              console.log('Button clicked, student:', student);
-              setIsStudyPlanMode(true);
-            }}
-            className="flex items-center gap-2 px-3 py-2 text-sm bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors min-w-[160px] whitespace-nowrap"
-            title="Thiết kế lộ trình học cho học viên"
-          >
-            <HiOutlineAcademicCap className="w-4 h-4" />
-            Thiết kế lộ trình học
-          </button>
-        ) : (
-          <button
-            onClick={() => setIsStudyPlanMode(false)}
-            className="flex items-center gap-2 px-3 py-2 text-sm bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
-            title="Đóng chế độ thiết kế lộ trình"
-          >
-            <HiX className="w-4 h-4" />
-            Đóng
-          </button>
-        )
-      }
     />
   );
 
@@ -241,15 +217,50 @@ const StaffMessagesPage: React.FC = () => {
   );
 
   const chatInput = (
-    <ChatInput
-      value={newMessage}
-      onChange={setNewMessage}
-      onSend={handleSendMessage}
-      onKeyPress={handleKeyPress}
-      isLoading={isSendingMessage}
-      placeholder="Nhập tin nhắn để trả lời học viên..."
-      theme="orange"
-    />
+    <div>
+      {/* Study Plan Action Bar */}
+      {!isStudyPlanMode && student && (
+        <div className="border-t border-gray-200 p-4 bg-gray-50">
+          <div className="flex items-center justify-center">
+            <button
+              onClick={() => setIsStudyPlanMode(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors"
+              title="Thiết kế lộ trình học cho học viên"
+            >
+              <HiOutlineAcademicCap className="w-5 h-5" />
+              Thiết kế lộ trình học cho {student.fullName || 'học viên'}
+            </button>
+          </div>
+        </div>
+      )}
+      
+      {/* Close Study Plan Mode Button */}
+      {isStudyPlanMode && (
+        <div className="border-t border-gray-200 p-4 bg-orange-50">
+          <div className="flex items-center justify-center">
+            <button
+              onClick={() => setIsStudyPlanMode(false)}
+              className="flex items-center gap-2 px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
+              title="Đóng chế độ thiết kế lộ trình"
+            >
+              <HiX className="w-5 h-5" />
+              Đóng chế độ thiết kế lộ trình
+            </button>
+          </div>
+        </div>
+      )}
+      
+      {/* Chat Input */}
+      <ChatInput
+        value={newMessage}
+        onChange={setNewMessage}
+        onSend={handleSendMessage}
+        onKeyPress={handleKeyPress}
+        isLoading={isSendingMessage}
+        placeholder="Nhập tin nhắn để trả lời học viên..."
+        theme="orange"
+      />
+    </div>
   );
 
   return (

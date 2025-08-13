@@ -357,9 +357,9 @@ const QuestionManagementPage: React.FC = () => {
               <span>Tất cả</span>
             </label>
           </div>
-          <h4 className="text-md font-semibold mb-2 text-gray-700">Lọc theo nội dung</h4>
+          {/* <h4 className="text-md font-semibold mb-2 text-gray-700">Lọc theo nội dung</h4> */}
           {/* ContentName filter - chỉ hiển thị contentName, không có subcontent */}
-          {Object.keys(ContentName)
+          {/* {Object.keys(ContentName)
             .filter(k => isNaN(Number(k)))
             .map((key) => {
               const value = ContentName[key as keyof typeof ContentName] as unknown as ContentName;
@@ -393,7 +393,7 @@ const QuestionManagementPage: React.FC = () => {
               }} 
             />
             <span>Tất cả</span>
-          </label>
+          </label> */}
         </div>
       </aside>
       {/* Main content */}
