@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import StudentSideBar from '../../components/sidebar/StudentSideBar';
 import StudentHeader from '../../components/header/StudentHeader';
 import { Link, useNavigate, useParams } from "react-router-dom";
@@ -22,8 +22,11 @@ import CertificateGenerator from '../../components/CertificateGenerator';
 import { livestreamApi, LivestreamDto, LivestreamStatus } from '../../services/livestreamService';
 import paths from "../../routes/path";
 import dayjs from 'dayjs';
-import { FaPlay, FaClock, FaCalendarAlt, FaUser, FaVideo, FaExclamationTriangle } from 'react-icons/fa';
-import { HiOutlineAcademicCap, HiOutlineClock, HiOutlineCalendar } from 'react-icons/hi2';
+import { FaPlay, FaClock, FaCalendarAlt, FaUser, FaVideo, FaExclamationTriangle, FaStar } from 'react-icons/fa';
+import { HiOutlineClock } from 'react-icons/hi2';
+import FeedbackModal from '../../components/modals/FeedbackModal';
+import CourseFeedbackDisplay from '../../components/CourseFeedbackDisplay';
+import { useCourseFeedbacks } from '../../hooks/useFeedback';
 
 const StudentCourseDetailPage = () => {
     const { courseId } = useParams<{ courseId: string }>();
@@ -46,6 +49,15 @@ const StudentCourseDetailPage = () => {
     // Livestream states
     const [livestreams, setLivestreams] = useState<LivestreamDto[]>([]);
     const [isLoadingLivestreams, setIsLoadingLivestreams] = useState(false);
+
+    // Feedback states
+    const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
+
+    // Get course feedbacks
+    const { feedbacks, averageRating, userFeedback, loading: feedbackLoading, refresh: refreshFeedbacks } = useCourseFeedbacks(
+        courseId || '', 
+        { pageSize: 50 } // Get more feedbacks for display
+    );
 
     // Helper function to check if course has expired
     const isCourseExpired = (endDate: string) => {
@@ -237,7 +249,6 @@ const StudentCourseDetailPage = () => {
     const getLivestreamStatus = (livestream: LivestreamDto) => {
         const now = dayjs();
         const livestreamStart = dayjs(livestream.scheduledDateTime);
-        const livestreamEnd = dayjs(livestream.endDateTime);
         const timeUntilStart = livestreamStart.diff(now, 'minute');
 
         if (livestream.status === LivestreamStatus.COMPLETED) {
@@ -265,6 +276,11 @@ const StudentCourseDetailPage = () => {
         const timeUntilStart = livestreamStart.diff(now, 'minute');
         
         return timeUntilStart <= 15 && timeUntilStart > -livestream.durationMinutes && livestream.status !== LivestreamStatus.COMPLETED;
+    };
+
+    // Feedback handlers
+    const handleFeedbackSubmitted = () => {
+        refreshFeedbacks();
     };
 
     // Hiển thị trạng thái tải cho khóa học chính
@@ -417,6 +433,16 @@ const StudentCourseDetailPage = () => {
                                                             Hoàn thành {completionRate}%
                                                         </div>
                                                     </div>
+                                                    
+                                                    {/* Feedback Button */}
+                                                    <button
+                                                        onClick={() => setIsFeedbackModalOpen(true)}
+                                                        className="w-full bg-yellow-500 text-white font-bold py-3 rounded-lg hover:bg-yellow-600 transition-colors shadow-lg mb-4 flex items-center justify-center gap-2"
+                                                    >
+                                                        <FaStar className="text-sm" />
+                                                        {userFeedback ? 'Cập nhật đánh giá' : 'Đánh giá khóa học'}
+                                                    </button>
+
                                                     <CertificateGenerator 
                                                         certificateData={{
                                                             studentName: userInfo?.fullName || "Học viên",
@@ -653,6 +679,18 @@ const StudentCourseDetailPage = () => {
                             </div>
                         )}
                     </div>    
+
+                    {/* Phần Feedback - hiển thị khi có user enrolled */}
+                    {isUserEnrolled && (
+                        <div className="mb-8">
+                            <CourseFeedbackDisplay 
+                                feedbacks={feedbacks?.items || []}
+                                averageRating={averageRating}
+                                loading={feedbackLoading}
+                            />
+                        </div>
+                    )}
+
                     {/* Phần Tư vấn */}
                     <div className="bg-white rounded-xl shadow-lg p-8 text-center">
                         <h3 className="text-xl font-bold text-gray-800 mb-4">Bạn cần trợ giúp chọn khóa học phù hợp?</h3>
@@ -670,6 +708,18 @@ const StudentCourseDetailPage = () => {
                     </div>
                 </main>
             </div>
+
+            {/* Feedback Modal */}
+            {courseId && course && (
+                <FeedbackModal
+                    isOpen={isFeedbackModalOpen}
+                    onClose={() => setIsFeedbackModalOpen(false)}
+                    courseId={courseId}
+                    courseTitle={course.title}
+                    userFeedback={userFeedback}
+                    onFeedbackSubmitted={handleFeedbackSubmitted}
+                />
+            )}
         </div>
     );
 };

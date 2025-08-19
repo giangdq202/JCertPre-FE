@@ -1,6 +1,6 @@
-//export const BASE_URL = "http://localhost:5001/api";
+export const BASE_URL = "http://localhost:5001/api";
 
- export const BASE_URL = "https://be.zd-dev.xyz/api";
+// export const BASE_URL = "https://be.zd-dev.xyz/api";
 
 // ===== AUTH ENDPOINTS =====
 export const AUTH_BASE_URL = `${BASE_URL}/auth`;
@@ -112,6 +112,7 @@ export const DELETE_QUESTION_URL = (id: string) => `${QUESTION_BASE_URL}/${id}`;
 export const GET_QUESTIONS_PAGING_DETAILS_URL = `${QUESTION_BASE_URL}/paging-details`;
 export const GET_ACTIVE_QUESTIONS_PAGING_DETAILS_URL = `${QUESTION_BASE_URL}/paging-details/active`;
 export const GET_QUESTION_FOR_TEST_URL = (id: string) => `${QUESTION_BASE_URL}/test/${id}`;
+export const IMPORT_QUESTIONS_URL = `${QUESTION_BASE_URL}/import`;
 
 // ===== CHOICE ENDPOINTS =====
 export const CHOICE_BASE_URL = `${BASE_URL}/choices`;

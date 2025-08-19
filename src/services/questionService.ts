@@ -2,7 +2,7 @@ import axiosInstance from "../consts/axios/axiosInstance";
 import {
   QUESTION_BASE_URL,
   CHOICE_BASE_URL,
-  GET_QUESTION_FOR_TEST_URL,
+  IMPORT_QUESTIONS_URL,
 } from "../consts/apiUrl/baseUrl";
 import {
   ChoiceReadDto,
@@ -14,12 +14,12 @@ import {
   CreateQuestionDto,
   UpdateQuestionDto,
   validateQuestionCreateDto,
-  validateQuestionUpdateDto
+  validateQuestionUpdateDto,
+  ImportQuestionsResultDto
 } from "../types/question.types";
 
 // Import enums from types instead of duplicating them
 import {
-  QuestionDifficulty,
   ContentName,
   CourseLevel,
   SubContentName
@@ -28,6 +28,14 @@ import {
 export interface QuestionAttachmentDto {
   mediaUrl: string;
   mediaType: string;
+}
+
+export interface ImportFailedQuestionsBlob extends Blob {
+  importSummary?: {
+    totalCount: number;
+    successCount: number;
+    failedCount: number;
+  };
 }
 
 
@@ -194,10 +202,9 @@ export interface GetQuestionsPagingDetailsParams {
   pageIndex?: number;
   pageSize?: number;
   search?: string;
-  contentName?: string;
-  level?: string;
-  subContentName?: string;
-  isActive?: boolean; // Add filter for active status
+  contentName?: ContentName;
+  level?: CourseLevel;
+  subContentName?: SubContentName;
 }
 
 export const getQuestionsPagingDetails = async (params: GetQuestionsPagingDetailsParams = {}): Promise<Pagination<QuestionDto>> => {
@@ -207,10 +214,10 @@ export const getQuestionsPagingDetails = async (params: GetQuestionsPagingDetail
   query.append("pageIndex", pageIndex.toString());
   if (params.pageSize) query.append("pageSize", params.pageSize.toString());
   if (params.search) query.append("search", params.search);
-  if (params.contentName) query.append("contentName", params.contentName);
-  if (params.level) query.append("level", params.level);
-  if (params.subContentName) query.append("subContentName", params.subContentName);
-  if (params.isActive !== undefined) query.append("isActive", params.isActive.toString());
+  if (params.contentName !== undefined) query.append("contentName", params.contentName.toString());
+  if (params.level !== undefined) query.append("level", params.level.toString());
+  if (params.subContentName !== undefined) query.append("subContentName", params.subContentName.toString());
+  // Note: difficulty and isActive might not be supported by backend based on provided API
   const { data } = await axiosInstance.get<Pagination<QuestionDto>>(`${QUESTION_BASE_URL}/paging-details?${query.toString()}`);
   return data;
 };
@@ -232,4 +239,54 @@ export const updateChoice = async (choiceId: string, choiceDto: ChoiceUpdateDto)
 
 export const deleteChoice = async (choiceId: string): Promise<void> => {
   await axiosInstance.delete(`${CHOICE_BASE_URL}/choice/${choiceId}`);
+};
+
+// Import Questions API
+export const importQuestions = async (file: File): Promise<ImportQuestionsResultDto | ImportFailedQuestionsBlob> => {
+  const formData = new FormData();
+  formData.append('File', file);
+
+  try {
+    const response = await axiosInstance.post(IMPORT_QUESTIONS_URL, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+
+    // Check response headers for summary info (indicates failed questions file)
+    if (response.headers['x-total-count']) {
+      // Response contains failed questions file with summary in headers
+      const totalCount = parseInt(response.headers['x-total-count'] || '0');
+      const successCount = parseInt(response.headers['x-success-count'] || '0');
+      const failedCount = parseInt(response.headers['x-failed-count'] || '0');
+      
+      // Create a blob from the response data for download
+      const blob = new Blob([response.data], { type: 'application/json' }) as ImportFailedQuestionsBlob;
+      
+      // Add summary info as properties to the blob for UI display
+      blob.importSummary = {
+        totalCount,
+        successCount,
+        failedCount
+      };
+      
+      return blob;
+    } else {
+      // Response is JSON summary (no failed questions)
+      return response.data as ImportQuestionsResultDto;
+    }
+  } catch (error: any) {
+    if (error.response?.status === 400) {
+      // Handle validation errors
+      const errorMessage = error.response.data?.message || 'Invalid file or request data';
+      throw new Error(errorMessage);
+    }
+    console.error('Import questions error:', error);
+    throw error;
+  }
+};
+
+// Helper function to check if result is a failed questions blob
+export const isImportFailedQuestionsBlob = (result: ImportQuestionsResultDto | ImportFailedQuestionsBlob): result is ImportFailedQuestionsBlob => {
+  return result instanceof Blob;
 };

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { FaArrowLeft, FaUpload, FaTimes } from "react-icons/fa";
+import { FaArrowLeft, FaTimes } from "react-icons/fa";
 import { useNotification } from "../components/notifications";
 import {
   QuestionDto,
@@ -16,10 +16,6 @@ import {
   updateChoice,
   getChoicesByQuestionId,
 } from "../services/questionService";
-import {
-  getAllSubContents,
-  SubContentDto,
-} from "../services/subContentService";
 import paths from "../routes/path";
 
 const EditQuestionPage: React.FC = () => {
@@ -34,9 +30,7 @@ const EditQuestionPage: React.FC = () => {
   const [saving, setSaving] = useState(false);
   
   // Store display descriptions from API response
-  const [contentNameDescription, setContentNameDescription] = useState<string>("");
   const [levelDescription, setLevelDescription] = useState<string>("");
-  const [subContentNameDescription, setSubContentNameDescription] = useState<string>("");
 
   // Form states
   const [content, setContent] = useState("");
@@ -48,9 +42,13 @@ const EditQuestionPage: React.FC = () => {
   const [selectedContentName, setSelectedContentName] = useState<ContentName>(ContentName.Kanji);
   const [selectedSubContentName, setSelectedSubContentName] = useState<SubContentName | null>(null);
 
+  // Audio states
+  const [audioFile, setAudioFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [removeCurrentAudio, setRemoveCurrentAudio] = useState(false);
+
   // SubContent states
-  const [subContents, setSubContents] = useState<SubContentDto[]>([]);
-  const [availableSubContents, setAvailableSubContents] = useState<SubContentDto[]>([]);
+  // Note: Now using static mapping instead of API data
 
   // Labels
   const DIFFICULTY_LABELS: Record<QuestionDifficulty, string> = {
@@ -92,19 +90,14 @@ const EditQuestionPage: React.FC = () => {
     [SubContentName.Mondai14]: "Phản hồi tức thời"
   };
 
-  // Fetch subContents on mount
-  useEffect(() => {
-    const fetchSubContents = async () => {
-      try {
-        const data = await getAllSubContents();
-        setSubContents(data.items || []);
-      } catch (err) {
-        console.error("Error fetching subContents:", err);
-        error("Không thể tải danh sách nội dung con");
-      }
-    };
-    fetchSubContents();
-  }, []);
+  // Static mapping between ContentName and SubContentName based on backend enum
+  const CONTENT_TO_SUBCONTENT_MAPPING: Record<ContentName, SubContentName[]> = {
+    [ContentName.Kanji]: [SubContentName.Mondai1, SubContentName.Mondai2],
+    [ContentName.Vocabulary]: [SubContentName.Mondai3, SubContentName.Mondai4],
+    [ContentName.Grammar]: [SubContentName.Mondai5, SubContentName.Mondai6, SubContentName.Mondai7],
+    [ContentName.Reading]: [SubContentName.Mondai8, SubContentName.Mondai9, SubContentName.Mondai10],
+    [ContentName.Listening]: [SubContentName.Mondai11, SubContentName.Mondai12, SubContentName.Mondai13, SubContentName.Mondai14]
+  };
 
   // Fetch question data on mount
   useEffect(() => {
@@ -148,9 +141,7 @@ const EditQuestionPage: React.FC = () => {
         setSelectedSubContentName(subContentNameValue);
         
         // Store the display descriptions for dropdown (from API response)
-        setContentNameDescription((questionData as any).contentNameDescription || "");
         setLevelDescription((questionData as any).levelDescription || "");
-        setSubContentNameDescription((questionData as any).subContentNameDescription || "");
 
       } catch (err) {
         console.error("Error fetching question data:", err);
@@ -164,58 +155,33 @@ const EditQuestionPage: React.FC = () => {
     fetchQuestionData();
   }, [questionId]);
 
-  // Update available subContents when level or contentName changes
+  // Reset selected subContentName when contentName changes to ensure valid selection
   useEffect(() => {
-    if (subContents.length > 0) {
-      const filtered = subContents.filter(
-        (sc) =>
-          parseInt(sc.level) === selectedLevel &&
-          parseInt(sc.contentName) === selectedContentName
-      );
-      setAvailableSubContents(filtered);
-
-      // Reset selected subContentName if not available in new filtered list
-      if (selectedSubContentName !== null) {
-        const isAvailable = filtered.some(
-          (sc) => parseInt(sc.subContentName) === selectedSubContentName
-        );
-        if (!isAvailable) {
-          setSelectedSubContentName(null);
-        }
+    if (selectedContentName !== null) {
+      const availableOptions = CONTENT_TO_SUBCONTENT_MAPPING[selectedContentName] || [];
+      
+      // Reset if current selection is not available for the new content type
+      if (selectedSubContentName !== null && !availableOptions.includes(selectedSubContentName)) {
+        setSelectedSubContentName(null);
       }
     }
-  }, [selectedLevel, selectedContentName, subContents, selectedSubContentName]);
-
-  // Fetch subContents for current level and contentName
-  useEffect(() => {
-    if (selectedLevel !== null && selectedContentName !== null) {
-      const fetchSubContentsForSelection = async () => {
-        try {
-          const data = await getAllSubContents();
-          const filtered = data.items?.filter(
-            (sc) =>
-              parseInt(sc.level) === selectedLevel &&
-              parseInt(sc.contentName) === selectedContentName
-          ) || [];
-          setAvailableSubContents(filtered);
-        } catch (err) {
-          console.error("Error fetching subContents for selection:", err);
-        }
-      };
-      fetchSubContentsForSelection();
-    }
-  }, [selectedLevel, selectedContentName]);
+  }, [selectedContentName, selectedSubContentName]);
 
   // Helper function to get subContent options with proper labels
   const getSubContentOptions = () => {
-    if (selectedLevel === null || selectedContentName === null) return [];
+    if (selectedContentName === null) return [];
     
-    const options = availableSubContents.map(sc => {
-      // Use descriptions from API response for proper display
-      return `${sc.contentNameDescription} - ${sc.subContentNameDescription}`;
+    // Use static mapping instead of API data
+    const availableSubContents = CONTENT_TO_SUBCONTENT_MAPPING[selectedContentName] || [];
+    
+    return availableSubContents.map(subContentEnum => {
+      const contentLabel = CONTENT_NAME_LABELS[selectedContentName];
+      const subContentLabel = SUBCONTENT_NAME_LABELS[subContentEnum];
+      return {
+        value: subContentEnum,
+        label: `${contentLabel} - ${subContentLabel}`
+      };
     });
-    
-    return [...new Set(options)]; // Remove duplicates
   };
 
   // Helper functions to convert string values from API to enum values
@@ -261,27 +227,6 @@ const EditQuestionPage: React.FC = () => {
     }
   };
 
-  // Helper function to get the display text for selected subContent
-  const getSelectedSubContentDisplayText = () => {
-    if (selectedSubContentName === null) return "";
-    
-    // Use stored descriptions from API response
-    if (contentNameDescription && subContentNameDescription) {
-      return `${contentNameDescription} - ${subContentNameDescription}`;
-    }
-    
-    // Fallback: Find the subContent that matches the selected enum value
-    const subContent = availableSubContents.find(sc => 
-      parseInt(sc.subContentName) === selectedSubContentName
-    );
-    
-    if (subContent) {
-      return `${subContent.contentNameDescription} - ${subContent.subContentNameDescription}`;
-    }
-    
-    return "";
-  };
-
   // Handle choice content change
   const handleChoiceChange = (index: number, newContent: string) => {
     const updatedChoices = [...choices];
@@ -297,6 +242,51 @@ const EditQuestionPage: React.FC = () => {
     }));
     setChoices(updatedChoices);
   };
+
+  // Audio handling functions
+  const handleAudioFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      // Validate file type
+      if (!file.type.startsWith('audio/')) {
+        error('Vui lòng chọn file audio hợp lệ!');
+        return;
+      }
+
+      // Validate file size (max 10MB)
+      if (file.size > 10 * 1024 * 1024) {
+        error('File audio không được vượt quá 10MB!');
+        return;
+      }
+
+      setAudioFile(file);
+      
+      // Create preview URL
+      const url = URL.createObjectURL(file);
+      setPreviewUrl(url);
+    }
+  };
+
+  const handleRemoveNewAudio = () => {
+    setAudioFile(null);
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+      setPreviewUrl(null);
+    }
+  };
+
+  const handleToggleRemoveCurrentAudio = () => {
+    setRemoveCurrentAudio(!removeCurrentAudio);
+  };
+
+  // Clean up preview URL on unmount
+  React.useEffect(() => {
+    return () => {
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+      }
+    };
+  }, [previewUrl]);
 
   // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
@@ -320,8 +310,8 @@ const EditQuestionPage: React.FC = () => {
 
     setSaving(true);
     try {
-      // Update question
-      await updateQuestion(questionId!, {
+      // Update question with audio file if provided
+      const updateData: any = {
         content,
         explanation,
         points,
@@ -330,7 +320,14 @@ const EditQuestionPage: React.FC = () => {
         contentName: selectedContentName,
         level: selectedLevel,
         subContentName: selectedSubContentName,
-      });
+      };
+
+      // Add audio file if a new one is selected
+      if (audioFile) {
+        updateData.audioFile = audioFile;
+      }
+
+      await updateQuestion(questionId!, updateData);
 
       // Update choices
       for (const choice of choices) {
@@ -436,6 +433,62 @@ const EditQuestionPage: React.FC = () => {
               </div>
             )}
 
+            {/* Audio Upload Section */}
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Cập nhật audio
+              </label>
+              
+              {/* Check if question has existing audio */}
+              {question?.questionAttachments?.some(att => att.mediaType === 'audio' || att.mediaType.startsWith('audio/')) && (
+                <div className="mb-3">
+                  <label className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={removeCurrentAudio}
+                      onChange={handleToggleRemoveCurrentAudio}
+                      className="mr-2"
+                    />
+                    <span className="text-sm text-red-600">Xóa audio hiện tại</span>
+                  </label>
+                </div>
+              )}
+
+              {/* File Upload */}
+              <div className="space-y-3">
+                <input
+                  type="file"
+                  accept="audio/*"
+                  onChange={handleAudioFileChange}
+                  disabled={saving}
+                  className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-green-50 file:text-green-700 hover:file:bg-green-100 disabled:opacity-50"
+                />
+                <p className="text-xs text-gray-500">
+                  Hỗ trợ các định dạng: MP3, WAV, M4A. Tối đa 10MB.
+                </p>
+
+                {/* Preview new audio */}
+                {previewUrl && (
+                  <div className="flex items-center space-x-2 p-3 bg-blue-50 rounded-lg border">
+                    <span className="text-blue-600 text-lg">🔊</span>
+                    <audio controls className="h-8">
+                      <source src={previewUrl} type={audioFile?.type} />
+                      Trình duyệt của bạn không hỗ trợ phát audio.
+                    </audio>
+                    <span className="text-sm text-blue-600">Audio mới (xem trước)</span>
+                    <button
+                      type="button"
+                      onClick={handleRemoveNewAudio}
+                      className="text-red-500 hover:text-red-700"
+                      title="Xóa audio mới"
+                    >
+                      <FaTimes />
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+
             {/* Question Details */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
               {/* Level */}
@@ -492,29 +545,22 @@ const EditQuestionPage: React.FC = () => {
                   Nội dung con *
                 </label>
                 <select
-                  value={getSelectedSubContentDisplayText()}
-                                     onChange={(e) => {
-                     // Find the corresponding subContent from availableSubContents
-                     const selectedOption = e.target.value;
-                     const subContent = availableSubContents.find(sc => {
-                       const optionText = `${sc.contentNameDescription} - ${sc.subContentNameDescription}`;
-                       return optionText === selectedOption;
-                     });
-                     
-                     if (subContent) {
-                       setSelectedSubContentName(parseInt(subContent.subContentName) as SubContentName);
-                       // Update stored descriptions
-                       setContentNameDescription(subContent.contentNameDescription);
-                       setSubContentNameDescription(subContent.subContentNameDescription);
-                     }
-                   }}
+                  value={selectedSubContentName || ""}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (value) {
+                      setSelectedSubContentName(parseInt(value) as SubContentName);
+                    } else {
+                      setSelectedSubContentName(null);
+                    }
+                  }}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                   required
                 >
                   <option value="">Chọn nội dung con</option>
                   {getSubContentOptions().map((option, index) => (
-                    <option key={index} value={option}>
-                      {option}
+                    <option key={index} value={option.value}>
+                      {option.label}
                     </option>
                   ))}
                 </select>

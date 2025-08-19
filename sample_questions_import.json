@@ -1,0 +1,86 @@
+[
+  {
+    "Content": "この漢字の読み方を選んでください：学校",
+    "Explanation": "学校（がっこう）は「school」という意味です。",
+    "Points": 2,
+    "Difficulty": 0,
+    "IsActive": true,
+    "ContentName": 0,
+    "Level": 0,
+    "SubContentName": 0,
+    "Choices": [
+      {
+        "Content": "がっこう",
+        "IsCorrect": true
+      },
+      {
+        "Content": "がくこう",
+        "IsCorrect": false
+      },
+      {
+        "Content": "がっこお",
+        "IsCorrect": false
+      },
+      {
+        "Content": "がくこお",
+        "IsCorrect": false
+      }
+    ]
+  },
+  {
+    "Content": "この漢字の意味を選んでください：時間",
+    "Explanation": "時間（じかん）は「time」という意味です。",
+    "Points": 2,
+    "Difficulty": 0,
+    "IsActive": true,
+    "ContentName": 0,
+    "Level": 0,
+    "SubContentName": 1,
+    "Choices": [
+      {
+        "Content": "空間",
+        "IsCorrect": false
+      },
+      {
+        "Content": "時間",
+        "IsCorrect": true
+      },
+      {
+        "Content": "場所",
+        "IsCorrect": false
+      },
+      {
+        "Content": "人物",
+        "IsCorrect": false
+      }
+    ]
+  },
+  {
+    "Content": "次の文の（　　）に入る最も適切な語を選んでください：私は毎日（　　）で勉強しています。",
+    "Explanation": "図書館は勉強に最適な場所です。",
+    "Points": 3,
+    "Difficulty": 1,
+    "IsActive": true,
+    "ContentName": 1,
+    "Level": 0,
+    "SubContentName": 2,
+    "Choices": [
+      {
+        "Content": "図書館",
+        "IsCorrect": true
+      },
+      {
+        "Content": "レストラン",
+        "IsCorrect": false
+      },
+      {
+        "Content": "病院",
+        "IsCorrect": false
+      },
+      {
+        "Content": "映画館",
+        "IsCorrect": false
+      }
+    ]
+  }
+]

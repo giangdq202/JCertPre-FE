@@ -1,9 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   FaClock, 
   FaCheckCircle, 
   FaQuestion,
   FaPlay,
+  FaPause,
+  FaVolumeUp,
   FaFlag,
   FaPaperPlane,
   FaExclamationTriangle
@@ -67,6 +69,11 @@ export const TestInterface: React.FC<TestInterfaceProps> = ({ test, lessonId, co
   const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
   const [totalQuestions, setTotalQuestions] = useState<number>(0);
 
+  // Audio states
+  const [playingAudio, setPlayingAudio] = useState<string | null>(null);
+  const [audioProgress, setAudioProgress] = useState<Map<string, number>>(new Map());
+  const audioRefs = useRef<Map<string, HTMLAudioElement>>(new Map());
+
   // Load total questions count on component mount
   useEffect(() => {
     const loadTotalQuestions = async () => {
@@ -101,6 +108,77 @@ export const TestInterface: React.FC<TestInterfaceProps> = ({ test, lessonId, co
     const secs = seconds % 60;
     return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
+
+  // Audio control functions
+  const handlePlayAudio = async (audioUrl: string) => {
+    try {
+      // Pause any currently playing audio
+      if (playingAudio && playingAudio !== audioUrl) {
+        const currentlyPlaying = audioRefs.current.get(playingAudio);
+        if (currentlyPlaying) {
+          currentlyPlaying.pause();
+        }
+      }
+
+      // Get or create audio element
+      let audio = audioRefs.current.get(audioUrl);
+      if (!audio) {
+        audio = new Audio(audioUrl);
+        audio.preload = 'metadata';
+        audioRefs.current.set(audioUrl, audio);
+
+        // Add event listeners
+        audio.addEventListener('loadeddata', () => {
+          console.log('Audio loaded:', audioUrl);
+        });
+
+        audio.addEventListener('ended', () => {
+          setPlayingAudio(null);
+          setAudioProgress(prev => new Map(prev.set(audioUrl, 0)));
+        });
+
+        audio.addEventListener('timeupdate', () => {
+          if (audio && audio.duration) {
+            const progress = (audio.currentTime / audio.duration) * 100;
+            setAudioProgress(prev => new Map(prev.set(audioUrl, progress)));
+          }
+        });
+
+        audio.addEventListener('error', (e) => {
+          console.error('Audio error:', e);
+          error('Lỗi audio', 'Không thể phát âm thanh');
+          setPlayingAudio(null);
+        });
+      }
+
+      // Toggle play/pause
+      if (playingAudio === audioUrl) {
+        audio.pause();
+        setPlayingAudio(null);
+      } else {
+        await audio.play();
+        setPlayingAudio(audioUrl);
+      }
+    } catch (err) {
+      console.error('Error playing audio:', err);
+      error('Lỗi audio', 'Không thể phát âm thanh');
+      setPlayingAudio(null);
+    }
+  };
+
+  // Cleanup audio when component unmounts or question changes
+  useEffect(() => {
+    return () => {
+      audioRefs.current.forEach((audio) => {
+        audio.pause();
+        audio.removeEventListener('loadeddata', () => {});
+        audio.removeEventListener('ended', () => {});
+        audio.removeEventListener('timeupdate', () => {});
+        audio.removeEventListener('error', () => {});
+      });
+      audioRefs.current.clear();
+    };
+  }, [currentQuestionIndex]);
 
   const handleStartTest = async () => {
     if (!userInfo?.id) {
@@ -487,28 +565,52 @@ export const TestInterface: React.FC<TestInterfaceProps> = ({ test, lessonId, co
                   />
                 ) : attachment.mediaType.startsWith('audio/') ? (
                   <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-                    <div className="flex items-center gap-2 mb-2">
-                      <FaPlay className="text-blue-600" />
-                      <span className="text-sm font-medium text-blue-800">Audio câu hỏi</span>
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <FaVolumeUp className="text-blue-600" />
+                        <span className="text-sm font-medium text-blue-800">Audio câu hỏi</span>
+                      </div>
+                      <button
+                        onClick={() => handlePlayAudio(attachment.mediaUrl)}
+                        className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                        title={playingAudio === attachment.mediaUrl ? "Tạm dừng" : "Phát audio"}
+                      >
+                        {playingAudio === attachment.mediaUrl ? (
+                          <>
+                            <FaPause className="text-sm" />
+                            <span className="text-sm font-medium">Tạm dừng</span>
+                          </>
+                        ) : (
+                          <>
+                            <FaPlay className="text-sm" />
+                            <span className="text-sm font-medium">Phát audio</span>
+                          </>
+                        )}
+                      </button>
                     </div>
-                    <audio 
-                      controls 
-                      className="w-full"
-                      preload="none"
-                    >
-                      <source src={attachment.mediaUrl} type={attachment.mediaType} />
-                      Trình duyệt của bạn không hỗ trợ audio.
-                    </audio>
+                    
+                    {/* Progress bar */}
+                    {(audioProgress.get(attachment.mediaUrl) || 0) > 0 && (
+                      <div className="w-full bg-blue-200 rounded-full h-2 mb-2">
+                        <div 
+                          className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                          style={{ width: `${audioProgress.get(attachment.mediaUrl) || 0}%` }}
+                        ></div>
+                      </div>
+                    )}
+                    
+                    <p className="text-xs text-blue-600 mt-2">
+                      💡 Nhấn nút phát để nghe audio trực tiếp trong trang
+                    </p>
                   </div>
                 ) : (
                   <div className="bg-gray-100 p-4 rounded-lg">
                     <a 
                       href={attachment.mediaUrl} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="text-blue-600 hover:underline"
+                      download
+                      className="text-blue-600 hover:underline flex items-center gap-2"
                     >
-                      Xem tài liệu đính kèm ({attachment.mediaType})
+                      📎 Tải tài liệu đính kèm ({attachment.mediaType})
                     </a>
                   </div>
                 )}

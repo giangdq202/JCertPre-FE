@@ -128,6 +128,43 @@ export enum SubContentName {
 import { ChoiceReadDto } from './choice.types';
 
 /**
+ * DTOs for importing questions
+ */
+export interface ImportQuestionJsonDto {
+  Content: string;
+  Explanation?: string;
+  Points: number;
+  Difficulty: QuestionDifficulty;
+  IsActive: boolean;
+  ContentName: ContentName;
+  Level: CourseLevel;
+  SubContentName: SubContentName;
+  Choices: ImportChoiceJsonDto[];
+}
+
+export interface ImportChoiceJsonDto {
+  Content: string;
+  IsCorrect: boolean;
+}
+
+export interface ImportQuestionsRequestDto {
+  File: File;
+}
+
+export interface ImportQuestionsResultDto {
+  TotalCount: number;
+  SuccessCount: number;
+  FailedCount: number;
+  FailedQuestions: ImportQuestionErrorDto[];
+  FailedFileUrl?: string;
+}
+
+export interface ImportQuestionErrorDto {
+  QuestionText: string;
+  Error: string;
+}
+
+/**
  * Validation rules for question fields
  */
 export const QUESTION_VALIDATION_RULES = {

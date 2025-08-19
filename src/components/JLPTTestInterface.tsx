@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { FaClock, FaArrowRight, FaArrowLeft, FaExclamationTriangle, FaPlay } from 'react-icons/fa';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { FaClock, FaArrowRight, FaArrowLeft, FaExclamationTriangle, FaPlay, FaPause, FaVolumeUp } from 'react-icons/fa';
 import { useAuth } from '../auth/AuthContext';
 import { useNotification } from './notifications';
 import { 
@@ -86,6 +86,82 @@ const JLPTTestInterface: React.FC<JLPTTestInterfaceProps> = ({
   // Result states
   const [testResult, setTestResult] = useState<TestAttemptWithScoreSummary | null>(null);
   const [showResult, setShowResult] = useState(false);
+
+  // Audio states
+  const [playingAudio, setPlayingAudio] = useState<string | null>(null);
+  const [audioProgress, setAudioProgress] = useState<Map<string, number>>(new Map());
+  const audioRefs = useRef<Map<string, HTMLAudioElement>>(new Map());
+
+  // Audio control functions
+  const handlePlayAudio = async (audioUrl: string) => {
+    try {
+      // Pause any currently playing audio
+      if (playingAudio && playingAudio !== audioUrl) {
+        const currentlyPlaying = audioRefs.current.get(playingAudio);
+        if (currentlyPlaying) {
+          currentlyPlaying.pause();
+        }
+      }
+
+      // Get or create audio element
+      let audio = audioRefs.current.get(audioUrl);
+      if (!audio) {
+        audio = new Audio(audioUrl);
+        audio.preload = 'metadata';
+        audioRefs.current.set(audioUrl, audio);
+
+        // Add event listeners
+        audio.addEventListener('loadeddata', () => {
+          console.log('Audio loaded:', audioUrl);
+        });
+
+        audio.addEventListener('ended', () => {
+          setPlayingAudio(null);
+          setAudioProgress(prev => new Map(prev.set(audioUrl, 0)));
+        });
+
+        audio.addEventListener('timeupdate', () => {
+          if (audio && audio.duration) {
+            const progress = (audio.currentTime / audio.duration) * 100;
+            setAudioProgress(prev => new Map(prev.set(audioUrl, progress)));
+          }
+        });
+
+        audio.addEventListener('error', (e) => {
+          console.error('Audio error:', e);
+          error('Lỗi audio', 'Không thể phát âm thanh');
+          setPlayingAudio(null);
+        });
+      }
+
+      // Toggle play/pause
+      if (playingAudio === audioUrl) {
+        audio.pause();
+        setPlayingAudio(null);
+      } else {
+        await audio.play();
+        setPlayingAudio(audioUrl);
+      }
+    } catch (err) {
+      console.error('Error playing audio:', err);
+      error('Lỗi audio', 'Không thể phát âm thanh');
+      setPlayingAudio(null);
+    }
+  };
+
+  // Cleanup audio when component unmounts or question changes
+  useEffect(() => {
+    return () => {
+      audioRefs.current.forEach((audio) => {
+        audio.pause();
+        audio.removeEventListener('loadeddata', () => {});
+        audio.removeEventListener('ended', () => {});
+        audio.removeEventListener('timeupdate', () => {});
+        audio.removeEventListener('error', () => {});
+      });
+      audioRefs.current.clear();
+    };
+  }, [currentQuestion]);
 
   // Initialize test
   const initializeTest = async () => {
@@ -411,26 +487,36 @@ const JLPTTestInterface: React.FC<JLPTTestInterfaceProps> = ({
               <div className="bg-gray-50 rounded-lg p-4">
                 <h3 className="font-semibold text-gray-800 mb-3">Điểm chi tiết</h3>
                 <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Từ vựng:</span>
-                    <span className="font-medium">{testResult.scoreSummary.vocab_score}/{testResult.scoreSummary.vocab_max_score}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Ngữ pháp:</span>
-                    <span className="font-medium">{testResult.scoreSummary.grammar_score}/{testResult.scoreSummary.grammar_max_score}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Đọc hiểu:</span>
-                    <span className="font-medium">{testResult.scoreSummary.reading_score}/{testResult.scoreSummary.reading_max_score}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Nghe hiểu:</span>
-                    <span className="font-medium">{testResult.scoreSummary.listening_score}/{testResult.scoreSummary.listening_max_score}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Chữ Hán:</span>
-                    <span className="font-medium">{testResult.scoreSummary.kanji_score}/{testResult.scoreSummary.kanji_max_score}</span>
-                  </div>
+                  {testResult.scoreSummary.vocab_max_score > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Từ vựng:</span>
+                      <span className="font-medium">{testResult.scoreSummary.vocab_score}/{testResult.scoreSummary.vocab_max_score}</span>
+                    </div>
+                  )}
+                  {testResult.scoreSummary.grammar_max_score > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Ngữ pháp:</span>
+                      <span className="font-medium">{testResult.scoreSummary.grammar_score}/{testResult.scoreSummary.grammar_max_score}</span>
+                    </div>
+                  )}
+                  {testResult.scoreSummary.reading_max_score > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Đọc hiểu:</span>
+                      <span className="font-medium">{testResult.scoreSummary.reading_score}/{testResult.scoreSummary.reading_max_score}</span>
+                    </div>
+                  )}
+                  {testResult.scoreSummary.listening_max_score > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Nghe hiểu:</span>
+                      <span className="font-medium">{testResult.scoreSummary.listening_score}/{testResult.scoreSummary.listening_max_score}</span>
+                    </div>
+                  )}
+                  {testResult.scoreSummary.kanji_max_score > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Chữ Hán:</span>
+                      <span className="font-medium">{testResult.scoreSummary.kanji_score}/{testResult.scoreSummary.kanji_max_score}</span>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -648,28 +734,52 @@ const JLPTTestInterface: React.FC<JLPTTestInterfaceProps> = ({
                             />
                           ) : attachment.mediaType.startsWith('audio/') ? (
                             <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-                              <div className="flex items-center gap-2 mb-2">
-                                <FaPlay className="text-blue-600" />
-                                <span className="text-sm font-medium text-blue-800">Audio câu hỏi</span>
+                              <div className="flex items-center justify-between mb-3">
+                                <div className="flex items-center gap-2">
+                                  <FaVolumeUp className="text-blue-600" />
+                                  <span className="text-sm font-medium text-blue-800">Audio câu hỏi</span>
+                                </div>
+                                <button
+                                  onClick={() => handlePlayAudio(attachment.mediaUrl)}
+                                  className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                                  title={playingAudio === attachment.mediaUrl ? "Tạm dừng" : "Phát audio"}
+                                >
+                                  {playingAudio === attachment.mediaUrl ? (
+                                    <>
+                                      <FaPause className="text-sm" />
+                                      <span className="text-sm font-medium">Tạm dừng</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <FaPlay className="text-sm" />
+                                      <span className="text-sm font-medium">Phát audio</span>
+                                    </>
+                                  )}
+                                </button>
                               </div>
-                              <audio 
-                                controls 
-                                className="w-full"
-                                preload="none"
-                              >
-                                <source src={attachment.mediaUrl} type={attachment.mediaType} />
-                                Trình duyệt của bạn không hỗ trợ audio.
-                              </audio>
+                              
+                              {/* Progress bar */}
+                              {(audioProgress.get(attachment.mediaUrl) || 0) > 0 && (
+                                <div className="w-full bg-blue-200 rounded-full h-2 mb-2">
+                                  <div 
+                                    className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                                    style={{ width: `${audioProgress.get(attachment.mediaUrl) || 0}%` }}
+                                  ></div>
+                                </div>
+                              )}
+                              
+                              <p className="text-xs text-blue-600 mt-2">
+                                💡 Nhấn nút phát để nghe audio trực tiếp trong trang
+                              </p>
                             </div>
                           ) : (
                             <div className="bg-gray-100 p-4 rounded-lg">
                               <a 
                                 href={attachment.mediaUrl} 
-                                target="_blank" 
-                                rel="noopener noreferrer"
-                                className="text-blue-600 hover:underline"
+                                download
+                                className="text-blue-600 hover:underline flex items-center gap-2"
                               >
-                                Xem tài liệu đính kèm ({attachment.mediaType})
+                                📎 Tải tài liệu đính kèm ({attachment.mediaType})
                               </a>
                             </div>
                           )}

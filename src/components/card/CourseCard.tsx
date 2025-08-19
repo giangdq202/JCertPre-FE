@@ -67,7 +67,10 @@ const CourseCard: React.FC<CourseCardProps> = ({
   };
 
   return (
-    <div className="group relative block bg-white rounded-xl shadow-md hover:shadow-lg hover:ring-2 hover:ring-green-400 transition duration-300 overflow-hidden h-full flex flex-col">
+    <div 
+      className="group relative bg-white rounded-xl shadow-md hover:shadow-lg hover:ring-2 hover:ring-green-400 transition duration-300 overflow-hidden h-full flex flex-col cursor-pointer"
+      onClick={onClick}
+    >
       {/* Badge loại khóa học */}
       {courseType && (
         <div className="absolute top-3 left-3 z-10">
@@ -161,14 +164,19 @@ const CourseCard: React.FC<CourseCardProps> = ({
                 <FaCheckCircle className="w-5 h-5" />
                 <span>Đã hoàn thành</span>
               </div>
-              <CertificateGenerator 
-                certificateData={certificateData}
-                onDownload={onCertificateDownload}
-              />
+              <div onClick={(e) => e.stopPropagation()}>
+                <CertificateGenerator 
+                  certificateData={certificateData}
+                  onDownload={onCertificateDownload}
+                />
+              </div>
             </div>
           ) : (
             <button
-              onClick={onClick}
+              onClick={(e) => {
+                e.stopPropagation();
+                onClick();
+              }}
               className="w-full flex items-center justify-center gap-2 bg-green-600 text-white text-sm font-semibold py-3 rounded-lg
                          group-hover:bg-green-700 transition-colors duration-300 cursor-pointer select-none
                          focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-2"
