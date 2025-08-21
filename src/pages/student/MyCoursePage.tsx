@@ -12,6 +12,7 @@ import Pagination from "../../components/pagination/Pagination";
 import { getMyEnrollments, EnrollmentDetailDto } from "../../services/enrollmentService";
 import { getCourseById, CourseDto } from "../../services/courseService";
 import { useLessonProgress } from "../../hooks/useLessonProgress";
+import { useCourseRatings } from "../../hooks/useCourseRatings";
 import { useAuth } from "../../auth/AuthContext";
 
 interface Course {
@@ -46,6 +47,10 @@ const MyCoursePage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [courseCompletionRates, setCourseCompletionRates] = useState<{ [courseId: string]: number }>({});
   const [isLoadingCompletionRates, setIsLoadingCompletionRates] = useState(false);
+
+  // Get course ratings
+  const courseIds = myCourses.map(course => course.id);
+  const { ratings, loading: loadingRatings } = useCourseRatings(courseIds);
 
   // Fetch enrolled courses from API
   useEffect(() => {
@@ -316,6 +321,7 @@ const MyCoursePage: React.FC = () => {
                   courseType={course.courseType}
                   buttonText="Xem chi tiết"
                   onClick={() => handleCourseClick(course)}
+                  averageRating={ratings[course.id] || undefined}
                   studentName={userInfo?.fullName || "Học viên"}
                   onCertificateDownload={() => {
                     console.log('Certificate downloaded for course:', course.title);

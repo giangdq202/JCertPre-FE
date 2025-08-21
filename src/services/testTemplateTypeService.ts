@@ -5,6 +5,7 @@ import {
   UPDATE_TEST_TEMPLATE_TYPE_URL,
   DELETE_TEST_TEMPLATE_TYPE_URL,
   UPDATE_TEST_TEMPLATE_TYPE_ACTIVE_URL,
+  VERIFY_TEST_TEMPLATE_TYPE_URL,
 } from "../consts/apiUrl/baseUrl";
 import {
   validateCreateTestTemplateTypeDto,
@@ -39,6 +40,9 @@ export interface CreateTestTemplateTypeDto {
 export interface TestTemplateTypeDto {
   testTemplateTypeId: string;
   userId: string;
+  createdByUserName?: string;
+  verifiedUserId?: string;
+  verifiedByUserName?: string;
   typeName: string;
   courseLevel: CourseLevel;
   testType: TestType;
@@ -182,6 +186,27 @@ export const updateTestTemplateTypeIsActive = async (
     return response.data;
   } catch (error) {
     console.error("Failed to update test template type isActive:", error);
+    throw error;
+  }
+};
+
+/**
+ * Verify a test template type by id.
+ * @param testTemplateTypeId - The test template type ID
+ * @param userId - The user ID who is verifying
+ * @returns Promise<TestTemplateTypeDto>
+ */
+export const verifyTestTemplateType = async (
+  testTemplateTypeId: string,
+  userId: string
+): Promise<TestTemplateTypeDto> => {
+  try {
+    const response = await axiosInstance.post(VERIFY_TEST_TEMPLATE_TYPE_URL(testTemplateTypeId), null, {
+      params: { userId }
+    });
+    return response.data;
+  } catch (error) {
+    console.error("Failed to verify test template type:", error);
     throw error;
   }
 }; 

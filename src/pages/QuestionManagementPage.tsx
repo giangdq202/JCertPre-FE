@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { getAllQuestions, getActiveQuestions, toggleQuestionActiveStatus, getQuestionById, getChoicesByQuestionId } from "../services/questionService";
-import { QuestionDto, QuestionDifficulty, ContentName, CourseLevel, SubContentName } from "../types/question.types";
+import { getAllQuestions, getActiveQuestions, toggleQuestionActiveStatus, getQuestionById, getChoicesByQuestionId, ImportFailedQuestionsBlob } from "../services/questionService";
+import { QuestionDto, QuestionDifficulty, ContentName, CourseLevel, SubContentName, ImportQuestionsResultDto } from "../types/question.types";
 import { ChoiceReadDto } from "../types/choice.types";
 import ImportQuestionsModal from "../components/modals/ImportQuestionsModal";
 
@@ -54,6 +54,11 @@ const QuestionManagementPage: React.FC = () => {
   const [courseLevel, setCourseLevel] = useState<CourseLevel[]>([]);
   const [sidebarVisible, setSidebarVisible] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
+  const [showDownloadConfirmModal, setShowDownloadConfirmModal] = useState(false);
+  const [failedQuestionsData, setFailedQuestionsData] = useState<{
+    blob: ImportFailedQuestionsBlob;
+    summary: { totalCount: number; successCount: number; failedCount: number };
+  } | null>(null);
   
   // Edit states - no longer needed for inline editing
   // const [editingQuestion, setEditingQuestion] = useState<EditingQuestion | null>(null);
@@ -152,104 +157,6 @@ const QuestionManagementPage: React.FC = () => {
 
   // Fetch questions with client-side filtering (từ code cũ - hoạt động tốt)
   useEffect(() => {
-    const fetchQuestions = async () => {
-      setLoading(true);
-      try {
-        // Reset quiz mode when filters change
-        if (quizMode) {
-          handleExitQuiz();
-        }
-        
-        // Students only see active questions, staff see all questions
-        const fetchFunction = isStaff ? getAllQuestions : getActiveQuestions;
-        
-        // Nếu không có filter nào được chọn, lấy tất cả
-        if (difficulty.length === 0 && selectedSubContents.length === 0 && courseLevel.length === 0 && contentName.length === 0) {
-          const data = await fetchFunction();
-          const questionsWithAttachments = await fetchQuestionsWithAttachments(data);
-          setQuestions(questionsWithAttachments);
-        } else {
-          // Nếu có filter, sử dụng client-side filtering
-          const allQuestions = await fetchFunction();
-          const allQuestionsWithAttachments = await fetchQuestionsWithAttachments(allQuestions);
-          let filteredQuestions = allQuestionsWithAttachments;
-          
-          // Filter theo difficulty
-          if (difficulty.length > 0) {
-            filteredQuestions = filteredQuestions.filter(q => difficulty.includes(q.difficulty));
-            console.log(`After difficulty filter: ${filteredQuestions.length} questions`);
-          }
-          
-          // Filter theo courseLevel (level) - sửa để so sánh với string values từ backend
-          if (courseLevel.length > 0) {
-            console.log('=== COURSE LEVEL FILTER DEBUG ===');
-            console.log('Selected courseLevel filters:', courseLevel);
-            console.log('Sample question level values:', filteredQuestions.slice(0, 3).map(q => ({ id: q.id, level: q.level, levelType: typeof q.level })));
-            
-            filteredQuestions = filteredQuestions.filter(q => {
-              // Backend trả về string (vd: "N5"), so sánh với enum labels
-              const matches = courseLevel.some(level => {
-                const levelLabel = COURSE_LEVEL_LABELS[level]; // Vd: "N5"
-                return levelLabel === (q.level as any); // Cast to any để tránh type error
-              });
-              if (!matches) {
-                console.log(`Question ${q.id} level "${q.level}" does not match any of`, courseLevel.map(l => COURSE_LEVEL_LABELS[l]));
-              }
-              return matches;
-            });
-            console.log(`After courseLevel filter: ${filteredQuestions.length} questions`);
-          }
-          
-          // Filter theo contentName - sửa để so sánh với string values từ backend
-          if (contentName.length > 0) {
-            console.log('=== CONTENT NAME FILTER DEBUG ===');
-            console.log('Selected contentName filters:', contentName);
-            console.log('Sample question contentName values:', filteredQuestions.slice(0, 3).map(q => ({ id: q.id, contentName: q.contentName, contentType: typeof q.contentName })));
-            
-            filteredQuestions = filteredQuestions.filter(q => {
-              // Backend trả về string (vd: "Kanji"), so sánh trực tiếp
-              const matches = contentName.some(cn => {
-                const enumKey = ContentName[cn]; // Vd: "Kanji" 
-                return (q.contentName as any) === enumKey;
-              });
-              if (!matches) {
-                console.log(`Question ${q.id} contentName "${q.contentName}" does not match any of`, contentName.map(c => ContentName[c]));
-              }
-              return matches;
-            });
-            console.log(`After contentName filter: ${filteredQuestions.length} questions`);
-          }
-          
-          // Filter theo subContentName (selectedSubContents) - sửa để so sánh với string values từ backend
-          if (selectedSubContents.length > 0) {
-            console.log('=== SUBCONTENT FILTER DEBUG ===');
-            console.log('Selected subContent filters:', selectedSubContents);
-            console.log('Sample question subContentName values:', filteredQuestions.slice(0, 3).map(q => ({ id: q.id, subContentName: q.subContentName, subContentType: typeof q.subContentName })));
-            
-            filteredQuestions = filteredQuestions.filter(q => {
-              // Backend trả về string (vd: "Mondai1"), so sánh trực tiếp
-              const matches = selectedSubContents.some(scn => {
-                const enumKey = SubContentName[scn]; // Vd: "Mondai1"
-                return (q.subContentName as any) === enumKey;
-              });
-              if (!matches) {
-                console.log(`Question ${q.id} subContentName "${q.subContentName}" does not match any of`, selectedSubContents.map(sc => SubContentName[sc]));
-              }
-              return matches;
-            });
-            console.log(`After subContent filter: ${filteredQuestions.length} questions`);
-          }
-          
-          setQuestions(filteredQuestions);
-        }
-      } catch (error) {
-        console.error("Error fetching questions:", error);
-        setQuestions([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-    
     fetchQuestions();
   }, [difficulty, selectedSubContents, courseLevel, contentName, isStaff, quizMode]); // Dependency array từ code cũ
 
@@ -388,11 +295,180 @@ const QuestionManagementPage: React.FC = () => {
     setShowAnswer(false);
   };
 
-  const handleImportSuccess = () => {
-    setShowImportModal(false);
-    // Reload questions after successful import by triggering useEffect
+  // Main function to fetch questions with filtering
+  const fetchQuestions = async () => {
     setLoading(true);
-    // The useEffect will automatically run and reload questions
+    try {
+      // Reset quiz mode when filters change
+      if (quizMode) {
+        handleExitQuiz();
+      }
+      
+      // Students only see active questions, staff see all questions
+      const fetchFunction = isStaff ? getAllQuestions : getActiveQuestions;
+      
+      // Nếu không có filter nào được chọn, lấy tất cả
+      if (difficulty.length === 0 && selectedSubContents.length === 0 && courseLevel.length === 0 && contentName.length === 0) {
+        const data = await fetchFunction();
+        const questionsWithAttachments = await fetchQuestionsWithAttachments(data);
+        setQuestions(questionsWithAttachments);
+      } else {
+        // Nếu có filter, sử dụng client-side filtering
+        const allQuestions = await fetchFunction();
+        const allQuestionsWithAttachments = await fetchQuestionsWithAttachments(allQuestions);
+        let filteredQuestions = allQuestionsWithAttachments;
+        
+        // Filter theo difficulty
+        if (difficulty.length > 0) {
+          filteredQuestions = filteredQuestions.filter(q => difficulty.includes(q.difficulty));
+          console.log(`After difficulty filter: ${filteredQuestions.length} questions`);
+        }
+        
+        // Filter theo courseLevel (level) - sửa để so sánh với string values từ backend
+        if (courseLevel.length > 0) {
+          console.log('=== COURSE LEVEL FILTER DEBUG ===');
+          console.log('Selected courseLevel filters:', courseLevel);
+          console.log('Sample question level values:', filteredQuestions.slice(0, 3).map(q => ({ id: q.id, level: q.level, levelType: typeof q.level })));
+          
+          filteredQuestions = filteredQuestions.filter(q => {
+            // Backend trả về string (vd: "N5"), so sánh với enum labels
+            const matches = courseLevel.some(level => {
+              const levelLabel = COURSE_LEVEL_LABELS[level]; // Vd: "N5"
+              return levelLabel === (q.level as any); // Cast to any để tránh type error
+            });
+            if (!matches) {
+              console.log(`Question ${q.id} level "${q.level}" does not match any of`, courseLevel.map(l => COURSE_LEVEL_LABELS[l]));
+            }
+            return matches;
+          });
+          console.log(`After courseLevel filter: ${filteredQuestions.length} questions`);
+        }
+        
+        // Filter theo contentName - sửa để so sánh với string values từ backend
+        if (contentName.length > 0) {
+          console.log('=== CONTENT NAME FILTER DEBUG ===');
+          console.log('Selected contentName filters:', contentName);
+          console.log('Sample question contentName values:', filteredQuestions.slice(0, 3).map(q => ({ id: q.id, contentName: q.contentName, contentType: typeof q.contentName })));
+          
+          filteredQuestions = filteredQuestions.filter(q => {
+            // Backend trả về string (vd: "Kanji"), so sánh trực tiếp
+            const matches = contentName.some(cn => {
+              const enumKey = ContentName[cn]; // Vd: "Kanji" 
+              return (q.contentName as any) === enumKey;
+            });
+            if (!matches) {
+              console.log(`Question ${q.id} contentName "${q.contentName}" does not match any of`, contentName.map(c => ContentName[c]));
+            }
+            return matches;
+          });
+          console.log(`After contentName filter: ${filteredQuestions.length} questions`);
+        }
+        
+        // Filter theo subContentName (selectedSubContents) - sửa để so sánh với string values từ backend
+        if (selectedSubContents.length > 0) {
+          console.log('=== SUBCONTENT FILTER DEBUG ===');
+          console.log('Selected subContent filters:', selectedSubContents);
+          console.log('Sample question subContentName values:', filteredQuestions.slice(0, 3).map(q => ({ id: q.id, subContentName: q.subContentName, subContentType: typeof q.subContentName })));
+          
+          filteredQuestions = filteredQuestions.filter(q => {
+            // Backend trả về string (vd: "Mondai1"), so sánh trực tiếp
+            const matches = selectedSubContents.some(scn => {
+              const enumKey = SubContentName[scn]; // Vd: "Mondai1"
+              return (q.subContentName as any) === enumKey;
+            });
+            if (!matches) {
+              console.log(`Question ${q.id} subContentName "${q.subContentName}" does not match any of`, selectedSubContents.map(sc => SubContentName[sc]));
+            }
+            return matches;
+          });
+          console.log(`After subContent filter: ${filteredQuestions.length} questions`);
+        }
+        
+        setQuestions(filteredQuestions);
+      }
+    } catch (error) {
+      console.error("Error fetching questions:", error);
+      setQuestions([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleImportSuccess = async (result?: ImportQuestionsResultDto, failedBlob?: ImportFailedQuestionsBlob) => {
+    setShowImportModal(false);
+    
+    // Show detailed import results
+    if (result) {
+      // All questions imported successfully (JSON response)
+      const totalCount = result.successCount + result.failedCount;
+      if (result.failedCount === 0) {
+        success(`🎉 Import thành công: ${result.successCount}/${totalCount} câu hỏi!`);
+      } else {
+        success(`✅ Import hoàn tất: ${result.successCount}/${totalCount} câu hỏi thành công, ${result.failedCount} thất bại`);
+      }
+    } else if (failedBlob && failedBlob.importSummary) {
+      // Has failed questions (blob response)
+      const summary = failedBlob.importSummary;
+      const totalCount = summary.successCount + summary.failedCount;
+      
+      // Store failed questions data for download modal
+      setFailedQuestionsData({
+        blob: failedBlob,
+        summary: summary
+      });
+      
+      if (summary.successCount > 0) {
+        // Mixed results - some success, some failed
+        success(`⚠️ Import hoàn tất: ${summary.successCount}/${totalCount} câu hỏi thành công, ${summary.failedCount} thất bại.`);
+      } else {
+        // All failed
+        error(`❌ Import thất bại: 0/${totalCount} câu hỏi thành công, tất cả ${summary.failedCount} câu hỏi đều bị lỗi.`);
+      }
+      
+      // Show confirmation modal for downloading failed questions
+      setShowDownloadConfirmModal(true);
+      
+    } else {
+      // Fallback message
+      success('Import câu hỏi hoàn tất! Danh sách câu hỏi đã được cập nhật.');
+    }
+    
+    // Reload questions after import (both success and partial success)
+    await fetchQuestions();
+  };
+
+  const handleDownloadConfirm = () => {
+    if (failedQuestionsData) {
+      const { blob, summary } = failedQuestionsData;
+      
+      // Download the failed questions file
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const timestamp = new Date().toISOString().split('T')[0];
+      a.download = `import_failed_questions_${timestamp}_${summary.failedCount}errors.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      
+      // Show success notification
+      success(`📁 Tệp lỗi đã được tải xuống: import_failed_questions_${timestamp}_${summary.failedCount}errors.json`);
+      
+      // Close modal and reset data
+      setShowDownloadConfirmModal(false);
+      setFailedQuestionsData(null);
+    }
+  };
+
+  const handleDownloadCancel = () => {
+    if (failedQuestionsData?.summary.successCount && failedQuestionsData.summary.successCount > 0) {
+      success(`✅ ${failedQuestionsData.summary.successCount} câu hỏi đã import thành công!`);
+    }
+    
+    // Close modal and reset data
+    setShowDownloadConfirmModal(false);
+    setFailedQuestionsData(null);
   };
 
   return (
@@ -929,6 +1005,74 @@ const QuestionManagementPage: React.FC = () => {
         onClose={() => setShowImportModal(false)}
         onSuccess={handleImportSuccess}
       />
+
+      {/* Download Failed Questions Confirmation Modal */}
+      {showDownloadConfirmModal && failedQuestionsData && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl p-8 w-full max-w-md mx-4 shadow-2xl border border-gray-200">
+            <div className="text-center">
+              {/* Icon */}
+              <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                </svg>
+              </div>
+
+              {/* Title */}
+              <h3 className="text-xl font-bold text-gray-900 mb-2">
+                {failedQuestionsData.summary.successCount > 0 ? 'Import hoàn tất với lỗi' : 'Import thất bại'}
+              </h3>
+
+              {/* Content */}
+              <div className="text-gray-600 mb-6 space-y-2">
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <div className="grid grid-cols-3 gap-4 text-sm">
+                    <div className="text-center">
+                      <span className="text-gray-500 block">Tổng số</span>
+                      <div className="font-bold text-lg text-gray-900">{failedQuestionsData.summary.totalCount}</div>
+                      <div className="text-xs text-gray-400">câu hỏi</div>
+                    </div>
+                    {failedQuestionsData.summary.successCount > 0 && (
+                      <div className="text-center">
+                        <span className="text-gray-500 block">Thành công</span>
+                        <div className="font-bold text-lg text-green-600">{failedQuestionsData.summary.successCount}</div>
+                        <div className="text-xs text-green-500">câu hỏi</div>
+                      </div>
+                    )}
+                    <div className="text-center">
+                      <span className="text-gray-500 block">Thất bại</span>
+                      <div className="font-bold text-lg text-red-600">{failedQuestionsData.summary.failedCount}</div>
+                      <div className="text-xs text-red-500">câu hỏi</div>
+                    </div>
+                  </div>
+                </div>
+                <p className="text-gray-700">
+                  Bạn có muốn tải xuống tệp chứa danh sách câu hỏi bị lỗi để kiểm tra và sửa chữa không?
+                </p>
+              </div>
+
+              {/* Buttons */}
+              <div className="flex gap-3 justify-center">
+                <button
+                  onClick={handleDownloadCancel}
+                  className="px-6 py-3 text-gray-600 bg-gray-100 rounded-xl hover:bg-gray-200 font-medium transition-all"
+                >
+                  Không, cảm ơn
+                </button>
+                <button
+                  onClick={handleDownloadConfirm}
+                  className="px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl hover:from-blue-600 hover:to-blue-700 font-medium transition-all shadow-lg transform hover:scale-105 flex items-center gap-2"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  Tải xuống
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

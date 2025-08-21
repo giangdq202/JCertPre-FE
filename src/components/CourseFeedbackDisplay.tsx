@@ -14,6 +14,9 @@ const CourseFeedbackDisplay: React.FC<CourseFeedbackDisplayProps> = ({
   averageRating,
   loading
 }) => {
+  // Debug log for feedback data
+  console.log('CourseFeedbackDisplay feedbacks:', feedbacks);
+  
   if (loading) {
     return (
       <div className="bg-white rounded-xl shadow-lg p-8">
@@ -72,7 +75,7 @@ const CourseFeedbackDisplay: React.FC<CourseFeedbackDisplayProps> = ({
       <h3 className="text-xl font-bold text-gray-800 mb-6">Đánh giá từ học viên</h3>
       
       {/* Overall Rating Summary */}
-      {averageRating && (
+      {averageRating && averageRating.averageRating !== undefined && (
         <div className="flex flex-col md:flex-row gap-8 mb-8 pb-6 border-b border-gray-200">
           {/* Average Rating */}
           <div className="text-center">
@@ -118,16 +121,40 @@ const CourseFeedbackDisplay: React.FC<CourseFeedbackDisplayProps> = ({
 
       {/* Individual Feedbacks */}
       <div className="space-y-6">
-        {feedbacks.slice(0, 10).map((feedback) => (
+        {feedbacks.slice(0, 10).map((feedback) => {
+          // Debug log for each feedback
+          console.log(`Feedback ${feedback.feedbackId}:`, {
+            userFullName: feedback.userFullName,
+            userAvatarUrl: feedback.userAvatarUrl,
+            rating: feedback.rating,
+            comment: feedback.comment
+          });
+          
+          return (
           <div key={feedback.feedbackId} className="border-b border-gray-100 pb-6 last:border-b-0">
             <div className="flex items-start gap-4">
-              <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
-                <FaUser className="text-green-600" />
+              <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden border border-gray-200">
+                {feedback.userAvatarUrl ? (
+                  <img 
+                    src={feedback.userAvatarUrl} 
+                    alt={feedback.userFullName || "User Avatar"} 
+                    className="w-full h-full object-cover rounded-full"
+                    onError={(e) => {
+                      // Fallback to icon if image fails to load
+                      const target = e.target as HTMLImageElement;
+                      target.style.display = 'none';
+                      target.nextElementSibling?.classList.remove('hidden');
+                    }}
+                  />
+                ) : null}
+                <FaUser className={`text-green-600 ${feedback.userAvatarUrl ? 'hidden' : ''}`} />
               </div>
               
               <div className="flex-1">
                 <div className="flex items-center gap-3 mb-2">
-                  <div className="font-medium text-gray-800">Học viên</div>
+                  <div className="font-medium text-gray-800">
+                    {feedback.userFullName || "Học viên"}
+                  </div>
                   {renderStars(feedback.rating, 'sm')}
                   <span className="text-sm text-gray-500">
                     {dayjs(feedback.createdAt).format('DD/MM/YYYY')}
@@ -142,7 +169,8 @@ const CourseFeedbackDisplay: React.FC<CourseFeedbackDisplayProps> = ({
               </div>
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Show more button if there are more feedbacks */}

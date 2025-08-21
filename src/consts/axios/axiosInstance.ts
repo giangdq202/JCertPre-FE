@@ -23,6 +23,19 @@ axiosInstance.interceptors.request.use(
             }
             config.headers['Authorization'] = `Bearer ${accessToken}`;
         }
+        
+        // Log request for debugging
+        if (config.url?.includes('feedbacks')) {
+            console.log('Axios Request:', {
+                method: config.method,
+                url: config.url,
+                baseURL: config.baseURL,
+                fullURL: `${config.baseURL}${config.url}`,
+                data: config.data,
+                headers: config.headers
+            });
+        }
+        
         return config;
     },
     (error) => {
@@ -35,6 +48,16 @@ axiosInstance.interceptors.request.use(
 axiosInstance.interceptors.response.use(
     (response) => response, // Nếu response thành công, trả về nguyên trạng
     async (error) => {
+        // Log feedback errors for debugging
+        if (error.config?.url?.includes('feedbacks')) {
+            console.log('Axios Response Error:', {
+                status: error.response?.status,
+                data: error.response?.data,
+                url: error.config?.url,
+                method: error.config?.method,
+                requestData: error.config?.data
+            });
+        }
         const originalConfig = error.config; // Lưu cấu hình của request gốc
         const isAuthRefreshEndpoint = originalConfig.url?.includes(REFRESH_TOKEN); // Kiểm tra URL có chứa REFRESH_TOKEN không
 

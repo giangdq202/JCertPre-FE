@@ -24,6 +24,7 @@ import { getByLessonId, TestDto } from "../../services/testService";
 import StudentProfileModal from "../../components/modals/StudentProfileModal";
 import { useAuth } from "../../auth/AuthContext";
 import { useLessonProgress } from "../../hooks/useLessonProgress";
+import { useCourseRatings } from "../../hooks/useCourseRatings";
 import { useNotification } from "../../components/notifications";
 import paths from "../../routes/path";
 import { FaBookOpen, FaPenNib, FaArrowRight, FaTrophy, FaClock } from "react-icons/fa";
@@ -87,6 +88,14 @@ const StudentHomePage = () => {
   const [courseCompletionRates, setCourseCompletionRates] = useState<{ [courseId: string]: number }>({});
   const [isLoadingCompletionRates, setIsLoadingCompletionRates] = useState(false);
   const [enrolledCourseDetails, setEnrolledCourseDetails] = useState<{ [courseId: string]: CourseDto }>({});
+
+  // Get course ratings for recommended courses
+  const recommendedCourseIds = recommendedCourses.map(course => course.courseId);
+  const { ratings: recommendedRatings, loading: loadingRecommendedRatings } = useCourseRatings(recommendedCourseIds);
+
+  // Get course ratings for enrolled courses  
+  const enrolledCourseIds = enrolledCourses.map(enrollment => enrollment.courseId);
+  const { ratings: enrolledRatings, loading: loadingEnrolledRatings } = useCourseRatings(enrolledCourseIds);
   
   // Livestream states
   const [livestreams, setLivestreams] = useState<LivestreamTimetableDto[]>([]);
@@ -759,6 +768,7 @@ const StudentHomePage = () => {
                       courseType="Public" // Mock course type
                       buttonText="Xem chi tiết"
                       onClick={() => navigate(`/student/course-detail/${enrollment.courseId}`)}
+                      averageRating={enrolledRatings[enrollment.courseId] || undefined}
                       studentName={userInfo?.fullName || "Học viên"}
                       onCertificateDownload={() => {
                         console.log('Certificate downloaded for course:', enrollment.courseTitle);
@@ -842,6 +852,7 @@ const StudentHomePage = () => {
                       price={course.price}
                       courseType="Public" // Mock course type
                       onClick={() => navigate(`/student/course-detail/${course.courseId}`)}
+                      averageRating={recommendedRatings[course.courseId] || undefined}
                       instructor={(() => {
                         const instructor = recommendedInstructors[course.courseId]?.[0];
                         if (instructor) {

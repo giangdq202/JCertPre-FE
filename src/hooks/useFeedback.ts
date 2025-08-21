@@ -1,30 +1,32 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '../auth/AuthContext';
 import { 
   feedbackService, 
   FeedbackDto, 
   CreateFeedbackDto, 
   UpdateFeedbackDto,
-  PaginatedFeedbackResponse,
-  FeedbackQueryParams
+  PaginatedFeedbackResponse
 } from '../services/feedbackService';
 
 export const useFeedback = () => {
   // Create feedback
   const createFeedback = async (createData: CreateFeedbackDto): Promise<FeedbackDto | null> => {
     try {
+      console.log('useFeedback: Creating feedback with data:', createData);
       const feedback = await feedbackService.createFeedback(createData);
       return feedback;
     } catch (err: any) {
       console.error('Failed to create feedback:', err);
+      console.error('Error response:', err.response?.data);
+      console.error('Error status:', err.response?.status);
       return null;
     }
   };
 
-  // Update feedback
-  const updateFeedback = async (feedbackId: string, updateData: UpdateFeedbackDto): Promise<FeedbackDto | null> => {
+  // Update feedback (now requires userId and courseId instead of feedbackId)
+  const updateFeedback = async (userId: string, courseId: string, updateData: UpdateFeedbackDto): Promise<FeedbackDto | null> => {
     try {
-      const feedback = await feedbackService.updateFeedback(feedbackId, updateData);
+      const feedback = await feedbackService.updateFeedback(userId, courseId, updateData);
       return feedback;
     } catch (err: any) {
       console.error('Failed to update feedback:', err);
@@ -32,10 +34,10 @@ export const useFeedback = () => {
     }
   };
 
-  // Delete feedback
-  const deleteFeedback = async (feedbackId: string): Promise<boolean> => {
+  // Delete feedback (now requires userId and courseId instead of feedbackId)
+  const deleteFeedback = async (userId: string, courseId: string): Promise<boolean> => {
     try {
-      await feedbackService.deleteFeedback(feedbackId);
+      await feedbackService.deleteFeedback(userId, courseId);
       return true;
     } catch (err: any) {
       console.error('Failed to delete feedback:', err);
@@ -52,8 +54,8 @@ export const useFeedback = () => {
   };
 };
 
-// Hook for course feedbacks
-export const useCourseFeedbacks = (courseId: string, params?: Omit<FeedbackQueryParams, 'courseId'>) => {
+// Hook for course feedbacks with automatic loading
+export const useCourseFeedbacks = (courseId: string, pageIndex: number = 1, pageSize: number = 10) => {
   const [feedbacks, setFeedbacks] = useState<PaginatedFeedbackResponse | null>(null);
   const [averageRating, setAverageRating] = useState<{ averageRating: number; totalFeedbacks: number } | null>(null);
   const [userFeedback, setUserFeedback] = useState<FeedbackDto | null>(null);
@@ -61,35 +63,54 @@ export const useCourseFeedbacks = (courseId: string, params?: Omit<FeedbackQuery
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   const { userInfo } = useAuth();
+  const userId = useMemo(() => userInfo?.id, [userInfo?.id]); // Memoize to prevent unnecessary re-renders
 
   useEffect(() => {
     const loadCourseFeedbacks = async () => {
-      if (!courseId) return;
+      if (!courseId) {
+        setLoading(false);
+        return;
+      }
 
       setLoading(true);
       try {
-        // Load course feedbacks
-        const feedbacksData = await feedbackService.getFeedbacksByCourseId(courseId, params);
-        setFeedbacks(feedbacksData);
+        // Load course feedbacks and average rating in parallel
+        const [feedbacksData, avgRating] = await Promise.all([
+          feedbackService.getFeedbacksByCourseId(courseId, pageIndex, pageSize),
+          feedbackService.getCourseAverageRating(courseId)
+        ]);
 
-        // Load average rating
-        const avgRating = await feedbackService.getCourseAverageRating(courseId);
+        setFeedbacks(feedbacksData);
         setAverageRating(avgRating);
 
         // Load user's feedback for this course (if user is logged in)
-        if (userInfo?.id) {
-          const userFeedbackData = await feedbackService.getUserFeedbackForCourse(courseId, userInfo.id);
-          setUserFeedback(userFeedbackData);
+        if (userId) {
+          // Find user feedback from current page first
+          let userFeedbackData = feedbacksData.items.find(feedback => feedback.userId === userId);
+          
+          if (!userFeedbackData && feedbacksData.totalCount > pageSize) {
+            // Only search in other pages if user feedback not found in current page and there are more pages
+            const foundUserFeedback = await feedbackService.getUserFeedbackForCourse(courseId, userId);
+            userFeedbackData = foundUserFeedback || undefined;
+          }
+          
+          setUserFeedback(userFeedbackData || null);
+        } else {
+          setUserFeedback(null);
         }
       } catch (err: any) {
         console.error('Failed to load course feedbacks:', err);
+        // Set empty state on error to prevent infinite loading
+        setFeedbacks(null);
+        setAverageRating(null);
+        setUserFeedback(null);
       } finally {
         setLoading(false);
       }
     };
 
     loadCourseFeedbacks();
-  }, [courseId, userInfo?.id, refreshTrigger, JSON.stringify(params)]);
+  }, [courseId, userId, refreshTrigger, pageIndex, pageSize]); // Use userId instead of userInfo
 
   const refresh = () => {
     setRefreshTrigger(prev => prev + 1);
@@ -104,41 +125,72 @@ export const useCourseFeedbacks = (courseId: string, params?: Omit<FeedbackQuery
   };
 };
 
-// Hook for user feedbacks
-export const useUserFeedbacks = (userId?: string, params?: Omit<FeedbackQueryParams, 'userId'>) => {
+// Hook for course feedbacks with lazy loading (load only when explicitly called)
+export const useLazyCourseFeedbacks = (courseId: string, pageIndex: number = 1, pageSize: number = 10) => {
   const [feedbacks, setFeedbacks] = useState<PaginatedFeedbackResponse | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [averageRating, setAverageRating] = useState<{ averageRating: number; totalFeedbacks: number } | null>(null);
+  const [userFeedback, setUserFeedback] = useState<FeedbackDto | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [hasLoaded, setHasLoaded] = useState(false);
 
   const { userInfo } = useAuth();
+  const userId = useMemo(() => userInfo?.id, [userInfo?.id]); // Memoize to prevent unnecessary re-renders
 
-  const targetUserId = userId || userInfo?.id;
+  const loadFeedbacks = useCallback(async () => {
+    if (!courseId) return;
 
-  useEffect(() => {
-    const loadUserFeedbacks = async () => {
-      if (!targetUserId) return;
+    console.log('🔄 Loading feedbacks for course:', courseId);
+    setLoading(true);
+    try {
+      // Load course feedbacks and average rating in parallel
+      const [feedbacksData, avgRating] = await Promise.all([
+        feedbackService.getFeedbacksByCourseId(courseId, pageIndex, pageSize),
+        feedbackService.getCourseAverageRating(courseId)
+      ]);
 
-      setLoading(true);
-      try {
-        const feedbacksData = await feedbackService.getFeedbacksByUserId(targetUserId, params);
-        setFeedbacks(feedbacksData);
-      } catch (err: any) {
-        console.error('Failed to load user feedbacks:', err);
-      } finally {
-        setLoading(false);
+      setFeedbacks(feedbacksData);
+      setAverageRating(avgRating);
+
+      // Load user's feedback for this course (if user is logged in)
+      if (userId) {
+        // Find user feedback from current page first
+        let userFeedbackData = feedbacksData.items.find(feedback => feedback.userId === userId);
+        
+        if (!userFeedbackData && feedbacksData.totalCount > pageSize) {
+          // Only search in other pages if user feedback not found in current page and there are more pages
+          const foundUserFeedback = await feedbackService.getUserFeedbackForCourse(courseId, userId);
+          userFeedbackData = foundUserFeedback || undefined;
+        }
+        
+        setUserFeedback(userFeedbackData || null);
+      } else {
+        setUserFeedback(null);
       }
-    };
+      
+      setHasLoaded(true);
+    } catch (err: any) {
+      console.error('Failed to load course feedbacks:', err);
+      // Set empty state on error
+      setFeedbacks(null);
+      setAverageRating(null);
+      setUserFeedback(null);
+    } finally {
+      setLoading(false);
+    }
+  }, [courseId, pageIndex, pageSize, userId]); // Dependencies that should trigger recreation
 
-    loadUserFeedbacks();
-  }, [targetUserId, refreshTrigger, JSON.stringify(params)]);
-
-  const refresh = () => {
-    setRefreshTrigger(prev => prev + 1);
-  };
+  const refresh = useCallback(() => {
+    console.log('🔄 Refreshing feedbacks manually');
+    loadFeedbacks();
+  }, [loadFeedbacks]);
 
   return {
     feedbacks,
+    averageRating,
+    userFeedback,
     loading,
+    hasLoaded,
+    loadFeedbacks,
     refresh
   };
 };

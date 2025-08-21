@@ -15,7 +15,11 @@ import {
   UpdateQuestionDto,
   validateQuestionCreateDto,
   validateQuestionUpdateDto,
-  ImportQuestionsResultDto
+  ImportQuestionsResultDto,
+  GenerateQuestionRequestDto,
+  GeneratedQuestionResponseDto,
+  ExplanationRequestDto,
+  ExplanationResponseDto
 } from "../types/question.types";
 
 // Import enums from types instead of duplicating them
@@ -251,37 +255,122 @@ export const importQuestions = async (file: File): Promise<ImportQuestionsResult
       headers: {
         'Content-Type': 'multipart/form-data',
       },
+      responseType: 'blob',
     });
 
-    // Check response headers for summary info (indicates failed questions file)
-    if (response.headers['x-total-count']) {
-      // Response contains failed questions file with summary in headers
-      const totalCount = parseInt(response.headers['x-total-count'] || '0');
-      const successCount = parseInt(response.headers['x-success-count'] || '0');
-      const failedCount = parseInt(response.headers['x-failed-count'] || '0');
+    // Parse response content to determine type
+    const text = await response.data.text();
+    console.log('Response text:', text);
+    
+    let parsedData;
+    try {
+      parsedData = JSON.parse(text);
+    } catch (e) {
+      console.error('Failed to parse response as JSON:', e);
+      throw new Error('Invalid response format');
+    }
+
+    console.log('Parsed data:', parsedData);
+    console.log('Is array:', Array.isArray(parsedData));
+
+    // Check if response is an array of failed questions
+    if (Array.isArray(parsedData) && parsedData.length > 0) {
+      console.log('Processing as failed questions array');
       
-      // Create a blob from the response data for download
-      const blob = new Blob([response.data], { type: 'application/json' }) as ImportFailedQuestionsBlob;
+      // This is an array of failed questions
+      const failedCount = parsedData.length;
       
-      // Add summary info as properties to the blob for UI display
+      // Create blob from the failed questions data
+      const blob = new Blob([text], { type: 'application/json' }) as ImportFailedQuestionsBlob;
+      
+      // Add summary info - we know all questions failed since we got this response
       blob.importSummary = {
-        totalCount,
-        successCount,
-        failedCount
+        totalCount: failedCount, // All failed
+        successCount: 0, // None succeeded  
+        failedCount: failedCount
       };
       
+      console.log('Failed questions summary:', blob.importSummary);
       return blob;
+      
+    } else if (Array.isArray(parsedData) && parsedData.length === 0) {
+      console.log('Processing as empty failed questions array');
+      
+      // Empty array means no questions to process
+      const successResult: ImportQuestionsResultDto = {
+        totalCount: 0,
+        successCount: 0,
+        failedCount: 0
+      };
+      
+      return successResult;
+      
+    } else if (parsedData && typeof parsedData === 'object') {
+      console.log('Processing as success JSON response');
+      
+      // Check if it has expected ImportQuestionsResultDto properties
+      if ('totalCount' in parsedData || 'successCount' in parsedData || 'failedCount' in parsedData) {
+        return parsedData as ImportQuestionsResultDto;
+      } else {
+        // Might be a single failed question object, treat as failed
+        const blob = new Blob([text], { type: 'application/json' }) as ImportFailedQuestionsBlob;
+        blob.importSummary = {
+          totalCount: 1,
+          successCount: 0,
+          failedCount: 1
+        };
+        return blob;
+      }
+      
     } else {
-      // Response is JSON summary (no failed questions)
-      return response.data as ImportQuestionsResultDto;
+      console.error('Unexpected response format:', parsedData);
+      throw new Error('Unexpected response format');
     }
+    
   } catch (error: any) {
+    console.error('Import error:', error);
+    
     if (error.response?.status === 400) {
-      // Handle validation errors
-      const errorMessage = error.response.data?.message || 'Invalid file or request data';
+      const errorMessage = error.response?.data?.message || 'Invalid file or request data';
       throw new Error(errorMessage);
     }
-    console.error('Import questions error:', error);
+    
+    throw error;
+  }
+};
+
+/**
+ * Generate question with AI
+ * @param requestDto GenerateQuestionRequestDto
+ * @returns Promise<GeneratedQuestionResponseDto>
+ */
+export const generateQuestionWithAI = async (requestDto: GenerateQuestionRequestDto): Promise<GeneratedQuestionResponseDto> => {
+  try {
+    const response = await axiosInstance.post<GeneratedQuestionResponseDto>(
+      `${QUESTION_BASE_URL}/generate-ai`,
+      requestDto
+    );
+    return response.data;
+  } catch (error) {
+    console.error('Error generating question with AI:', error);
+    throw error;
+  }
+};
+
+/**
+ * Generate explanation for existing question and choices
+ * @param requestDto ExplanationRequestDto
+ * @returns Promise<ExplanationResponseDto>
+ */
+export const generateExplanation = async (requestDto: ExplanationRequestDto): Promise<ExplanationResponseDto> => {
+  try {
+    const response = await axiosInstance.post<ExplanationResponseDto>(
+      `${QUESTION_BASE_URL}/generate-explanation`,
+      requestDto
+    );
+    return response.data;
+  } catch (error) {
+    console.error('Error generating explanation:', error);
     throw error;
   }
 };

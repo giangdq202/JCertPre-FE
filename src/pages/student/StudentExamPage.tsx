@@ -3,8 +3,10 @@ import React, { useEffect, useState } from "react";
 import StudentSideBar from "../../components/sidebar/StudentSideBar";
 import StudentHeader from "../../components/header/StudentHeader";
 import JLPTTestInterface from "../../components/JLPTTestInterface";
+import TestHistoryModal from "../../components/TestHistoryModal";
 import { TestType, CourseLevel } from "../../services/testService";
-import { FaPlay, FaGraduationCap, FaClock, FaUsers } from "react-icons/fa";
+import { FaPlay, FaGraduationCap, FaClock, FaUsers, FaHistory } from "react-icons/fa";
+import { useAuth } from "../../auth/AuthContext";
 import { 
   getAllTestTemplateTypes, 
   TestTemplateTypeDto 
@@ -29,6 +31,7 @@ interface TestOption {
 }
 
 const StudentExamPage: React.FC = () => {
+  const { userInfo } = useAuth();
   const [selectedTest, setSelectedTest] = useState<TestOption | null>(null);
   const [isInTest, setIsInTest] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -36,22 +39,31 @@ const StudentExamPage: React.FC = () => {
   
   const [testOptions, setTestOptions] = useState<TestOption[]>([]);
 
+  // History modal state
+  const [historyModal, setHistoryModal] = useState<{
+    isOpen: boolean;
+    testTemplateTypeId: string;
+    testTemplateTypeName: string;
+  }>({
+    isOpen: false,
+    testTemplateTypeId: "",
+    testTemplateTypeName: "",
+  });
+
   // Load available options from template types, templates and configs
   useEffect(() => {
     const loadOptions = async () => {
       setLoading(true);
       setError("");
       try {
-        // Fetch active template types for JLPTAuto and EntryAuto
-        const [jlptTypes, entryTypes] = await Promise.all([
-          getAllTestTemplateTypes({ type: TestType.JLPTAuto, isActive: true, pageSize: 100 }),
-          getAllTestTemplateTypes({ type: TestType.EntryAuto, isActive: true, pageSize: 100 })
-        ]);
+        // Fetch active template types for JLPTAuto only
+        const jlptTypes = await getAllTestTemplateTypes({ 
+          type: TestType.JLPTAuto, 
+          isActive: true, 
+          pageSize: 100 
+        });
 
-        const allTypes: TestTemplateTypeDto[] = [
-          ...jlptTypes.items,
-          ...entryTypes.items
-        ];
+        const allTypes: TestTemplateTypeDto[] = jlptTypes.items;
 
         const options: TestOption[] = [];
 
@@ -110,6 +122,22 @@ const StudentExamPage: React.FC = () => {
     setSelectedTest(null);
   };
 
+  const handleViewHistory = (testOption: TestOption) => {
+    setHistoryModal({
+      isOpen: true,
+      testTemplateTypeId: testOption.id,
+      testTemplateTypeName: testOption.title,
+    });
+  };
+
+  const handleCloseHistoryModal = () => {
+    setHistoryModal({
+      isOpen: false,
+      testTemplateTypeId: "",
+      testTemplateTypeName: "",
+    });
+  };
+
   if (isInTest && selectedTest) {
     return (
       <JLPTTestInterface
@@ -137,7 +165,7 @@ const StudentExamPage: React.FC = () => {
               Thi thử JLPT
             </h2>
             <p className="text-gray-600">
-              Chọn loại bài thi phù hợp với trình độ của bạn để bắt đầu làm bài
+              Chọn cấp độ JLPT phù hợp với trình độ của bạn để bắt đầu làm bài thi thử
             </p>
           </div>
 
@@ -154,7 +182,7 @@ const StudentExamPage: React.FC = () => {
             )}
             {!loading && !error && testOptions.length === 0 && (
               <div className="col-span-1 md:col-span-2 lg:col-span-3 bg-white rounded-lg p-6 border text-center text-gray-600">
-                Chưa có mẫu đề thi nào sẵn sàng. Vui lòng thử lại sau.
+                Chưa có đề thi JLPT nào sẵn sàng. Vui lòng thử lại sau.
               </div>
             )}
             {!loading && !error && testOptions.map((testOption) => (
@@ -164,15 +192,9 @@ const StudentExamPage: React.FC = () => {
               >
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex items-center gap-2">
-                    <FaGraduationCap className={`text-xl ${
-                      testOption.testType === TestType.JLPTAuto ? 'text-blue-600' : 'text-green-600'
-                    }`} />
-                    <span className={`px-2 py-1 text-xs font-medium rounded ${
-                      testOption.testType === TestType.JLPTAuto 
-                        ? 'bg-blue-100 text-blue-700' 
-                        : 'bg-green-100 text-green-700'
-                    }`}>
-                      {testOption.testType === TestType.JLPTAuto ? 'JLPT' : 'Kiểm tra đầu vào'}
+                    <FaGraduationCap className="text-xl text-blue-600" />
+                    <span className="px-2 py-1 text-xs font-medium rounded bg-blue-100 text-blue-700">
+                      JLPT
                     </span>
                   </div>
                   <span className={`px-2 py-1 text-xs font-medium rounded bg-gray-100 text-gray-700`}>
@@ -184,7 +206,7 @@ const StudentExamPage: React.FC = () => {
                   {testOption.title}
                 </h3>
                 
-                <p className="text-gray-600 text-sm mb-4">Bài thi theo cấu hình hệ thống</p>
+                <p className="text-gray-600 text-sm mb-4">Bài thi thử JLPT theo cấu hình hệ thống</p>
 
                 <div className="flex items-center gap-4 mb-6 text-sm text-gray-500">
                   <div className="flex items-center gap-1">
@@ -199,14 +221,18 @@ const StudentExamPage: React.FC = () => {
 
                 <button
                   onClick={() => handleStartTest(testOption)}
-                  className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium transition-colors ${
-                    testOption.testType === TestType.JLPTAuto
-                      ? 'bg-blue-600 hover:bg-blue-700 text-white'
-                      : 'bg-green-600 hover:bg-green-700 text-white'
-                  }`}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium transition-colors bg-blue-600 hover:bg-blue-700 text-white mb-2"
                 >
                   <FaPlay size={14} />
                   Bắt đầu làm bài
+                </button>
+                
+                <button
+                  onClick={() => handleViewHistory(testOption)}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors bg-gray-100 hover:bg-gray-200 text-gray-700"
+                >
+                  <FaHistory size={14} />
+                  Xem lịch sử
                 </button>
               </div>
             ))}
@@ -227,6 +253,17 @@ const StudentExamPage: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Test History Modal */}
+      {userInfo && (
+        <TestHistoryModal
+          isOpen={historyModal.isOpen}
+          onClose={handleCloseHistoryModal}
+          testTemplateTypeId={historyModal.testTemplateTypeId}
+          testTemplateTypeName={historyModal.testTemplateTypeName}
+          userId={userInfo.id}
+        />
+      )}
     </div>
   );
 };

@@ -26,7 +26,7 @@ import { FaPlay, FaClock, FaCalendarAlt, FaUser, FaVideo, FaExclamationTriangle,
 import { HiOutlineClock } from 'react-icons/hi2';
 import FeedbackModal from '../../components/modals/FeedbackModal';
 import CourseFeedbackDisplay from '../../components/CourseFeedbackDisplay';
-import { useCourseFeedbacks } from '../../hooks/useFeedback';
+import { useLazyCourseFeedbacks } from '../../hooks/useFeedback';
 
 const StudentCourseDetailPage = () => {
     const { courseId } = useParams<{ courseId: string }>();
@@ -53,11 +53,16 @@ const StudentCourseDetailPage = () => {
     // Feedback states
     const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
 
-    // Get course feedbacks
-    const { feedbacks, averageRating, userFeedback, loading: feedbackLoading, refresh: refreshFeedbacks } = useCourseFeedbacks(
-        courseId || '', 
-        { pageSize: 50 } // Get more feedbacks for display
-    );
+    // Get course feedbacks (lazy loading - only load when user is enrolled)
+    const { 
+        feedbacks, 
+        averageRating, 
+        userFeedback, 
+        loading: feedbackLoading, 
+        hasLoaded: feedbacksHasLoaded,
+        loadFeedbacks,
+        refresh: refreshFeedbacks 
+    } = useLazyCourseFeedbacks(courseId || '', 1, 50);
 
     // Helper function to check if course has expired
     const isCourseExpired = (endDate: string) => {
@@ -98,6 +103,13 @@ const StudentCourseDetailPage = () => {
 
         fetchCourseDetailsAndEnrollmentStatus();
     }, [courseId, navigate]);
+
+    // Load feedbacks only when user is enrolled
+    useEffect(() => {
+        if (isUserEnrolled && !feedbacksHasLoaded) {
+            loadFeedbacks();
+        }
+    }, [isUserEnrolled, feedbacksHasLoaded, loadFeedbacks]); // Now loadFeedbacks is stable
 
     // Fetch completion rate when user is enrolled
     useEffect(() => {
@@ -379,6 +391,28 @@ const StudentCourseDetailPage = () => {
                                 <div className="mb-6">
                                     <h2 className="text-3xl font-bold text-gray-800 mb-4">{course.title}</h2>
                                     <p className="text-gray-700 leading-relaxed mb-4">{course.description}</p>
+                                    
+                                    {/* Rating Display - moved here, right after description */}
+                                    {averageRating && averageRating.averageRating > 0 && (
+                                        <div className="flex items-center gap-2 mb-4 p-3 bg-gray-50 rounded-lg">
+                                            <div className="flex">
+                                                {[...Array(5)].map((_, i) => (
+                                                    <FaStar
+                                                        key={i}
+                                                        className={`w-4 h-4 ${
+                                                            i < Math.floor(averageRating.averageRating)
+                                                                ? 'text-yellow-400'
+                                                                : 'text-gray-300'
+                                                        }`}
+                                                    />
+                                                ))}
+                                            </div>
+                                            <span className="text-sm text-gray-700 font-medium">
+                                                {averageRating.averageRating.toFixed(1)} ({averageRating.totalFeedbacks} đánh giá)
+                                            </span>
+                                        </div>
+                                    )}
+
                                     {mainInstructor && (
                                         <div className="flex items-center gap-3 mt-6">
                                             <img src="https://placehold.co/40x40/cccccc/ffffff?text=GV" alt="Instructor Avatar" className="w-10 h-10 rounded-full object-cover border" />

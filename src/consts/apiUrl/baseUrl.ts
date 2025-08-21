@@ -130,7 +130,7 @@ export const UPDATE_TEST_STATUS_URL = (testId: string) => `${TEST_BASE_URL}/${te
 export const GET_TEST_BY_LESSON_URL = (lessonId: string) => `${TEST_BASE_URL}/by-lesson/${lessonId}`;
 export const CREATE_TEST_BY_LESSON_URL = (lessonId: string) => `${TEST_BASE_URL}/by-lesson/${lessonId}`;
 export const AUTO_CREATE_TEST_URL = (userId: string) => `${TEST_BASE_URL}/auto-create?userId=${userId}`;
-export const GET_TESTS_BY_USER_URL = (userId: string) => `${TEST_BASE_URL}/by-user/${userId}`;
+export const GET_TESTS_BY_USER_URL = (userId: string) => `${TEST_BASE_URL}/user/${userId}`;
 
 // ===== TEST ATTEMPT ENDPOINTS =====
 export const TEST_ATTEMPT_BASE_URL = `${BASE_URL}/test-attempts`;
@@ -204,6 +204,7 @@ export const CREATE_TEST_TEMPLATE_TYPE_URL = TEST_TEMPLATE_TYPE_BASE_URL;
 export const UPDATE_TEST_TEMPLATE_TYPE_URL = (testTemplateTypeId: string) => `${TEST_TEMPLATE_TYPE_BASE_URL}/${testTemplateTypeId}`;
 export const DELETE_TEST_TEMPLATE_TYPE_URL = (testTemplateTypeId: string) => `${TEST_TEMPLATE_TYPE_BASE_URL}/${testTemplateTypeId}`;
 export const UPDATE_TEST_TEMPLATE_TYPE_ACTIVE_URL = (testTemplateTypeId: string) => `${TEST_TEMPLATE_TYPE_BASE_URL}/${testTemplateTypeId}/is-active`;
+export const VERIFY_TEST_TEMPLATE_TYPE_URL = (testTemplateTypeId: string) => `${TEST_TEMPLATE_TYPE_BASE_URL}/${testTemplateTypeId}/verify`;
 
 // ===== TEST TEMPLATE CONFIG ENDPOINTS =====
 export const TEST_TEMPLATE_CONFIG_BASE_URL = `${BASE_URL}/test-template-configs`;

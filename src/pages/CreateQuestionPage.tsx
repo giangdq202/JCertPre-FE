@@ -1,21 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FaPlus, FaTrash, FaSave, FaTimes, FaPlay, FaVolumeUp, FaArrowLeft, FaMusic } from 'react-icons/fa';
+import { FaPlus, FaTrash, FaArrowLeft, FaMusic, FaRobot } from 'react-icons/fa';
 import { 
   QuestionDifficulty, 
   ContentName, 
   CourseLevel, 
   SubContentName,
   CreateQuestionDto,
+  GenerateQuestionRequestDto,
+  ExplanationRequestDto,
 } from '../types/question.types';
 import { 
   createQuestion,
   createChoice,
+  generateQuestionWithAI,
+  generateExplanation,
 } from '../services/questionService';
 import { 
   ChoiceCreateDto,
   validateChoiceCreateDto,
-  CHOICE_VALIDATION_RULES
 } from '../types/choice.types';
 import { getAllSubContents, SubContentDto } from '../services/subContentService';
 import { useNotification } from '../components/notifications';
@@ -53,6 +56,36 @@ const CreateQuestionPage: React.FC = () => {
   // SubContent options
   const [subContents, setSubContents] = useState<SubContentDto[]>([]);
   const [loading, setLoading] = useState(false);
+  
+  // AI Generation states
+  const [aiGenerating, setAiGenerating] = useState(false);
+  const [explanationGenerating, setExplanationGenerating] = useState(false);
+  
+  // Mapping functions for AI API
+  const mapContentNameToEnglish = (contentName: ContentName): string => {
+    switch (contentName) {
+      case ContentName.Kanji: return "Kanji";
+      case ContentName.Vocabulary: return "Vocabulary";
+      case ContentName.Grammar: return "Grammar";
+      case ContentName.Reading: return "Reading";
+      case ContentName.Listening: return "Reading"; // Listening maps to Reading for AI API
+      default: return "Reading";
+    }
+  };
+  
+  const getDescriptionFromSubContentDisplay = (subContentDisplay: string): string => {
+    // Extract description after " - " 
+    const parts = subContentDisplay.split(" - ");
+    return parts.length > 1 ? parts[1] : subContentDisplay;
+  };
+  
+  // Check if current selection is valid for AI generation
+  const canGenerateWithAI = (): boolean => {
+    return courseLevel !== null && 
+           contentName !== null && 
+           contentName !== ContentName.Listening && // AI doesn't support Listening
+           selectedSubContent !== "";
+  };
   
   // Labels
   const DIFFICULTY_LABELS: Record<QuestionDifficulty, string> = {
@@ -206,6 +239,97 @@ const CreateQuestionPage: React.FC = () => {
     setAudioFile(null);
     setAudioFileName("");
   };
+
+  // Handle AI generation
+  const handleGenerateWithAI = async () => {
+    if (!canGenerateWithAI()) {
+      error("Vui lòng chọn đầy đủ Cấp độ, Loại câu hỏi và Nội dung con để tạo câu hỏi bằng AI");
+      return;
+    }
+
+    setAiGenerating(true);
+    try {
+      const requestDto: GenerateQuestionRequestDto = {
+        level: COURSE_LEVEL_LABELS[courseLevel!],
+        contentName: mapContentNameToEnglish(contentName!),
+        description: getDescriptionFromSubContentDisplay(selectedSubContent)
+      };
+
+      const response = await generateQuestionWithAI(requestDto);
+      
+      // Fill form with AI generated data
+      setQuestionContent(response.questionText);
+      
+      // Fill explanation from AI response
+      if (response.explanation) {
+        setQuestionExplanation(response.explanation);
+        setShowQuestionExplanation(true); // Auto show explanation section when AI generates it
+      }
+      
+      // Map AI choices to form choices
+      const newChoices = response.choices.map(choice => ({
+        content: choice.choiceText,
+        isCorrect: choice.isCorrect
+      }));
+      
+      // Ensure we have at least 4 choices (pad with empty if needed)
+      while (newChoices.length < 4) {
+        newChoices.push({ content: "", isCorrect: false });
+      }
+      
+      setChoices(newChoices);
+      
+      success("🤖 Đã tạo câu hỏi bằng AI thành công! Vui lòng kiểm tra và chỉnh sửa nếu cần.");
+      
+    } catch (err: any) {
+      console.error("Error generating question with AI:", err);
+      const errorMessage = err.response?.data?.message || err.message || "Có lỗi xảy ra khi tạo câu hỏi bằng AI";
+      error(`❌ Lỗi tạo câu hỏi AI: ${errorMessage}`);
+    } finally {
+      setAiGenerating(false);
+    }
+  };
+  
+  // Handle AI explanation generation
+  const handleGenerateExplanation = async () => {
+    if (!questionContent.trim()) {
+      warning("Vui lòng nhập nội dung câu hỏi trước khi tạo giải thích");
+      return;
+    }
+
+    // Check if there's at least one non-empty choice
+    const validChoices = choices.filter(choice => choice.content.trim() !== '');
+    if (validChoices.length === 0) {
+      warning("Vui lòng nhập ít nhất một lựa chọn để tạo giải thích");
+      return;
+    }
+
+    setExplanationGenerating(true);
+    try {
+      const requestDto: ExplanationRequestDto = {
+        questionText: questionContent,
+        choices: validChoices.map((choice) => ({
+          choiceText: choice.content,
+          isCorrect: choice.isCorrect
+        }))
+      };
+
+      const response = await generateExplanation(requestDto);
+      
+      // Fill explanation from AI response
+      setQuestionExplanation(response.explanation);
+      setShowQuestionExplanation(true); // Auto show explanation section
+
+      success("🤖 Đã tạo giải thích bằng AI thành công! Vui lòng kiểm tra và chỉnh sửa nếu cần.");
+      
+    } catch (err: any) {
+      console.error("Error generating explanation:", err);
+      const errorMessage = err.response?.data?.message || err.message || "Có lỗi xảy ra khi tạo giải thích bằng AI";
+      error(`❌ Lỗi tạo giải thích AI: ${errorMessage}`);
+    } finally {
+      setExplanationGenerating(false);
+    }
+  };
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -268,9 +392,6 @@ const CreateQuestionPage: React.FC = () => {
     setLoading(true);
     
     try {
-      // Parse selectedSubContent to get subContentName
-      const subContentNameStr = selectedSubContent.split(" - ")[1]; // Lấy phần thứ 2 sau dấu " - "
-      
       // Find the subContent that matches the selected option
       const selectedSubContentData = subContents.find(sc => 
         `${sc.contentNameDescription} - ${sc.subContentNameDescription}` === selectedSubContent
@@ -542,6 +663,43 @@ const CreateQuestionPage: React.FC = () => {
             </div>
           </div>
           
+          {/* AI Generation Button */}
+          {canGenerateWithAI() && (
+            <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border border-blue-200">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
+                    <FaRobot className="text-white text-lg" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-800">Tạo câu hỏi bằng AI</h3>
+                    <p className="text-xs text-gray-600">
+                      Sử dụng AI để tạo câu hỏi cho {COURSE_LEVEL_LABELS[courseLevel!]} - {CONTENT_NAME_LABELS[contentName!]}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleGenerateWithAI}
+                  disabled={aiGenerating}
+                  className="px-4 py-2 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-lg hover:from-blue-600 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2 transition-all transform hover:scale-105"
+                >
+                  {aiGenerating ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      <span className="text-sm">Đang tạo...</span>
+                    </>
+                  ) : (
+                    <>
+                      <FaRobot className="text-sm" />
+                      <span className="text-sm">Tạo bằng AI</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          )}
+          
           {/* Question Content */}
           <div className="mb-6">
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -566,14 +724,24 @@ const CreateQuestionPage: React.FC = () => {
             </div>
             
             {showQuestionExplanation && (
-              <div className="mt-2">
+              <div className="mt-2 relative">
                 <textarea
                   value={questionExplanation}
                   onChange={(e) => setQuestionExplanation(e.target.value)}
-                  rows={2}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none"
+                  rows={3}
+                  className="w-full px-3 py-2 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none"
                   placeholder="Nhập giải thích cho câu hỏi (tùy chọn)..."
                 />
+                {/* Generate Explanation Button */}
+                <button
+                  type="button"
+                  onClick={handleGenerateExplanation}
+                  disabled={explanationGenerating}
+                  className="absolute top-2 right-2 p-1.5 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Tạo giải thích bằng AI"
+                >
+                  <FaRobot className={`w-4 h-4 ${explanationGenerating ? 'animate-spin' : ''}`} />
+                </button>
               </div>
             )}
           </div>
@@ -644,13 +812,7 @@ const CreateQuestionPage: React.FC = () => {
                 </div>
               ))}
             </div>
-            <button
-              type="button"
-              onClick={addChoice}
-              className="mt-4 flex items-center text-green-600 hover:text-green-700"
-            >
-              <FaPlus className="mr-2" /> Thêm đáp án
-            </button>
+            
             <button
               type="button"
               onClick={() => removeChoice(choices.length - 1)}

@@ -1,12 +1,13 @@
 import React, { useState, useEffect, Fragment } from "react";
 import { useNavigate } from "react-router-dom";
-import { FaPlus, FaEdit, FaTrash, FaEye, FaEyeSlash, FaArrowLeft, FaCog, FaChevronDown, FaChevronRight } from "react-icons/fa";
+import { FaPlus, FaEdit, FaTrash, FaEye, FaEyeSlash, FaArrowLeft, FaCog, FaChevronDown, FaChevronRight, FaCheck, FaExclamationTriangle } from "react-icons/fa";
 import { 
   getAllTestTemplateTypes, 
   createTestTemplateType, 
   updateTestTemplateType, 
   deleteTestTemplateType, 
   updateTestTemplateTypeIsActive,
+  verifyTestTemplateType,
   TestTemplateTypeDto,
   CreateTestTemplateTypeDto,
   UpdateTestTemplateTypeDto,
@@ -56,6 +57,7 @@ const TestTemplateTypeManagementPage: React.FC = () => {
   const [templateTypes, setTemplateTypes] = useState<TestTemplateTypeDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<TestTemplateTypeDto | null>(null);
@@ -99,7 +101,7 @@ const TestTemplateTypeManagementPage: React.FC = () => {
     courseLevel: CourseLevel.N5,
     testType: TestType.JLPTAuto,
     description: "",
-    isActive: true,
+    isActive: false,
     totalTestScore: 100,
     totalPassPercentage: 70
   });
@@ -143,6 +145,16 @@ const TestTemplateTypeManagementPage: React.FC = () => {
       loadTemplateTypes();
     }
   }, [userInfo]);
+
+  // Auto clear success message after 5 seconds
+  useEffect(() => {
+    if (success) {
+      const timer = setTimeout(() => {
+        setSuccess("");
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [success]);
 
   const loadTemplateTypes = async () => {
     try {
@@ -221,9 +233,40 @@ const TestTemplateTypeManagementPage: React.FC = () => {
     try {
       await updateTestTemplateTypeIsActive(templateTypeId, !currentActive);
       await loadTemplateTypes();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to toggle template type active status:", error);
-      setError("Không thể cập nhật trạng thái cấu trúc đề thi");
+      
+      // Handle specific error messages
+      if (error?.response?.data?.errorCode === "NOT_VERIFIED") {
+        setError("Không thể kích hoạt: Cấu trúc đề thi chưa được duyệt.");
+      } else if (error?.response?.data?.errorCode === "NO_TEST_TEMPLATE") {
+        setError("Không thể kích hoạt: Không có phần thi nào thuộc cấu trúc này.");
+      } else if (error?.response?.data?.errorCode === "NO_TEST_TEMPLATE_CONFIG") {
+        setError("Không thể kích hoạt: Không có cấu hình câu hỏi nào thuộc phần thi của cấu trúc này.");
+      } else {
+        setError("Không thể cập nhật trạng thái cấu trúc đề thi");
+      }
+    }
+  };
+
+  const handleVerify = async (templateTypeId: string) => {
+    if (!userInfo?.id) {
+      setError("Không thể xác định thông tin người dùng");
+      return;
+    }
+
+    try {
+      await verifyTestTemplateType(templateTypeId, userInfo.id);
+      await loadTemplateTypes();
+      setSuccess("Đã duyệt cấu trúc đề thi thành công");
+    } catch (error: any) {
+      console.error("Failed to verify template type:", error);
+      
+      if (error?.response?.data?.errorCode === "SELF_VERIFY_NOT_ALLOWED") {
+        setError("Không thể tự duyệt cấu trúc đề thi do chính mình tạo.");
+      } else {
+        setError("Không thể duyệt cấu trúc đề thi");
+      }
     }
   };
 
@@ -574,6 +617,13 @@ const TestTemplateTypeManagementPage: React.FC = () => {
           </div>
         )}
 
+        {/* Success Display */}
+        {success && (
+          <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+            <p className="text-green-800">{success}</p>
+          </div>
+        )}
+
         {/* Template Types List */}
         <div className="bg-white rounded-xl shadow-lg overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-200">
@@ -600,6 +650,9 @@ const TestTemplateTypeManagementPage: React.FC = () => {
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Tỷ lệ đỗ (%)
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Trạng thái duyệt
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Trạng thái
@@ -653,6 +706,33 @@ const TestTemplateTypeManagementPage: React.FC = () => {
                         {template.totalPassPercentage}%
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
+                        {template.verifiedUserId ? (
+                          <div className="flex flex-col">
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                              <FaCheck className="mr-1" />
+                              Đã duyệt
+                            </span>
+                            {template.verifiedByUserName && (
+                              <span className="text-xs text-gray-500 mt-1">
+                                Bởi: {template.verifiedByUserName}
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="flex flex-col">
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                              <FaExclamationTriangle className="mr-1" />
+                              Chờ duyệt
+                            </span>
+                            {template.createdByUserName && (
+                              <span className="text-xs text-gray-500 mt-1">
+                                Tạo bởi: {template.createdByUserName}
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                           template.isActive 
                             ? 'bg-green-100 text-green-800' 
@@ -663,6 +743,16 @@ const TestTemplateTypeManagementPage: React.FC = () => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         <div className="flex items-center gap-2">
+                          {/* Verify button - only show if not verified and not created by current user */}
+                          {!template.verifiedUserId && template.userId !== userInfo?.id && (
+                            <button
+                              onClick={() => handleVerify(template.testTemplateTypeId)}
+                              className="text-green-600 hover:text-green-900"
+                              title="Duyệt cấu trúc đề thi"
+                            >
+                              <FaCheck className="text-sm" />
+                            </button>
+                          )}
                           <button
                             onClick={() => openEditModal(template)}
                             className="text-blue-600 hover:text-blue-900"
@@ -695,7 +785,7 @@ const TestTemplateTypeManagementPage: React.FC = () => {
                     {/* Expanded templates section */}
                     {expandedTemplateTypes.has(template.testTemplateTypeId) && (
                       <tr>
-                        <td colSpan={7} className="px-6 py-0 bg-gray-50">
+                        <td colSpan={8} className="px-6 py-0 bg-gray-50">
                           <div className="py-4">
                             <div className="flex items-center justify-between mb-4">
                               <h4 className="text-lg font-medium text-gray-900">

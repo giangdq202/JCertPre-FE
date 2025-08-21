@@ -1,14 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { FaEdit, FaTrash, FaSave, FaTimes, FaPlus, FaMinus, FaCheck, FaExclamationCircle, FaSearch } from 'react-icons/fa';
+import { FaEdit, FaTrash, FaSave, FaTimes, FaPlus, FaExclamationCircle, FaSearch } from 'react-icons/fa';
 import { 
   updateQuestion,
-  deleteQuestion,
   createChoice,
   updateChoice,
   deleteChoice,
   getQuestionById,
   getChoicesByQuestionId,
-  createQuestion,
   getQuestionsPagingDetails,
 } from '../../services/questionService';
 import {
@@ -18,7 +16,6 @@ import {
   SubContentName,
   UpdateQuestionDto,
   QuestionDto,
-  CreateQuestionDto,
 } from '../../types/question.types';
 import { 
   ChoiceReadDto,
@@ -281,13 +278,17 @@ const ExistingQuestionItem: React.FC<ExistingQuestionItemProps> = ({
           {/* Explanation */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Giải thích
+              <div className="flex items-center gap-2">
+                <span>Giải thích đáp án</span>
+                <span className="text-xs text-gray-500">(tuỳ chọn)</span>
+              </div>
             </label>
             <textarea
               value={editForm.explanation}
               onChange={(e) => setEditForm(prev => ({...prev, explanation: e.target.value}))}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
-              rows={2}
+              rows={3}
+              placeholder="Nhập giải thích chi tiết về đáp án đúng để giúp học viên hiểu rõ hơn..."
             />
           </div>
 
@@ -487,9 +488,16 @@ const ExistingQuestionItem: React.FC<ExistingQuestionItemProps> = ({
         </div>
         
         {question.explanation && (
-          <div>
-            <span className="text-sm text-gray-600">Giải thích: </span>
-            <span className="text-sm text-gray-700">{question.explanation}</span>
+          <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="flex items-center gap-2 mb-1">
+              <div className="w-4 h-4 bg-blue-500 rounded-full flex items-center justify-center">
+                <span className="text-white text-xs font-bold">!</span>
+              </div>
+              <span className="text-sm font-medium text-blue-800">Giải thích đáp án</span>
+            </div>
+            <p className="text-sm text-blue-700 pl-6 leading-relaxed">
+              {question.explanation}
+            </p>
           </div>
         )}
 
@@ -682,8 +690,8 @@ const EditTestModal: React.FC<EditTestModalProps> = ({
         pageIndex: 1,
         pageSize: 50,
         search: searchTerm.trim() || undefined,
-        contentName: filterContentName ? filterContentName.toString() : undefined, 
-        subContentName: filterSubContentName ? filterSubContentName.toString() : undefined,
+        contentName: filterContentName ? (filterContentName as ContentName) : undefined, 
+        subContentName: filterSubContentName ? (filterSubContentName as SubContentName) : undefined,
         courseLevel: [test.courseLevel], // Filter by course level of the test
         isActive: true // Only get active questions
       };

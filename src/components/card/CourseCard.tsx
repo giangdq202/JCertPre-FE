@@ -1,5 +1,5 @@
 import React from "react";
-import { FaBookOpen, FaArrowRight, FaCheckCircle } from "react-icons/fa";
+import { FaBookOpen, FaArrowRight, FaCheckCircle, FaStar } from "react-icons/fa";
 import clsx from "clsx";
 import CertificateGenerator from "../CertificateGenerator";
 
@@ -34,6 +34,10 @@ interface CourseCardProps {
   };
   studentName?: string;
   onCertificateDownload?: () => void;
+  averageRating?: {
+    averageRating: number;
+    totalFeedbacks: number;
+  };
 }
 
 const typeColorMap: Record<CourseTypeEnum, string> = {
@@ -54,9 +58,15 @@ const CourseCard: React.FC<CourseCardProps> = ({
   instructor,
   studentName,
   onCertificateDownload,
+  averageRating,
 }) => {
   const isPurchased = progress !== undefined; // true nếu đã đăng ký
   const isCompleted = progress !== undefined && progress >= 100;
+
+  // Debug log
+  if (averageRating) {
+    console.log('CourseCard averageRating:', { title, averageRating });
+  }
 
   const certificateData = {
     studentName: studentName || "Học viên",
@@ -125,6 +135,36 @@ const CourseCard: React.FC<CourseCardProps> = ({
             <FaBookOpen className="text-green-500" />
             <span>Trình độ: {level}</span>
           </div>
+
+          {/* Rating - hiển thị nếu có */}
+          {(() => {
+            console.log(`[CourseCard ${title}] averageRating check:`, {
+              averageRating,
+              hasAverageRating: !!averageRating,
+              averageRatingValue: averageRating?.averageRating,
+              condition: averageRating && typeof averageRating.averageRating === 'number' && averageRating.averageRating >= 0
+            });
+            return averageRating && typeof averageRating.averageRating === 'number' && averageRating.averageRating >= 0;
+          })() && (
+            <div className="text-xs text-gray-500 flex items-center gap-2">
+              <div className="flex">
+                {[...Array(5)].map((_, i) => (
+                  <FaStar
+                    key={i}
+                    className={`w-3 h-3 ${
+                      i < Math.floor(averageRating!.averageRating)
+                        ? 'text-yellow-400'
+                        : 'text-gray-300'
+                    }`}
+                  />
+                ))}
+              </div>
+              <span>
+                {averageRating!.averageRating.toFixed(1)}
+                {averageRating!.totalFeedbacks > 0 && ` (${averageRating!.totalFeedbacks} đánh giá)`}
+              </span>
+            </div>
+          )}
 
           {/* Thông tin giáo viên - luôn hiển thị */}
           <div className="flex items-center gap-2">

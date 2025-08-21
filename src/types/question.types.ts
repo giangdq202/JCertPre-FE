@@ -47,6 +47,35 @@ export interface CreateQuestionDto {
 }
 
 /**
+ * DTO for generating question with AI
+ */
+export interface GenerateQuestionRequestDto {
+  level: string; // N5, N4, N3, N2, N1
+  contentName: string; // Kanji, Vocabulary, Grammar, Reading
+  description: string; // Description from valid list
+}
+
+export interface GeneratedChoiceDto {
+  choiceText: string;
+  isCorrect: boolean;
+}
+
+export interface GeneratedQuestionResponseDto {
+  questionText: string;
+  explanation: string;          // ← NEW!
+  choices: GeneratedChoiceDto[];
+}
+
+export interface ExplanationRequestDto {
+  questionText: string;
+  choices: GeneratedChoiceDto[];
+}
+
+export interface ExplanationResponseDto {
+  explanation: string;
+}
+
+/**
  * DTO for updating an existing question
  * Matches backend UpdateQuestionDto validation:
  * - Content: Optional, MinLength(10) if provided
@@ -152,11 +181,9 @@ export interface ImportQuestionsRequestDto {
 }
 
 export interface ImportQuestionsResultDto {
-  TotalCount: number;
-  SuccessCount: number;
-  FailedCount: number;
-  FailedQuestions: ImportQuestionErrorDto[];
-  FailedFileUrl?: string;
+  totalCount: number;    // lowercase để match backend response khi thành công
+  successCount: number;  // lowercase để match backend response khi thành công  
+  failedCount: number;   // lowercase để match backend response khi thành công
 }
 
 export interface ImportQuestionErrorDto {

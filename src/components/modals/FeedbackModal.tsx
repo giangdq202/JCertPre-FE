@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { FaStar, FaTimes } from 'react-icons/fa';
 import { useFeedback } from '../../hooks/useFeedback';
 import { useNotification } from '../notifications';
+import { useAuth } from '../../auth/AuthContext';
 
 interface FeedbackModalProps {
   isOpen: boolean;
@@ -26,6 +27,7 @@ const FeedbackModal: React.FC<FeedbackModalProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { createFeedback, updateFeedback } = useFeedback();
   const { success, error } = useNotification();
+  const { userInfo } = useAuth();
 
   // Pre-fill form if editing existing feedback
   useEffect(() => {
@@ -46,23 +48,31 @@ const FeedbackModal: React.FC<FeedbackModalProps> = ({
       return;
     }
 
+    if (!userInfo?.id) {
+      error('Lỗi xác thực', 'Bạn cần đăng nhập để gửi đánh giá');
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
       if (userFeedback) {
         // Update existing feedback
-        await updateFeedback(userFeedback.feedbackId, {
-          rating,
+        await updateFeedback(userInfo.id, courseId, {
+          rating: rating,
           comment: comment.trim() || undefined
         });
         success('Thành công', 'Đánh giá của bạn đã được cập nhật');
       } else {
         // Create new feedback
-        await createFeedback({
-          courseId,
-          rating,
+        const feedbackData = {
+          userId: userInfo.id,
+          courseId: courseId,
+          rating: rating,
           comment: comment.trim() || undefined
-        });
+        };
+        console.log('FeedbackModal: Creating feedback with data:', feedbackData);
+        await createFeedback(feedbackData);
         success('Thành công', 'Cảm ơn bạn đã đánh giá khóa học');
       }
       

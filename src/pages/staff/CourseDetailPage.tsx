@@ -28,6 +28,7 @@ import {
   FaQuestionCircle, // For test icon
   FaEye, // For open test
   FaEyeSlash, // For close test
+  FaStar, // For rating display
 } from "react-icons/fa";
 
 // Import services and types
@@ -77,6 +78,7 @@ import {
 import { getByLessonId, TestDto, TestStatus, updateTestStatus } from "../../services/testService";
 import paths from "../../routes/path";
 import { useNotification } from "../../components/notifications";
+import { useCourseRatings } from "../../hooks/useCourseRatings";
 import CreateTestModal from "../../components/modals/CreateTestModal";
 import EditTestModal from "../../components/modals/EditTestModal";
 
@@ -295,6 +297,9 @@ const CourseDetailPage: React.FC = () => {
   // Validation error states
   const [dateValidationError, setDateValidationError] = useState<string>("");
   const [lessonValidationError, setLessonValidationError] = useState<string>("");
+  
+  // Get course rating for display
+  const { ratings: courseRatings } = useCourseRatings(course ? [course.courseId] : []);
   
   // Livestream state
   const [livestreams, setLivestreams] = useState<LivestreamDto[]>([]);
@@ -1100,6 +1105,33 @@ const CourseDetailPage: React.FC = () => {
                     }`}
                   ></textarea>
                 </div>
+
+                {/* Course Rating Display */}
+                {courseRatings && courseRatings[course.courseId] && (
+                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <h4 className="text-sm font-medium text-gray-700">Đánh giá khóa học</h4>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="flex">
+                        {[...Array(5)].map((_, i) => (
+                          <FaStar
+                            key={i}
+                            className={`w-4 h-4 ${
+                              i < Math.floor(courseRatings[course.courseId]?.averageRating || 0)
+                                ? 'text-yellow-400'
+                                : 'text-gray-300'
+                            }`}
+                          />
+                        ))}
+                      </div>
+                      <span className="text-sm text-gray-600">
+                        {courseRatings[course.courseId]?.averageRating?.toFixed(1) || '0.0'} 
+                        ({courseRatings[course.courseId]?.totalFeedbacks || 0} đánh giá)
+                      </span>
+                    </div>
+                  </div>
+                )}
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div>

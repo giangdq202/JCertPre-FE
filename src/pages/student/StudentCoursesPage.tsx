@@ -17,6 +17,7 @@ import {
   CourseType,
 } from "../../services/courseService";
 import { getMyEnrollments } from "../../services/enrollmentService";
+import { useCourseRatings } from "../../hooks/useCourseRatings";
 
 interface Course {
   id: string;
@@ -46,6 +47,10 @@ const StudentCoursesPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [enrolledCourseIds, setEnrolledCourseIds] = useState<string[]>([]);
+
+  // Get course ratings
+  const courseIds = allCourses.map(course => course.id);
+  const { ratings } = useCourseRatings(courseIds);
 
   // Fetch all courses and enrolled courses from API
   useEffect(() => {
@@ -267,6 +272,7 @@ const StudentCoursesPage: React.FC = () => {
                   courseType={course.courseType}
                   buttonText="Đăng ký"
                   onClick={() => handleCourseClick(course)}
+                  averageRating={ratings?.[course.id]}
                 />
               ))
             ) : (

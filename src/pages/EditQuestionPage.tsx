@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { FaArrowLeft, FaTimes } from "react-icons/fa";
+import { FaArrowLeft, FaTimes, FaRobot } from "react-icons/fa";
 import { useNotification } from "../components/notifications";
 import {
   QuestionDto,
@@ -8,6 +8,7 @@ import {
   ContentName,
   SubContentName,
   CourseLevel,
+  ExplanationRequestDto,
 } from "../types/question.types";
 import { ChoiceReadDto } from "../types/choice.types";
 import {
@@ -15,19 +16,21 @@ import {
   updateQuestion,
   updateChoice,
   getChoicesByQuestionId,
+  generateExplanation,
 } from "../services/questionService";
 import paths from "../routes/path";
 
 const EditQuestionPage: React.FC = () => {
   const navigate = useNavigate();
   const { questionId } = useParams<{ questionId: string }>();
-  const { success, error } = useNotification();
+  const { success, error, warning } = useNotification();
 
   // Question states
   const [question, setQuestion] = useState<QuestionDto | null>(null);
   const [choices, setChoices] = useState<ChoiceReadDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [explanationGenerating, setExplanationGenerating] = useState(false);
   
   // Store display descriptions from API response
   const [levelDescription, setLevelDescription] = useState<string>("");
@@ -241,6 +244,42 @@ const EditQuestionPage: React.FC = () => {
       isCorrect: index === selectedIndex,
     }));
     setChoices(updatedChoices);
+  };
+
+  // Handle explanation generation
+  const handleGenerateExplanation = async () => {
+    if (!content.trim()) {
+      warning("Vui lòng nhập nội dung câu hỏi trước khi tạo giải thích");
+      return;
+    }
+
+    // Check if there's at least one non-empty choice
+    const validChoices = choices.filter(choice => choice.content.trim() !== '');
+    if (validChoices.length === 0) {
+      warning("Vui lòng nhập ít nhất một lựa chọn để tạo giải thích");
+      return;
+    }
+
+    try {
+      setExplanationGenerating(true);
+      const requestDto: ExplanationRequestDto = {
+        questionText: content,
+        choices: validChoices.map(choice => ({
+          choiceText: choice.content,
+          isCorrect: choice.isCorrect
+        }))
+      };
+
+      const explanationResponse = await generateExplanation(requestDto);
+      setExplanation(explanationResponse.explanation);
+      success("🤖 Đã tạo giải thích bằng AI thành công! Vui lòng kiểm tra và chỉnh sửa nếu cần.");
+    } catch (err) {
+      console.error("Error generating explanation:", err);
+      const errorMessage = (err as any).response?.data?.message || (err as any).message || "Có lỗi xảy ra khi tạo giải thích bằng AI";
+      error(`❌ Lỗi tạo giải thích AI: ${errorMessage}`);
+    } finally {
+      setExplanationGenerating(false);
+    }
   };
 
   // Audio handling functions
@@ -630,13 +669,25 @@ const EditQuestionPage: React.FC = () => {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Giải thích (tùy chọn)
               </label>
-              <textarea
-                value={explanation}
-                onChange={(e) => setExplanation(e.target.value)}
-                rows={3}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none"
-                placeholder="Nhập giải thích cho câu hỏi..."
-              />
+              <div className="relative">
+                <textarea
+                  value={explanation}
+                  onChange={(e) => setExplanation(e.target.value)}
+                  rows={3}
+                  className="w-full px-3 py-2 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none"
+                  placeholder="Nhập giải thích cho câu hỏi..."
+                />
+                {/* Generate Explanation Button */}
+                <button
+                  type="button"
+                  onClick={handleGenerateExplanation}
+                  disabled={explanationGenerating}
+                  className="absolute top-2 right-2 p-1.5 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Tạo giải thích bằng AI"
+                >
+                  <FaRobot className={`w-4 h-4 ${explanationGenerating ? 'animate-spin' : ''}`} />
+                </button>
+              </div>
             </div>
 
             {/* Choices */}
