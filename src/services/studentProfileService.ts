@@ -19,6 +19,12 @@ export interface CreateStudentProfileParams {
   learningGoals: string;
 }
 
+export interface UpdateStudentProfileParams {
+  userId: string;
+  currentLevel?: string;
+  learningGoals?: string;
+}
+
 /**
  * Lấy hồ sơ sinh viên dựa trên userId.
  * Tương ứng với GET /api/studentprofile/{userId}
@@ -72,5 +78,61 @@ export const createStudentProfile = async (
   } catch (error) {
     console.error("CreateStudentProfile API error:", error);
     throw error; // Ném lỗi để component gọi có thể xử lý
+  }
+};
+
+/**
+ * Cập nhật hồ sơ sinh viên.
+ * Tương ứng với PUT /api/studentprofile/update
+ * @param updateParams Các tham số để cập nhật hồ sơ
+ * @returns StudentProfileDto của hồ sơ đã cập nhật
+ */
+export const updateStudentProfile = async (
+  updateParams: UpdateStudentProfileParams
+): Promise<StudentProfileDto> => {
+  try {
+    const response = await axiosInstance.put<StudentProfileDto>(
+      UPDATE_STUDENT_PROFILE_URL(updateParams.userId),
+      null,
+      {
+        params: {
+          ...(updateParams.currentLevel && { currentLevel: updateParams.currentLevel }),
+          ...(updateParams.learningGoals && { learningGoals: updateParams.learningGoals }),
+        },
+      }
+    );
+    return response.data;
+  } catch (error) {
+    console.error("UpdateStudentProfile API error:", error);
+    throw error;
+  }
+};
+
+/**
+ * Cập nhật chỉ current level của student khi họ pass test cao hơn
+ * @param userId ID của sinh viên
+ * @param newLevel Trình độ mới
+ * @returns StudentProfileDto đã cập nhật
+ */
+export const updateStudentLevel = async (
+  userId: string,
+  newLevel: string
+): Promise<StudentProfileDto> => {
+  try {
+    // Get current profile first
+    const currentProfile = await getStudentProfile(userId);
+    if (!currentProfile) {
+      throw new Error("Student profile not found");
+    }
+
+    // Update only the level, keep existing learning goals
+    return await updateStudentProfile({
+      userId,
+      currentLevel: newLevel,
+      learningGoals: currentProfile.learningGoals,
+    });
+  } catch (error) {
+    console.error("UpdateStudentLevel API error:", error);
+    throw error;
   }
 };

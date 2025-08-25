@@ -19,6 +19,15 @@ import {
   getAllByTemplateId as getConfigsByTemplateId, 
   TestTemplateConfigDto 
 } from "../../services/testTemplateConfigService";
+import {
+  getStudentProfile,
+  StudentProfileDto,
+} from "../../services/studentProfileService";
+import {
+  getMyEnrollments,
+  EnrollmentDetailDto,
+} from "../../services/enrollmentService";
+import { useNotification } from "../../components/notifications";
 
 interface TestOption {
   id: string; // use testTemplateTypeId for uniqueness
@@ -32,10 +41,15 @@ interface TestOption {
 
 const StudentExamPage: React.FC = () => {
   const { userInfo } = useAuth();
+  const { error } = useNotification();
   const [selectedTest, setSelectedTest] = useState<TestOption | null>(null);
   const [isInTest, setIsInTest] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string>("");
+  const [errorMsg, setErrorMsg] = useState<string>("");
+  const [studentProfile, setStudentProfile] = useState<StudentProfileDto | null>(null);
+  const [enrollments, setEnrollments] = useState<EnrollmentDetailDto[]>([]);
+  const [hasEnrollments, setHasEnrollments] = useState<boolean>(false);
+  const [checkingEnrollment, setCheckingEnrollment] = useState<boolean>(true);
   
   const [testOptions, setTestOptions] = useState<TestOption[]>([]);
 
@@ -50,11 +64,85 @@ const StudentExamPage: React.FC = () => {
     testTemplateTypeName: "",
   });
 
+  // Helper function to get CourseLevel from string
+  const getCourseLevelFromString = (levelString: string): CourseLevel => {
+    switch (levelString) {
+      case "N5": return CourseLevel.N5;
+      case "N4": return CourseLevel.N4;
+      case "N3": return CourseLevel.N3;
+      case "N2": return CourseLevel.N2;
+      case "N1": return CourseLevel.N1;
+      default: return CourseLevel.N5;
+    }
+  };
+
+  // Helper function to check if test level is allowed for user
+  const isTestLevelAllowed = (testLevel: CourseLevel, userLevel: CourseLevel): boolean => {
+    // User can take tests at their current level or one level higher
+    if (testLevel === userLevel) return true;
+    
+    // Check if test is exactly one level higher
+    const levelProgression = [CourseLevel.N5, CourseLevel.N4, CourseLevel.N3, CourseLevel.N2, CourseLevel.N1];
+    const userIndex = levelProgression.indexOf(userLevel);
+    const testIndex = levelProgression.indexOf(testLevel);
+    
+    return testIndex === userIndex + 1; // Exactly one level higher
+  };
+
+  // Check if user has any enrollments
+  const checkEnrollments = async () => {
+    if (!userInfo?.id) return;
+    
+    try {
+      setCheckingEnrollment(true);
+      const enrollmentList = await getMyEnrollments();
+      setEnrollments(enrollmentList);
+      setHasEnrollments(enrollmentList.length > 0);
+      
+      if (enrollmentList.length === 0) {
+        setErrorMsg("Bạn cần đăng ký ít nhất một khóa học để có thể làm bài test. Vui lòng đăng ký khóa học trước khi tiếp tục.");
+      }
+    } catch (error) {
+      console.error('Error checking enrollments:', error);
+      setErrorMsg('Không thể kiểm tra thông tin đăng ký khóa học. Vui lòng thử lại sau.');
+    } finally {
+      setCheckingEnrollment(false);
+    }
+  };
+
+  // Load student profile
+  useEffect(() => {
+    const fetchProfile = async () => {
+      if (!userInfo?.id) return;
+
+      try {
+        const profile = await getStudentProfile(userInfo.id);
+        setStudentProfile(profile);
+      } catch (err) {
+        console.error("Error fetching student profile:", err);
+        // If no profile found, default to N5 level
+        setStudentProfile({ 
+          userId: userInfo.id, 
+          currentLevel: "N5", 
+          learningGoals: "Cải thiện trình độ tiếng Nhật" 
+        } as StudentProfileDto);
+      }
+    };
+
+    const initializeData = async () => {
+      await Promise.all([fetchProfile(), checkEnrollments()]);
+    };
+
+    initializeData();
+  }, [userInfo?.id]);
+
   // Load available options from template types, templates and configs
   useEffect(() => {
     const loadOptions = async () => {
+      if (!studentProfile || !hasEnrollments || checkingEnrollment) return; // Wait for profile and enrollment check
+      
       setLoading(true);
-      setError("");
+      setErrorMsg("");
       try {
         // Fetch active template types for JLPTAuto only
         const jlptTypes = await getAllTestTemplateTypes({ 
@@ -64,11 +152,19 @@ const StudentExamPage: React.FC = () => {
         });
 
         const allTypes: TestTemplateTypeDto[] = jlptTypes.items;
+        const userCurrentLevel = getCourseLevelFromString(studentProfile.currentLevel);
 
         const options: TestOption[] = [];
 
         // For each type, load templates and ensure type has at least one template with configs
         for (const type of allTypes) {
+          const testLevel = type.courseLevel as CourseLevel;
+          
+          // Only include tests at current level or one level higher
+          if (!isTestLevelAllowed(testLevel, userCurrentLevel)) {
+            continue;
+          }
+          
           const templates: TestTemplateDto[] = await getTemplatesByTypeId(type.testTemplateTypeId);
           
           // Filter templates that have configs
@@ -103,14 +199,14 @@ const StudentExamPage: React.FC = () => {
         setTestOptions(options);
       } catch (err) {
         console.error('Failed to load exam options:', err);
-        setError('Không thể tải danh sách bài test. Vui lòng thử lại sau.');
+        setErrorMsg('Không thể tải danh sách bài test. Vui lòng thử lại sau.');
         setTestOptions([]);
       } finally {
         setLoading(false);
       }
     };
     loadOptions();
-  }, []);
+  }, [studentProfile, hasEnrollments, checkingEnrollment]); // Added hasEnrollments and checkingEnrollment dependencies
 
   const handleStartTest = (testOption: TestOption) => {
     setSelectedTest(testOption);
@@ -120,6 +216,18 @@ const StudentExamPage: React.FC = () => {
   const handleBackToList = () => {
     setIsInTest(false);
     setSelectedTest(null);
+  };
+
+  const handleLevelUpdated = async () => {
+    // Reload student profile after level update
+    if (userInfo?.id) {
+      try {
+        const updatedProfile = await getStudentProfile(userInfo.id);
+        setStudentProfile(updatedProfile);
+      } catch (error) {
+        console.error('Failed to reload student profile:', error);
+      }
+    }
   };
 
   const handleViewHistory = (testOption: TestOption) => {
@@ -144,6 +252,7 @@ const StudentExamPage: React.FC = () => {
         testType={selectedTest.testType}
         courseLevel={selectedTest.courseLevel}
         onBack={handleBackToList}
+        onLevelUpdated={handleLevelUpdated}
       />
     );
   }
@@ -170,22 +279,45 @@ const StudentExamPage: React.FC = () => {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {loading && (
+            {(loading || checkingEnrollment) && (
               <div className="col-span-1 md:col-span-2 lg:col-span-3 bg-white rounded-lg p-6 border text-center text-gray-600">
-                Đang tải danh sách bài test...
+                {checkingEnrollment ? "Đang kiểm tra đăng ký khóa học..." : "Đang tải danh sách bài test..."}
               </div>
             )}
-            {!loading && error && (
+            
+            {!loading && !checkingEnrollment && !hasEnrollments && (
+              <div className="col-span-1 md:col-span-2 lg:col-span-3">
+                <div className="bg-yellow-50 rounded-lg p-8 border border-yellow-200 text-center">
+                  <div className="text-yellow-600 text-5xl mb-4">📚</div>
+                  <h3 className="text-lg font-semibold text-yellow-800 mb-2">
+                    Chưa đăng ký khóa học
+                  </h3>
+                  <p className="text-yellow-700 mb-6">
+                    Bạn cần đăng ký ít nhất một khóa học để có thể làm bài test JLPT. 
+                    Việc đăng ký khóa học sẽ giúp bạn tiếp cận với hệ thống bài test được tối ưu hóa theo trình độ.
+                  </p>
+                  <button
+                    onClick={() => window.location.href = '/student/courses'}
+                    className="bg-green-500 text-white px-6 py-3 rounded-lg hover:bg-green-600 transition-colors font-medium"
+                  >
+                    Đăng ký khóa học ngay
+                  </button>
+                </div>
+              </div>
+            )}
+            
+            {!loading && !checkingEnrollment && errorMsg && hasEnrollments && (
               <div className="col-span-1 md:col-span-2 lg:col-span-3 bg-red-50 rounded-lg p-6 border border-red-200 text-center text-red-700">
-                {error}
+                {errorMsg}
               </div>
             )}
-            {!loading && !error && testOptions.length === 0 && (
-              <div className="col-span-1 md:col-span-2 lg:col-span-3 bg-white rounded-lg p-6 border text-center text-gray-600">
-                Chưa có đề thi JLPT nào sẵn sàng. Vui lòng thử lại sau.
+            
+            {!loading && !checkingEnrollment && hasEnrollments && testOptions.length === 0 && !errorMsg && (
+              <div className="col-span-1 md:col-span-2 lg:col-span-3 bg-gray-50 rounded-lg p-6 border text-center text-gray-600">
+                Không có bài test phù hợp với cấp độ của bạn.
               </div>
             )}
-            {!loading && !error && testOptions.map((testOption) => (
+            {!loading && !checkingEnrollment && hasEnrollments && testOptions.map((testOption) => (
               <div
                 key={testOption.id}
                 className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow"

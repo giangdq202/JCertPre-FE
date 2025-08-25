@@ -195,8 +195,6 @@ const CourseTestSearchModal: React.FC<CourseTestSearchModalProps> = ({
         return 'Entry Auto';
       case TestType.CustomManual:
         return 'Custom Manual';
-      case TestType.CustomAuto:
-        return 'Custom Auto';
       default:
         return 'Unknown';
     }

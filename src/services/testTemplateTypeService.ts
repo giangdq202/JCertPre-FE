@@ -24,7 +24,6 @@ export enum TestType {
   JLPTAuto = 0,
   EntryAuto = 1,
   CustomManual = 2,
-  CustomAuto = 3,
 }
 
 export interface CreateTestTemplateTypeDto {

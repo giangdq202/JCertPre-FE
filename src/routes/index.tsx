@@ -9,6 +9,7 @@ import StudentHomePage from "../pages/student/StudentHomePage";
 import StudentCoursesPage from "../pages/student/StudentCoursesPage";
 import MyCoursePage from "../pages/student/MyCoursePage";
 import StudentExamPage from "../pages/student/StudentExamPage";
+import EntryTestPage from "../pages/student/EntryTestPage";
 import StudentSchedulePage from "../pages/student/StudentSchedulePage";
 import StaffHomePage from "../pages/staff/StaffHomePage";
 import StaffCourseManagementPage from "../pages/staff/StaffCourseManagementPage";
@@ -119,6 +120,14 @@ const AppRoutes: React.FC = () => {
           element={
             <ProtectedRoute allowedRoles={["STUDENT"]}>
               <StudentExamPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path={paths.student_entry_test}
+          element={
+            <ProtectedRoute allowedRoles={["STUDENT"]}>
+              <EntryTestPage />
             </ProtectedRoute>
           }
         />

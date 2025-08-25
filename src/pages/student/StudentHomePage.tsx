@@ -21,13 +21,14 @@ import {
   EnrollmentDetailDto,
 } from "../../services/enrollmentService";
 import { getByLessonId, TestDto } from "../../services/testService";
-import StudentProfileModal from "../../components/modals/StudentProfileModal";
+import LevelSetupModal from "../../components/modals/LevelSetupModal";
+import ProfileManagementModal from "../../components/modals/ProfileManagementModal";
 import { useAuth } from "../../auth/AuthContext";
 import { useLessonProgress } from "../../hooks/useLessonProgress";
 import { useCourseRatings } from "../../hooks/useCourseRatings";
 import { useNotification } from "../../components/notifications";
 import paths from "../../routes/path";
-import { FaBookOpen, FaPenNib, FaArrowRight, FaTrophy, FaClock } from "react-icons/fa";
+import { FaBookOpen, FaPenNib, FaArrowRight, FaTrophy, FaClock, FaUser } from "react-icons/fa";
 import { HiOutlineClock } from "react-icons/hi2";
 import Lottie from "lottie-react";
 import studyAnimation from "../../animations/study.json";
@@ -76,6 +77,7 @@ const StudentHomePage = () => {
   const [studentProfile, setStudentProfile] =
     useState<StudentProfileDto | null>(null);
   const [showProfileModal, setShowProfileModal] = useState(false);
+  const [showProfileManagementModal, setShowProfileManagementModal] = useState(false);
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
   const [recommendedCourses, setRecommendedCourses] = useState<CourseListDto[]>([]);
   const [isLoadingRecommendedCourses, setIsLoadingRecommendedCourses] = useState(true);
@@ -502,6 +504,17 @@ const StudentHomePage = () => {
                   <FaPenNib className="mr-2 text-base" />
                   Làm bài kiểm tra thực hành
                 </button>
+                
+                {/* Profile Management Button - Only show if profile exists */}
+                {studentProfile && (
+                  <button 
+                    onClick={() => setShowProfileManagementModal(true)}
+                    className="bg-blue-600 text-white py-2.5 px-6 rounded-xl shadow-md hover:bg-blue-700 hover:scale-[1.02] active:scale-95 transition-all duration-150 flex items-center justify-center text-sm font-medium"
+                  >
+                    <FaUser className="mr-2 text-base" />
+                    Xem Profile
+                  </button>
+                )}
               </div>
             </div>
 
@@ -1059,15 +1072,21 @@ const StudentHomePage = () => {
           </div>
         </main>
       </div>
-      {/* Student Profile Modal */}
+      {/* Level Setup Modal */}
       {userInfo?.id && (
-        <StudentProfileModal
+        <LevelSetupModal
           isOpen={showProfileModal}
           onClose={() => setShowProfileModal(false)}
           onProfileCreated={handleProfileCreated}
           userId={userInfo.id}
         />
       )}
+      
+      {/* Profile Management Modal */}
+      <ProfileManagementModal
+        isOpen={showProfileManagementModal}
+        onClose={() => setShowProfileManagementModal(false)}
+      />
     </div>
   );
 };

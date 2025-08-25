@@ -5,7 +5,7 @@ import {
   useEffect,
   useState,
 } from "react";
-import { refreshToken, login, logout } from "../services/authService";
+import { refreshToken, login, logout, firebaseLogin } from "../services/authService";
 import { useNavigate } from "react-router-dom";
 import { useLocation } from "react-router-dom";
 import paths from "../routes/path";
@@ -25,6 +25,7 @@ interface AuthContextType {
   userInfo: UserInfoResponse | undefined; // Thay TokenData bằng UserInfoResponse
   isLoading: boolean;
   handleLogin: (email: string, password: string) => Promise<void>;
+  handleFirebaseLogin: (firebaseToken: string) => Promise<void>;
   handleLogout: () => void;
   setUserInfo: (user: UserInfoResponse) => void; // Thay TokenData bằng UserInfoResponse
   setIsAuthenticated: (auth: boolean) => void;
@@ -138,6 +139,43 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const handleFirebaseLogin = async (firebaseToken: string) => {
+    try {
+      const responseData = await firebaseLogin(firebaseToken);
+      setJwtToken(responseData.accessToken);
+      localStorage.setItem("accessToken", responseData.accessToken);
+      localStorage.setItem("refreshToken", responseData.refreshToken);
+      console.log("Firebase user role:", responseData.user.roleName);
+      
+      setUserInfo(responseData.user);
+      setIsAuthenticated(true);
+
+      // Điều hướng dựa trên role từ userInfo
+      switch (responseData.user.roleName) {
+        case "STUDENT":
+          navigate(paths.student_home);
+          break;
+        case "ACADEMIC_MANAGER":
+          navigate(paths.staff_home);
+          break;
+        case "INSTRUCTOR":
+          navigate(paths.instructor_home);
+          break;
+        case "ADMIN":
+          navigate(paths.admin_home);
+          break;
+        default:
+          navigate("/");
+          break;
+      }
+    } catch (error) {
+      console.error("Firebase login error:", error);
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleLogout = async () => {
     await logout();
 
@@ -153,6 +191,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         userInfo,
         isLoading,
         handleLogin,
+        handleFirebaseLogin,
         handleLogout,
         setUserInfo,
         setIsAuthenticated,

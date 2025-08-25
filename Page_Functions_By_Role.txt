@@ -1,0 +1,238 @@
+===================================================================================
+                            CHỨC NĂNG CỦA TỪNG TRANG THEO ROLE
+===================================================================================
+Ngày phân tích: 25/08/2025
+Dự án: JCertPre-FE (Japanese Certificate Preparation Frontend)
+
+===================================================================================
+STUDENT ROLE - Học sinh
+===================================================================================
+
+• StudentHomePage: Trang chủ học sinh với dashboard hiển thị khóa học đã đăng ký, tiến độ học tập, livestream sắp tới, khóa học đề xuất, thống kê học tập cá nhân
+
+• StudentCoursesPage: Xem tất cả khóa học công khai có sẵn với tính năng tìm kiếm, lọc theo level/loại, phân trang, xem rating và đăng ký khóa học
+
+• MyCoursePage: Quản lý khóa học đã đăng ký, theo dõi tiến độ hoàn thành từng khóa học, truy cập nhanh vào việc học
+
+• StudentCourseDetailPage: Xem chi tiết một khóa học cụ thể, thông tin giảng viên, danh sách bài học, lịch livestream, khóa học tương tự
+
+• StudentLearnCoursePage: Học tập trực tiếp - xem video bài giảng, đọc tài liệu, làm bài test, theo dõi tiến độ từng lesson, tham gia livestream
+
+• StudentExamPage: Làm bài kiểm tra JLPT tự động dựa trên level hiện tại, chọn loại đề thi và cấu hình, xem lịch sử kết quả
+
+• EntryTestPage: Làm bài test đầu vào để xác định trình độ hiện tại, xem kết quả và đề xuất level phù hợp
+
+• StudentLivestreamPage: Tham gia phòng livestream trực tiếp, tương tác với giảng viên và học sinh khác
+
+• StudentSchedulePage: Xem lịch học và lịch livestream theo dạng calendar, đăng ký tham gia các buổi học
+
+• StudentStudyPlanPage: Xem kế hoạch học tập cá nhân được tạo bởi Academic Manager, theo dõi tiến độ thực hiện
+
+• MessagesPage: Nhắn tin trực tiếp với Academic Manager để được tư vấn và hỗ trợ học tập
+
+• VocabularyPage: Học từ vựng theo từng level N5-N1, tìm kiếm từ vựng, nghe phát âm, xem ví dụ
+
+• CreditHistoryPage: Xem lịch sử mua credit và giao dịch thanh toán
+
+• CreditPurchasePage: Mua credit để thanh toán các dịch vụ trong hệ thống
+
+• ProfilePage: Cập nhật thông tin cá nhân, ảnh đại diện, thông tin liên lạc
+
+===================================================================================
+INSTRUCTOR ROLE - Giảng viên  
+===================================================================================
+
+• InstructorHomePage: Dashboard giảng viên với thống kê số khóa học đang dạy, lịch livestream sắp tới, thông báo quan trọng
+
+• InstructorCoursesPage: Quản lý danh sách khóa học được phân công giảng dạy, xem thông tin học sinh đăng ký
+
+• InstructorCourseDetailPage: Quản lý chi tiết một khóa học cụ thể - quản lý lessons, tạo và chỉnh sửa bài test, cập nhật trạng thái
+
+• InstructorSchedulePage: Xem lịch dạy học và lịch livestream được phân công theo dạng calendar
+
+===================================================================================
+ACADEMIC MANAGER ROLE - Quản lý học vụ (Staff)
+===================================================================================
+
+• StaffHomePage: Trang chủ với các shortcut đến các chức năng quản lý chính, thống kê tổng quan hệ thống
+
+• StaffCourseManagementPage: Quản lý tất cả khóa học trong hệ thống - tạo, sửa, xóa, phân công giảng viên, thay đổi trạng thái
+
+• CreateCoursePage: Tạo khóa học mới với đầy đủ thông tin - tiêu đề, mô tả, level, giá, thời gian, thumbnail
+
+• CourseDetailPage: Quản lý chi tiết khóa học - tạo/sửa lessons, quản lý tests, phân công/gỡ giảng viên, quản lý livestreams
+
+• SubContentManagementPage: Quản lý các dạng câu hỏi (SubContent) theo từng level N5-N1, tạo/sửa/xóa dạng câu hỏi
+
+• TestTemplateTypeManagementPage: Quản lý các loại template đề thi, tạo template mới, cấu hình điểm số và độ khó
+
+• QuestionManagementPage: Quản lý ngân hàng câu hỏi - tạo/sửa/xóa/import câu hỏi, phân loại theo dạng và level
+
+• CreateQuestionPage: Tạo câu hỏi mới với audio, hình ảnh, các lựa chọn và đáp án
+
+• EditQuestionPage: Chỉnh sửa câu hỏi đã có, cập nhật nội dung và media
+
+• StaffInquiriesPage: Xem tất cả yêu cầu tư vấn từ học sinh, phân công xử lý cho giảng viên phù hợp
+
+• StaffMessagesPage: Trả lời tin nhắn từ học sinh, tư vấn học tập và hỗ trợ kỹ thuật
+
+===================================================================================
+ADMIN ROLE - Quản trị viên
+===================================================================================
+
+• AdminHomePage: Dashboard admin với thống kê tổng quan - doanh thu, số lượng đăng ký, biểu đồ theo tháng, các chỉ số KPI quan trọng
+
+• AdminUserManagementPage: Quản lý tất cả người dùng trong hệ thống - tạo tài khoản Academic Manager và Instructor, phân quyền, vô hiệu hóa tài khoản
+
+===================================================================================
+GENERAL PAGES - Trang chung/hệ thống
+===================================================================================
+
+• Home: Trang chủ công cộng giới thiệu khóa học, slideshow, thông tin chung cho người chưa đăng nhập
+
+• Login: Trang đăng nhập với email/password hoặc Google OAuth
+
+• Register: Trang đăng ký tài khoản mới cho học sinh
+
+• PaymentCallbackPage: Router xử lý callback từ cổng thanh toán PayOS, điều hướng đến trang kết quả phù hợp
+
+• PaymentSuccessPage: Hiển thị thông báo thanh toán thành công, countdown redirect về trang chủ
+
+• PaymentErrorPage: Hiển thị thông báo lỗi thanh toán, hướng dẫn thử lại hoặc liên hệ hỗ trợ
+
+• PaymentPendingPage: Hiển thị trạng thái thanh toán đang xử lý, hướng dẫn chờ kết quả
+
+• PaymentCancelledPage: Hiển thị thông báo thanh toán bị hủy, option quay lại thử lại
+
+===================================================================================
+LIVEKIT PAGES - Hệ thống livestream
+===================================================================================
+
+• LiveKitHomePage: Trang chủ hệ thống livestream với danh sách phòng đang hoạt động
+
+• PreJoin: Trang chuẩn bị tham gia livestream - kiểm tra camera/mic, nhập tên hiển thị
+
+• VideoConference: Phòng livestream chính với video call, chat, screen sharing, whiteboard
+
+• RoomManager: Quản lý phòng livestream - tạo phòng, cấu hình, mời participants
+
+===================================================================================
+CHI TIẾT DATA REQUIREMENTS VÀ VALIDATION
+===================================================================================
+
+**AUTHENTICATION & AUTHORIZATION**
+| # | Actor | Function Name | Purpose | Data Requirements | Data Validation |
+|---|-------|---------------|---------|-------------------|-----------------|
+| 1 | All | Normal Login | Đăng nhập hệ thống với email và password | Email, Password | Email: Type string (email format), Password: Type string, MinLength 8, phải chứa chữ hoa, chữ thường, số, ký tự đặc biệt |
+| 2 | All | Login with Google | Đăng nhập bằng tài khoản Google | Firebase Token | Token: Type string (JWT format) |
+| 3 | Student | Register | Đăng ký tài khoản học sinh | Email, Password, FullName, Phone, Avatar | Email: unique email format, Password: MinLength 8 + complexity, FullName: MaxLength 100, Phone: valid format, Avatar: File (image) |
+| 4 | Student | Student Profile Setup | Thiết lập hồ sơ học sinh ban đầu | Current Level, Learning Goals | Level: Enum N5-N1, Goals: MaxLength 500 |
+
+**COURSE MANAGEMENT**
+| # | Actor | Function Name | Purpose | Data Requirements | Data Validation |
+|---|-------|---------------|---------|-------------------|-----------------|
+| 5 | Student | View Courses | Xem danh sách khóa học công khai | Search Term, Level Filter, Page | SearchTerm: Optional string, Level: Optional enum, PageNumber/PageSize: integers |
+| 6 | Student | Enroll Course | Đăng ký khóa học | Course ID, Payment Info | CourseId: UUID, có đủ credit, chưa đăng ký trước đó |
+| 7 | Academic Manager | Create Course | Tạo khóa học mới | Course Info, Thumbnail | Title: MaxLength 200, Description: MaxLength 2000, Price: positive number, Level: enum, Dates: valid range |
+| 8 | Academic Manager | Manage Lessons | Quản lý bài học trong khóa học | Lesson Info, Documents | Title: MaxLength 200, Order: positive integer, Documents: File array |
+| 9 | Academic Manager | Assign Instructor | Phân công giảng viên cho khóa học | Course ID, Instructor ID | CourseId: UUID exists, InstructorId: UUID valid instructor, chưa được phân công |
+
+**TEST & QUESTION MANAGEMENT**
+| # | Actor | Function Name | Purpose | Data Requirements | Data Validation |
+|---|-------|---------------|---------|-------------------|-----------------|
+| 10 | Student | Take Test | Làm bài kiểm tra | Test ID, Answer List | TestId: UUID, Answers: Array of QuestionId+SelectedChoice |
+| 11 | Instructor | Create Test | Tạo bài kiểm tra cho lesson | Lesson ID, Test Config | LessonId: UUID, TestType: enum, Duration: minutes, Questions: array |
+| 12 | Instructor | Update Test Status | Cập nhật trạng thái bài test | Test ID, Status | TestId: UUID, Status: enum (Draft/Active/Inactive) |
+| 13 | Academic Manager | Create Question | Tạo câu hỏi cho ngân hàng đề | Question Content, Choices | Content: MinLength 10 MaxLength 1000, Points: 1-100, Choices: 2-6 options, 1 correct |
+| 14 | Academic Manager | Import Questions | Import câu hỏi từ file Excel/JSON | Question File | File: Excel/JSON format, valid structure, không trùng lặp |
+| 15 | Academic Manager | Manage SubContent | Quản lý dạng câu hỏi theo level | Content Config | ContentName: enum, Level: N5-N1, SubContentName: enum |
+
+**LIVESTREAM MANAGEMENT**
+| # | Actor | Function Name | Purpose | Data Requirements | Data Validation |
+|---|-------|---------------|---------|-------------------|-----------------|
+| 16 | Student | Join Livestream | Tham gia buổi livestream | Livestream ID, User Token | LivestreamId: UUID, phải đã đăng ký khóa học, buổi học đang diễn ra |
+| 17 | Instructor | Manage Livestream | Quản lý buổi livestream | Livestream Config | Title: MaxLength 200, DateTime: future date, Duration: 30-180 minutes |
+
+**COMMUNICATION SYSTEM**
+| # | Actor | Function Name | Purpose | Data Requirements | Data Validation |
+|---|-------|---------------|---------|-------------------|-----------------|
+| 18 | Student | Send Message | Nhắn tin với Academic Manager | Message Content | Content: Required string, MinLength 1, MaxLength 1000 |
+| 19 | Academic Manager | Reply Messages | Trả lời tin nhắn từ học sinh | Conversation ID, Message | ConversationId: UUID, Content: Required MaxLength 1000 |
+
+**PAYMENT SYSTEM**
+| # | Actor | Function Name | Purpose | Data Requirements | Data Validation |
+|---|-------|---------------|---------|-------------------|-----------------|
+| 20 | Student | Purchase Credit | Mua credit thanh toán | Amount, Payment Method | Amount: positive number, Min 10000 VND, PaymentMethod: enum |
+
+**STUDY PLAN MANAGEMENT**
+| # | Actor | Function Name | Purpose | Data Requirements | Data Validation |
+|---|-------|---------------|---------|-------------------|-----------------|
+| 21 | Academic Manager | Create Study Plan | Tạo kế hoạch học tập cho học sinh | Student ID, Plan Items | StudentId: UUID, Items: array of courses/tests, valid sequence |
+
+**ADMIN FUNCTIONS**
+| # | Actor | Function Name | Purpose | Data Requirements | Data Validation |
+|---|-------|---------------|---------|-------------------|-----------------|
+| 22 | Admin | Create User Account | Tạo tài khoản nhân viên | User Info, Role Assignment | Email: unique, Password: auto-generated, Role: INSTRUCTOR/ACADEMIC_MANAGER, FullName: Required |
+| 23 | Admin | Manage Users | Quản lý danh sách người dùng | User Query Params | SearchQuery: optional string, Status: enum, Role: enum, Pagination params |
+| 24 | Admin | View Dashboard Stats | Xem thống kê tổng quan hệ thống | Date Range (Optional) | StartDate/EndDate: valid date range, không quá 1 năm |
+
+===================================================================================
+DATA TYPES VÀ ENUMS CHÍNH
+===================================================================================
+
+**Course Level:** N5(0), N4(1), N3(2), N2(1), N1(4)
+**Course Type:** Personal(0), Public(1)  
+**Course Status:** Draft(0), Published(1), Archived(2)
+**User Status:** Active(0), Inactive(1), Suspended(2)
+**Test Type:** JLPTAuto(0), CustomManual(1)
+**Livestream Status:** Scheduled(0), Live(1), Ended(2), Cancelled(3)
+**Payment Status:** Pending(0), Success(1), Failed(2), Cancelled(3)
+
+===================================================================================
+VALIDATION RULES QUAN TRỌNG
+===================================================================================
+
+**String Fields:**
+- Email: Valid email format, unique trong hệ thống
+- Password: MinLength 8, chứa chữ hoa + thường + số + ký tự đặc biệt
+- Title/Name: MinLength 1, MaxLength 200, không chứa ký tự đặc biệt
+- Description: MaxLength 2000
+- Question Content: MinLength 10, MaxLength 1000
+
+**Numeric Fields:**  
+- Price: Positive number, Min 0, Max 999,999,999 VND
+- Points: Range 1-100
+- Duration: 30-180 minutes cho livestream
+- Credit Amount: Min 10,000 VND
+
+**File Uploads:**
+- Images: JPG/PNG/WebP, Max 5MB
+- Videos: MP4/WebM, Max 100MB  
+- Documents: PDF/DOC/DOCX, Max 20MB
+- Audio: MP3/WAV, Max 10MB
+
+**Date/Time:**
+- Course dates: EndDate > StartDate, StartDate >= today
+- Livestream: DateTime must be future, Duration 30-180 mins
+- Test Duration: 5-180 minutes
+
+**Business Rules:**
+- Không thể enroll khóa học đã đăng ký
+- Không thể xóa khóa học có học sinh đang học
+- Test chỉ có thể edit khi ở trạng thái Draft
+- Livestream chỉ join được khi status = Live
+- Credit không được âm, phải đủ để thanh toán
+
+===================================================================================
+LƯU Ý QUAN TRỌNG
+===================================================================================
+
+1. **Authentication:** JWT tokens với expiry time, refresh token mechanism
+2. **Authorization:** Role-based access control, strict permission checking
+3. **File Security:** Virus scanning, file type validation, size limits
+4. **Data Integrity:** Foreign key constraints, transaction rollback
+5. **Real-time:** WebSocket cho chat và livestream updates
+6. **Caching:** Redis cache cho frequently accessed data
+7. **Audit Trail:** Log tất cả thao tác quan trọng với timestamp và user info
+
+===================================================================================

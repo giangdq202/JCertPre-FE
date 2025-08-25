@@ -5,6 +5,7 @@ import {
   LOGOUT_URL,
   REGISTER_URL,
   REFRESH_TOKEN,
+  FIREBASE_LOGIN_URL,
 } from "../consts/apiUrl/baseUrl";
 
 interface UserInfoResponse {
@@ -33,6 +34,10 @@ interface LogoutPayload {
 interface RefreshTokenPayload {
   accessToken: string;
   refreshToken: string;
+}
+
+interface FirebaseLoginPayload {
+  firebaseToken: string;
 }
 export const register = async (registerData: FormData) => {
   try {
@@ -95,6 +100,27 @@ export const logout = async () => {
     // Luôn xóa token khỏi localStorage dù backend có lỗi hay không
     localStorage.removeItem("accessToken");
     localStorage.removeItem("refreshToken");
+  }
+};
+
+export const firebaseLogin = async (firebaseToken: string) => {
+  try {
+    const payload: FirebaseLoginPayload = {
+      firebaseToken: firebaseToken,
+    };
+
+    const response = await axiosInstance.post<AuthSuccessResponse>(
+      FIREBASE_LOGIN_URL,
+      payload
+    );
+    
+    localStorage.setItem("accessToken", response.data.accessToken);
+    localStorage.setItem("refreshToken", response.data.refreshToken);
+
+    return response.data;
+  } catch (error) {
+    console.error("Firebase login API error:", error);
+    throw error;
   }
 };
 

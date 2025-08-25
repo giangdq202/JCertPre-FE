@@ -18,6 +18,7 @@ const paths = {
   student_livestream: "/student/livestream/:livestreamId",
   student_livestreams: "/student/livestreams",
   student_exam: "/student/exam-simulations",
+  student_entry_test: "/student/entry-test/:testId",
   student_schedule: "/student/schedule",
   student_messages: "/student/messages",
   student_vocabulary: "/student/vocabulary",

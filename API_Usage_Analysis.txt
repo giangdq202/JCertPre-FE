@@ -1,0 +1,203 @@
+===================================================================================
+                            PHÂN TÍCH SỬ DỤNG API THEO ROLE VÀ TRANG
+===================================================================================
+Ngày phân tích: 25/08/2025
+Dự án: JCertPre-FE (Japanese Certificate Preparation Frontend)
+Base URL: http://localhost:5001/api
+
+===================================================================================
+STUDENT ROLE
+===================================================================================
+API Endpoints được sử dụng:
+
+• GET /api/student-profile/{userId} - Lấy hồ sơ học viên
+• POST /api/student-profile/create - Tạo hồ sơ học viên  
+• PUT /api/student-profile/update/{userId} - Cập nhật hồ sơ
+
+• GET /api/course - Lấy danh sách khóa học (có phân trang, filter)
+• GET /api/course/{courseId} - Chi tiết khóa học
+• GET /api/course/{courseId}/instructors - Lấy giảng viên của khóa học
+
+• GET /api/enrollments/my-enrollments - Khóa học đã đăng ký
+• POST /api/enrollments/enroll - Đăng ký khóa học
+• DELETE /api/enrollments/unenroll/{courseId} - Hủy đăng ký
+
+• GET /api/lessons/by-course/{courseId} - Bài học theo khóa học
+• GET /api/documents/lesson/{lessonId} - Tài liệu theo bài học
+
+• GET /api/tests/by-lesson/{lessonId} - Bài test theo bài học
+• GET /api/tests/user/{userId} - Test của người dùng
+• GET /api/tests/{testId} - Chi tiết bài test
+• POST /api/tests/auto-create?userId={userId} - Tạo bài test tự động
+
+• GET /api/test-attempts/by-user/{userId} - Lịch sử làm bài
+• GET /api/test-attempts/{attemptId}/with-score-summary - Kết quả làm bài chi tiết
+• POST /api/test-attempts/start - Bắt đầu làm bài
+• POST /api/test-attempts/submit - Nộp bài
+
+• GET /api/test-template-types - Loại template bài test
+• GET /api/test-templates/by-type/{testTemplateTypeId} - Template theo loại
+• GET /api/test-template-configs/by-template/{templateId} - Cấu hình template
+
+• GET /api/lesson-progress/completion-rate - Tỷ lệ hoàn thành khóa học
+• GET /api/lesson-progress/by-user-lesson - Tiến độ theo bài học
+• POST /api/lesson-progress - Tạo/cập nhật tiến độ
+
+• GET /api/livestreams - Danh sách livestream
+• GET /api/livestreams/{id} - Chi tiết livestream
+• GET /api/livestreams/{id}/can-join - Kiểm tra quyền tham gia
+• GET /api/livestreams/{id}/join-token - Lấy token tham gia
+
+• GET /api/study-plans/get-by-studentid/{studentId} - Kế hoạch học tập
+• GET /api/study-plan-items/get-by-plan/{planId} - Chi tiết kế hoạch
+
+• GET /api/payment/history/{userId} - Lịch sử thanh toán
+• GET /api/payment/credit-history/{userId} - Lịch sử tín dụng
+• POST /api/payment/create-credit-purchase - Tạo đơn mua tín dụng
+• GET /api/payment/check-credit/{userId}/{amount} - Kiểm tra tín dụng
+
+• GET /api/conversations/my-conversations - Cuộc hội thoại của tôi
+• POST /api/conversations/create - Tạo cuộc hội thoại
+• POST /api/conversations/send-messages/{conversationId} - Gửi tin nhắn
+
+• PUT /api/users/{userId} - Cập nhật thông tin người dùng
+• POST /api/users/{userId}/avatar - Cập nhật avatar
+
+===================================================================================
+INSTRUCTOR ROLE  
+===================================================================================
+API Endpoints được sử dụng:
+
+• GET /api/course - Lấy khóa học của giảng viên (filter theo instructorId)
+• GET /api/course/{courseId} - Chi tiết khóa học
+• GET /api/course/instructor/{instructorId} - Khóa học theo giảng viên
+
+• GET /api/lessons/by-course/{courseId} - Bài học trong khóa học
+• POST /api/lessons/{courseId} - Tạo bài học mới
+
+• GET /api/tests/by-lesson/{lessonId} - Test theo bài học
+• PATCH /api/tests/{testId}/status - Cập nhật trạng thái test
+• POST /api/tests/by-lesson/{lessonId} - Tạo test cho bài học
+
+• GET /api/livestreams - Livestream của giảng viên
+• POST /api/livestreams - Tạo livestream mới
+• PUT /api/livestreams/{id} - Cập nhật livestream
+• DELETE /api/livestreams/{id} - Xóa livestream
+
+• GET /api/instructor-profile/{userId} - Hồ sơ giảng viên
+• PUT /api/instructor-profile/update/{userId} - Cập nhật hồ sơ
+
+===================================================================================
+STAFF ROLE (Academic Manager)
+===================================================================================  
+API Endpoints được sử dụng:
+
+• GET /api/course - Quản lý tất cả khóa học
+• POST /api/course - Tạo khóa học mới
+• PUT /api/course/{courseId} - Cập nhật khóa học
+• DELETE /api/course/{courseId} - Xóa khóa học
+• PUT /api/course/{courseId}/status - Cập nhật trạng thái khóa học
+
+• POST /api/course/{courseId}/instructors/{instructorId} - Thêm giảng viên
+• DELETE /api/course/{courseId}/instructors/{instructorId} - Xóa giảng viên
+• GET /api/course/{courseId}/instructors/history - Lịch sử giảng viên
+
+• POST /api/lessons/{courseId} - Tạo bài học
+• PUT /api/lessons/{lessonId} - Cập nhật bài học
+• DELETE /api/lessons/{lessonId} - Xóa bài học
+
+• GET /api/subcontents - Quản lý nội dung phụ
+• POST /api/subcontents - Tạo nội dung phụ
+• PUT /api/subcontents/{subContentId} - Cập nhật nội dung
+• DELETE /api/subcontents/{subContentId} - Xóa nội dung
+
+• GET /api/test-template-types - Quản lý loại template
+• POST /api/test-template-types - Tạo loại template
+• PUT /api/test-template-types/{testTemplateTypeId} - Cập nhật loại template
+• DELETE /api/test-template-types/{testTemplateTypeId} - Xóa loại template
+
+• GET /api/test-templates/by-type/{testTemplateTypeId} - Template theo loại
+• POST /api/test-templates - Tạo template mới
+• PUT /api/test-templates/{templateId} - Cập nhật template
+
+• GET /api/test-template-configs/by-template/{templateId} - Cấu hình template
+• POST /api/test-template-configs/{templateId} - Tạo cấu hình
+• PUT /api/test-template-configs/{configId} - Cập nhật cấu hình
+
+• GET /api/users - Quản lý người dùng
+• POST /api/users - Tạo người dùng
+• PUT /api/users/{userId} - Cập nhật người dùng
+• DELETE /api/users/{userId} - Xóa người dùng
+
+• GET /api/conversations/my-conversations - Quản lý hội thoại
+• GET /api/conversations/{id} - Chi tiết hội thoại  
+• POST /api/conversations/send-messages/{conversationId} - Trả lời tin nhắn
+• POST /api/conversations/assign-instructor/{conversationId} - Phân công giảng viên
+
+• GET /api/livestreams - Quản lý livestream
+• POST /api/livestreams - Tạo livestream
+• PUT /api/livestreams/{id} - Cập nhật livestream
+
+===================================================================================
+ADMIN ROLE
+===================================================================================
+API Endpoints được sử dụng:
+
+• GET /api/admin-dashboard/revenue/total - Tổng doanh thu
+• GET /api/admin-dashboard/revenue/current-month - Doanh thu tháng hiện tại  
+• GET /api/admin-dashboard/revenue/by-month - Doanh thu theo tháng
+
+• GET /api/admin-dashboard/enrollments/total - Tổng đăng ký
+• GET /api/admin-dashboard/enrollments/current-month - Đăng ký tháng hiện tại
+• GET /api/admin-dashboard/enrollments/by-month - Đăng ký theo tháng
+
+• GET /api/users - Quản lý tất cả người dùng (với phân quyền cao nhất)
+• POST /api/users - Tạo người dùng mới
+• DELETE /api/users/{userId} - Xóa người dùng
+
+===================================================================================
+GENERAL APIs (Dùng chung cho tất cả role)
+===================================================================================
+
+• POST /api/auth/login - Đăng nhập
+• POST /api/auth/logout - Đăng xuất
+• POST /api/auth/register - Đăng ký
+• POST /api/auth/refresh - Làm mới token
+• POST /api/auth/firebase-login - Đăng nhập Firebase
+
+• GET /api/questions - Quản lý câu hỏi
+• POST /api/questions - Tạo câu hỏi
+• PUT /api/questions/{id} - Cập nhật câu hỏi
+• DELETE /api/questions/{id} - Xóa câu hỏi
+• POST /api/questions/import - Import câu hỏi
+• GET /api/questions/paging-details - Phân trang câu hỏi
+
+• GET /api/choices/question/{questionId} - Lựa chọn theo câu hỏi
+• POST /api/choices/question/{questionId} - Tạo lựa chọn
+• PUT /api/choices/choice/{choiceId} - Cập nhật lựa chọn
+
+• POST /api/cloudinary-test/upload-image - Upload hình ảnh
+• POST /api/cloudinary-test/upload-video - Upload video  
+• POST /api/cloudinary-test/upload-document - Upload tài liệu
+• DELETE /api/cloudinary-test/delete-image/{publicId} - Xóa hình ảnh
+• DELETE /api/cloudinary-test/delete-video/{publicId} - Xóa video
+
+• GET /api/payment/return - Xử lý trả về từ cổng thanh toán
+• GET /api/payment/cancel - Xử lý hủy thanh toán
+• POST /api/payment/payos-webhook - Webhook PayOS
+• POST /api/payment/confirm-webhook - Xác nhận webhook
+
+===================================================================================
+TỔNG KẾT
+===================================================================================
+
+• Tổng số endpoint: 100+ API endpoints
+• Student Role sử dụng nhiều API nhất (40+ endpoints)  
+• Admin Role sử dụng ít API nhất (10+ endpoints)
+• API được sử dụng nhiều nhất: course, enrollments, tests, livestreams
+• Các API chung: auth, questions, choices, cloudinary, payment webhooks
+
+Base API Server: http://localhost:5001/api
+LiveKit WebSocket: wss://livekit.zd-dev.xyz
+
+===================================================================================

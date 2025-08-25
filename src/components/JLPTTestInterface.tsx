@@ -32,11 +32,16 @@ import {
 import {
   addOrUpdateAttemptAnswer
 } from '../services/attemptAnswerService';
+import { 
+  updateStudentLevel, 
+  getStudentProfile
+} from '../services/studentProfileService';
 
 interface JLPTTestInterfaceProps {
   testType: TestType;
   courseLevel: CourseLevel;
   onBack: () => void;
+  onLevelUpdated?: () => void; // Optional callback when level is updated
 }
 
 interface TestPart {
@@ -57,7 +62,8 @@ interface QuestionWithChoices extends Omit<QuestionDto, 'choices'> {
 const JLPTTestInterface: React.FC<JLPTTestInterfaceProps> = ({
   testType,
   courseLevel,
-  onBack
+  onBack,
+  onLevelUpdated
 }) => {
   const { userInfo } = useAuth();
   const { success, error } = useNotification();
@@ -237,6 +243,58 @@ const JLPTTestInterface: React.FC<JLPTTestInterfaceProps> = ({
     }
   };
 
+  // Helper function to get the next level
+  const getNextLevel = (currentLevel: CourseLevel): CourseLevel | null => {
+    const levels = [CourseLevel.N5, CourseLevel.N4, CourseLevel.N3, CourseLevel.N2, CourseLevel.N1];
+    const currentIndex = levels.indexOf(currentLevel);
+    return currentIndex >= 0 && currentIndex < levels.length - 1 ? levels[currentIndex + 1] : null;
+  };
+
+  // Helper function to check if current test is one level higher than user's current level
+  const isTestOneLevelHigher = async (): Promise<boolean> => {
+    try {
+      if (!userInfo?.id) return false;
+      
+      const profile = await getStudentProfile(userInfo.id);
+      if (!profile?.currentLevel) return false;
+
+      // Parse user's current level
+      const userLevel = profile.currentLevel as unknown as CourseLevel;
+      const testLevel = courseLevel;
+
+      // Check if test level is exactly one level higher than user level
+      const nextLevel = getNextLevel(userLevel);
+      return nextLevel === testLevel;
+    } catch (error) {
+      console.error('Error checking user level:', error);
+      return false;
+    }
+  };
+
+  // Auto update user level when pass higher level test
+  const handleLevelUpdate = async (testResult: TestAttemptWithScoreSummary) => {
+    try {
+      if (!userInfo?.id || !testResult.attempt.isPass) return;
+
+      // Check if this test is one level higher than user's current level
+      const shouldUpdate = await isTestOneLevelHigher();
+      if (!shouldUpdate) return;
+
+      // Update user level to the test level they just passed
+      await updateStudentLevel(userInfo.id, courseLevel.toString());
+      
+      success('Chúc mừng!', `Bạn đã lên cấp độ ${courseLevel}! Profile của bạn đã được cập nhật.`);
+      
+      // Notify parent component about level update
+      if (onLevelUpdated) {
+        onLevelUpdated();
+      }
+    } catch (error) {
+      console.error('Failed to update user level:', error);
+      // Don't show error to user as this is a background operation
+    }
+  };
+
   // Group questions by parts
   const groupQuestionsByParts = (questions: TestQuestionDto[]): TestPart[] => {
     console.log('Raw questions from API:', questions);
@@ -395,6 +453,10 @@ const JLPTTestInterface: React.FC<JLPTTestInterfaceProps> = ({
       // Get detailed result with score summary
       const result = await getTestAttemptWithScoreSummary(testAttempt.attemptId);
       setTestResult(result);
+      
+      // Auto update user level if they passed a higher level test
+      await handleLevelUpdate(result);
+      
       setShowResult(true);
       
       success('Nộp bài thành công', 'Bài thi của bạn đã được nộp và chấm điểm');
@@ -415,6 +477,10 @@ const JLPTTestInterface: React.FC<JLPTTestInterfaceProps> = ({
         // Get detailed result with score summary
         const result = await getTestAttemptWithScoreSummary(testAttempt.attemptId);
         setTestResult(result);
+        
+        // Auto update user level if they passed a higher level test
+        await handleLevelUpdate(result);
+        
         setShowResult(true);
         
         success('Hết thời gian', 'Bài thi đã được tự động nộp');
@@ -423,7 +489,7 @@ const JLPTTestInterface: React.FC<JLPTTestInterfaceProps> = ({
         error('Lỗi tự động nộp bài', 'Không thể tự động nộp bài thi');
       }
     }
-  }, [testAttempt, submitting, success, error]);
+  }, [testAttempt, submitting, success, error, handleLevelUpdate]);
 
   // Format time display
   const formatTime = (seconds: number) => {

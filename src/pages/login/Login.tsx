@@ -1,18 +1,21 @@
 import React, { useState, ChangeEvent, FormEvent } from "react";
 import { FaEye, FaEyeSlash, FaArrowLeft } from "react-icons/fa";
+import { signInWithPopup } from "firebase/auth";
+import { auth, googleProvider } from "../../config/firebase";
 import googleLogo from "../../assets/Google__G__logo.svg.png";
 import loginImage from "../../assets/login.png";
 import { Link } from "react-router-dom";
 import backgroundLogin from "../../assets/background_login.jpg";
-import { useAuth } from "../../auth/AuthContext"; // Assuming you have an AuthContext for managing authentication state
+import { useAuth } from "../../auth/AuthContext";
 
 const Login: React.FC = () => {
   const [email, setEmail] = useState<string>("");
   const [password, setPassword] = useState<string>("");
   const [rememberMe, setRememberMe] = useState<boolean>(false);
   const [showPassword, setShowPassword] = useState<boolean>(false);
-  const { handleLogin } = useAuth(); // lấy hàm login từ context
-const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isGoogleLoading, setIsGoogleLoading] = useState<boolean>(false);
+  const { handleLogin, handleFirebaseLogin } = useAuth();
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
 const handleLoginSubmit = async (e: FormEvent<HTMLFormElement>) => {
   e.preventDefault();
@@ -34,9 +37,31 @@ const handleLoginSubmit = async (e: FormEvent<HTMLFormElement>) => {
   //   // API login logic
   // };
 
-  const handleGoogleLogin = () => {
-    console.log("Đăng nhập bằng Google");
-    // Google auth logic
+  const handleGoogleLogin = async () => {
+    setIsGoogleLoading(true);
+    setErrorMessage(null);
+    
+    try {
+      const result = await signInWithPopup(auth, googleProvider);
+      const idToken = await result.user.getIdToken();
+      
+      await handleFirebaseLogin(idToken);
+      // Navigation will be handled by AuthContext
+    } catch (error: any) {
+      console.error("Google login failed:", error);
+      
+      if (error.code === 'auth/popup-closed-by-user') {
+        setErrorMessage("Đăng nhập bị hủy bởi người dùng.");
+      } else if (error.code === 'auth/popup-blocked') {
+        setErrorMessage("Popup bị chặn. Vui lòng cho phép popup và thử lại.");
+      } else if (error.response?.data?.message) {
+        setErrorMessage(error.response.data.message);
+      } else {
+        setErrorMessage("Đăng nhập Google thất bại. Vui lòng thử lại.");
+      }
+    } finally {
+      setIsGoogleLoading(false);
+    }
   };
 
   return (
@@ -163,12 +188,24 @@ const handleLoginSubmit = async (e: FormEvent<HTMLFormElement>) => {
 
           <button
             onClick={handleGoogleLogin}
-            className="w-full flex items-center justify-center border border-gray-300 py-2 rounded-md hover:shadow-md bg-white transition"
+            disabled={isGoogleLoading}
+            className="w-full flex items-center justify-center border border-gray-300 py-2 rounded-md hover:shadow-md bg-white transition disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <img src={googleLogo} alt="Google" className="w-5 h-5 mr-2" />
-            <span className="text-sm text-gray-700 font-medium">
-              Đăng nhập bằng Google
-            </span>
+            {isGoogleLoading ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-600 mr-2"></div>
+                <span className="text-sm text-gray-700 font-medium">
+                  Đang xử lý...
+                </span>
+              </>
+            ) : (
+              <>
+                <img src={googleLogo} alt="Google" className="w-5 h-5 mr-2" />
+                <span className="text-sm text-gray-700 font-medium">
+                  Đăng nhập bằng Google
+                </span>
+              </>
+            )}
           </button>
 
           <p className="text-sm text-gray-600 mt-6 text-center">

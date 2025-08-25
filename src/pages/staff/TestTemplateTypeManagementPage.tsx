@@ -555,7 +555,6 @@ const TestTemplateTypeManagementPage: React.FC = () => {
       [TestType.JLPTAuto]: "JLPT Tự động",
       [TestType.EntryAuto]: "Đầu vào Tự động", 
       [TestType.CustomManual]: "Tùy chỉnh Thủ công",
-      [TestType.CustomAuto]: "Tùy chỉnh Tự động"
     };
     return labels[type] || "Không xác định";
   };
@@ -1045,7 +1044,6 @@ const TestTemplateTypeManagementPage: React.FC = () => {
                 <option value={TestType.JLPTAuto}>JLPT Auto</option>
                 <option value={TestType.EntryAuto}>Entry Auto</option>
                 <option value={TestType.CustomManual}>Custom Manual</option>
-                <option value={TestType.CustomAuto}>Custom Auto</option>
               </select>
             </div>
           </div>
@@ -1166,7 +1164,6 @@ const TestTemplateTypeManagementPage: React.FC = () => {
                 <option value={TestType.JLPTAuto}>JLPT Auto</option>
                 <option value={TestType.EntryAuto}>Entry Auto</option>
                 <option value={TestType.CustomManual}>Custom Manual</option>
-                <option value={TestType.CustomAuto}>Custom Auto</option>
               </select>
             </div>
           </div>

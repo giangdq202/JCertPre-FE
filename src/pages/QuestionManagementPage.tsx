@@ -157,8 +157,11 @@ const QuestionManagementPage: React.FC = () => {
 
   // Fetch questions with client-side filtering (từ code cũ - hoạt động tốt)
   useEffect(() => {
-    fetchQuestions();
-  }, [difficulty, selectedSubContents, courseLevel, contentName, isStaff, quizMode]); // Dependency array từ code cũ
+    // Don't fetch questions when in quiz mode
+    if (!quizMode) {
+      fetchQuestions();
+    }
+  }, [difficulty, selectedSubContents, courseLevel, contentName, isStaff]); // Removed quizMode from dependency
 
   // Handler for difficulty filter changes (đơn giản hóa từ code cũ)
   const handleDifficultyChange = (value: QuestionDifficulty, isChecked: boolean) => {
@@ -245,12 +248,19 @@ const QuestionManagementPage: React.FC = () => {
 
   // Quiz mode functions (for Student role)
   const handleStartQuiz = async (questions: QuestionDto[]) => {
+    console.log("🎯 handleStartQuiz called with questions:", questions);
+    console.log("🎯 questions.length:", questions.length);
+    console.log("🎯 isStaff:", isStaff);
+    console.log("🎯 userInfo.roleName:", userInfo?.roleName);
+    
     try {
       setQuizQuestions(questions);
       setCurrentQuestionIndex(0);
       setSelectedChoice(null);
       setShowAnswer(false);
       setQuizMode(true);
+      
+      console.log("🎯 Quiz mode set to true, fetching choices...");
       
       // Fetch choices for all questions
       const allChoices: ChoiceReadDto[][] = [];
@@ -259,10 +269,11 @@ const QuestionManagementPage: React.FC = () => {
         allChoices.push(choices);
       }
       setQuizChoices(allChoices);
-          } catch (err) {
-        console.error("Error starting quiz:", err);
-        error("Không thể tải câu hỏi");
-      }
+      console.log("🎯 All choices fetched:", allChoices);
+    } catch (err) {
+      console.error("Error starting quiz:", err);
+      error("Không thể tải câu hỏi");
+    }
   };
 
   const handleChoiceSelect = (choiceId: string) => {
@@ -287,6 +298,7 @@ const QuestionManagementPage: React.FC = () => {
   };
 
   const handleExitQuiz = () => {
+    console.log("🚪 handleExitQuiz called");
     setQuizMode(false);
     setQuizQuestions([]);
     setQuizChoices([]);
@@ -298,12 +310,7 @@ const QuestionManagementPage: React.FC = () => {
   // Main function to fetch questions with filtering
   const fetchQuestions = async () => {
     setLoading(true);
-    try {
-      // Reset quiz mode when filters change
-      if (quizMode) {
-        handleExitQuiz();
-      }
-      
+    try {      
       // Students only see active questions, staff see all questions
       const fetchFunction = isStaff ? getAllQuestions : getActiveQuestions;
       
@@ -658,6 +665,15 @@ const QuestionManagementPage: React.FC = () => {
               Quay lại trang chủ
             </button>
             <div className="flex gap-3">
+              {(() => {
+                console.log("🐛 Debug render conditions:", { 
+                  isStaff, 
+                  questionsLength: questions.length, 
+                  shouldShowButton: !isStaff && questions.length > 0,
+                  userRoleName: userInfo?.roleName
+                });
+                return null;
+              })()}
               {!isStaff && questions.length > 0 && (
                 <button
                   onClick={() => handleStartQuiz(questions)}
