@@ -8,6 +8,7 @@ import {
 import { refreshToken, login, logout, firebaseLogin } from "../services/authService";
 import { useNavigate } from "react-router-dom";
 import { useLocation } from "react-router-dom";
+import { setOnLogoutCallback } from "../consts/axios/axiosInstance";
 import paths from "../routes/path";
 interface UserInfoResponse {
   id: string;
@@ -43,10 +44,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     try {
-      const token = localStorage.getItem("refreshToken");
-      if (token) {
-        handleRefreshToken(token);
+      const refreshTokenValue = localStorage.getItem("refreshToken");
+      const accessToken = localStorage.getItem("accessToken");
+      
+      if (refreshTokenValue && accessToken) {
+        handleRefreshToken(refreshTokenValue);
       } else {
+        // Clear any invalid tokens
+        localStorage.removeItem("accessToken");
+        localStorage.removeItem("refreshToken");
         setIsLoading(false);
 
         const publicRoutes = ["/login", "/register"];
@@ -56,6 +62,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
     } catch (err) {
       console.log(err);
+      // Clear tokens on any error
+      localStorage.removeItem("accessToken");
+      localStorage.removeItem("refreshToken");
+      setIsLoading(false);
+      navigate("/");
     }
   }, []);
 
@@ -63,10 +74,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       const oldAccessToken = localStorage.getItem("accessToken");
       if (!oldAccessToken) {
+        // Clear invalid tokens and redirect
+        localStorage.removeItem("accessToken");
+        localStorage.removeItem("refreshToken");
         setIsLoading(false);
         navigate("/");
         return;
       }
+      
       const response = await refreshToken(oldAccessToken, refreshTokenValue);
       if (response?.accessToken) {
         setJwtToken(response.accessToken);
@@ -90,11 +105,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         //     break;
         // }
       } else {
+        // Clear tokens and redirect if refresh fails
+        localStorage.removeItem("accessToken");
+        localStorage.removeItem("refreshToken");
         navigate("/");
         setIsAuthenticated(false);
       }
     } catch (error) {
       console.error("Refresh token error:", error);
+      // Clear all tokens on refresh error
+      localStorage.removeItem("accessToken");
+      localStorage.removeItem("refreshToken");
       navigate("/");
       setIsAuthenticated(false);
     } finally {
@@ -182,7 +203,25 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setJwtToken(null);
     setUserInfo(undefined);
     setIsAuthenticated(false);
+    navigate("/");
   };
+
+  const clearAuthState = () => {
+    localStorage.removeItem("accessToken");
+    localStorage.removeItem("refreshToken");
+    setJwtToken(null);
+    setUserInfo(undefined);
+    setIsAuthenticated(false);
+  };
+
+  // Set up the logout callback for axios interceptor
+  useEffect(() => {
+    setOnLogoutCallback(() => {
+      clearAuthState();
+      navigate("/");
+    });
+  }, [navigate]);
+
   return (
     <AuthContext.Provider
       value={{

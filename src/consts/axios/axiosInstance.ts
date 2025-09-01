@@ -67,8 +67,8 @@ axiosInstance.interceptors.response.use(
             const oldAccessToken = localStorage.getItem('accessToken');
             const oldRefreshToken = localStorage.getItem('refreshToken');
 
-            // Chỉ cố gắng làm mới token nếu cả access và refresh token đều tồn tại
-            if (oldAccessToken && oldRefreshToken) {
+            // Chỉ cố gắng làm mới token nếu cả access và refresh token đều tồn tại và hợp lệ
+            if (oldAccessToken && oldRefreshToken && oldAccessToken.length > 0 && oldRefreshToken.length > 0) {
                 try {
                     // Gọi hàm refreshToken từ authService (đã được cập nhật để nhận cả 2 token)
                     const refreshResponse = await refreshToken(oldAccessToken, oldRefreshToken);
@@ -91,6 +91,8 @@ axiosInstance.interceptors.response.use(
                     } else {
                         // Trường hợp API refresh token không trả về token mới như mong đợi
                         console.error('Refresh token API did not return new tokens. Logging out.');
+                        localStorage.removeItem('accessToken');
+                        localStorage.removeItem('refreshToken');
                         if (onLogoutCallback) {
                             onLogoutCallback(); // Kích hoạt đăng xuất toàn cục
                         }
@@ -99,6 +101,8 @@ axiosInstance.interceptors.response.use(
                 } catch (refreshError) {
                     // Xử lý lỗi khi gọi API refresh token (ví dụ: refresh token không hợp lệ/hết hạn)
                     console.error('Failed to refresh token (interceptor). Logging out.', refreshError);
+                    localStorage.removeItem('accessToken');
+                    localStorage.removeItem('refreshToken');
                     if (onLogoutCallback) {
                         onLogoutCallback(); // Kích hoạt đăng xuất toàn cục
                     }
@@ -107,6 +111,8 @@ axiosInstance.interceptors.response.use(
             } else {
                 // Không có access token hoặc refresh token trong localStorage để thử làm mới
                 console.warn('No existing access/refresh tokens found in localStorage for refresh attempt. Logging out.');
+                localStorage.removeItem('accessToken');
+                localStorage.removeItem('refreshToken');
                 if (onLogoutCallback) {
                     onLogoutCallback(); // Kích hoạt đăng xuất toàn cục
                 }
@@ -115,6 +121,8 @@ axiosInstance.interceptors.response.use(
         }
         if (error.response && error.response.status === 401 && isAuthRefreshEndpoint) {
             console.error('Refresh token endpoint itself returned 401. Session is truly expired. Logging out.');
+            localStorage.removeItem('accessToken');
+            localStorage.removeItem('refreshToken');
             if (onLogoutCallback) {
                 onLogoutCallback(); // Kích hoạt đăng xuất toàn cục
             }
