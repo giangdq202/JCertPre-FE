@@ -37,6 +37,7 @@ import { getAllSubContents } from "../../services/subContentService";
 import { useAuth } from "../../auth/AuthContext";
 import paths from "../../routes/path";
 import Modal from "../../components/modals/Modal";
+import { toast } from 'react-toastify';
 
 const TestTemplateTypeManagementPage: React.FC = () => {
   const navigate = useNavigate();
@@ -56,8 +57,6 @@ const TestTemplateTypeManagementPage: React.FC = () => {
 
   const [templateTypes, setTemplateTypes] = useState<TestTemplateTypeDto[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<TestTemplateTypeDto | null>(null);
@@ -140,21 +139,119 @@ const TestTemplateTypeManagementPage: React.FC = () => {
     sequence: 1
   });
 
+  // Utility function to extract meaningful error messages from backend responses
+  const extractErrorMessage = (error: any, defaultMessage: string): string => {
+    // Check if it's an HTTP error response
+    if (error?.response) {
+      const { status, data } = error.response;
+      
+      // Check for specific error codes from backend
+      if (data?.errorCode) {
+        switch (data.errorCode) {
+          case "NOT_VERIFIED":
+            return "Không thể kích hoạt: Cấu trúc đề thi chưa được duyệt.";
+          case "NO_TEST_TEMPLATE":
+            return "Không thể kích hoạt: Không có phần thi nào thuộc cấu trúc này.";
+          case "NO_TEST_TEMPLATE_CONFIG":
+            return "Không thể kích hoạt: Không có cấu hình câu hỏi nào thuộc phần thi của cấu trúc này.";
+          case "SELF_VERIFY_NOT_ALLOWED":
+            return "Không thể tự duyệt cấu trúc đề thi do chính mình tạo.";
+          case "TYPE_ACTIVE":
+            return "Không thể thực hiện thao tác khi cấu trúc đề thi đã được kích hoạt.";
+          case "TYPE_NOT_ACTIVE":
+            return "Cấu trúc đề thi chưa được kích hoạt.";
+          case "TYPE_NOT_VERIFIED":
+            return "Cấu trúc đề thi chưa được duyệt.";
+          case "DUPLICATE_TYPE_NAME":
+            return "Tên cấu trúc đề thi đã tồn tại.";
+          case "INVALID_COURSE_LEVEL":
+            return "Cấp độ khóa học không hợp lệ.";
+          case "INVALID_TEST_TYPE":
+            return "Loại đề thi không hợp lệ.";
+          case "INVALID_SCORE_VALUES":
+            return "Giá trị điểm số không hợp lệ.";
+          case "INVALID_PERCENTAGE_VALUES":
+            return "Tỷ lệ phần trăm không hợp lệ.";
+          case "TEMPLATE_HAS_CONFIGS":
+            return "Không thể xóa phần thi đã có cấu hình câu hỏi.";
+          case "INVALID_TEMPLATE_SEQUENCE":
+            return "Thứ tự phần thi không hợp lệ.";
+          case "DUPLICATE_TEMPLATE_NAME":
+            return "Tên phần thi đã tồn tại trong cấu trúc này.";
+          case "INVALID_DURATION":
+            return "Thời gian làm bài không hợp lệ.";
+          case "SUBCONTENT_NOT_FOUND":
+            return "Không tìm thấy nội dung con.";
+          case "INVALID_QUESTION_COUNT":
+            return "Số lượng câu hỏi không hợp lệ.";
+          case "INVALID_POINTS":
+            return "Điểm số không hợp lệ.";
+          case "DUPLICATE_CONFIG_SEQUENCE":
+            return "Thứ tự cấu hình đã tồn tại trong phần thi này.";
+          case "INSUFFICIENT_QUESTIONS":
+            return "Không đủ câu hỏi trong nội dung con để tạo cấu hình.";
+          case "CONFIG_POINTS_EXCEED_TEMPLATE":
+            return "Tổng điểm cấu hình vượt quá điểm tối đa của phần thi.";
+          case "USER_NOT_FOUND":
+            return "Không tìm thấy thông tin người dùng.";
+          case "ACCESS_DENIED":
+            return "Bạn không có quyền thực hiện thao tác này.";
+          case "RESOURCE_NOT_FOUND":
+            return "Không tìm thấy tài nguyên yêu cầu.";
+          case "VALIDATION_FAILED":
+            return data.message || "Dữ liệu không hợp lệ.";
+          default:
+            return data.message || defaultMessage;
+        }
+      }
+      
+      // Check for general error message in response
+      if (data?.message) {
+        return data.message;
+      }
+      
+      // Handle HTTP status codes
+      switch (status) {
+        case 400:
+          return "Dữ liệu gửi lên không hợp lệ.";
+        case 401:
+          return "Bạn cần đăng nhập để thực hiện thao tác này.";
+        case 403:
+          return "Bạn không có quyền thực hiện thao tác này.";
+        case 404:
+          return "Không tìm thấy tài nguyên yêu cầu.";
+        case 409:
+          return "Xung đột dữ liệu. Vui lòng thử lại.";
+        case 422:
+          return "Dữ liệu không thể được xử lý.";
+        case 500:
+          return "Lỗi hệ thống. Vui lòng thử lại sau.";
+        case 503:
+          return "Hệ thống hiện đang bảo trì. Vui lòng thử lại sau.";
+        default:
+          return defaultMessage;
+      }
+    }
+    
+    // Check if it's a network error
+    if (error?.code === "NETWORK_ERROR" || error?.message?.includes("Network Error")) {
+      return "Lỗi kết nối mạng. Vui lòng kiểm tra kết nối internet.";
+    }
+    
+    // Check if it's a timeout error
+    if (error?.code === "ECONNABORTED" || error?.message?.includes("timeout")) {
+      return "Hết thời gian chờ. Vui lòng thử lại.";
+    }
+    
+    // Return error message if available, otherwise default message
+    return error?.message || defaultMessage;
+  };
+
   useEffect(() => {
     if (userInfo?.id) {
       loadTemplateTypes();
     }
   }, [userInfo]);
-
-  // Auto clear success message after 5 seconds
-  useEffect(() => {
-    if (success) {
-      const timer = setTimeout(() => {
-        setSuccess("");
-      }, 5000);
-      return () => clearTimeout(timer);
-    }
-  }, [success]);
 
   const loadTemplateTypes = async () => {
     try {
@@ -163,7 +260,8 @@ const TestTemplateTypeManagementPage: React.FC = () => {
       setTemplateTypes(response.items);
     } catch (error) {
       console.error("Failed to load template types:", error);
-      setError("Không thể tải danh sách cấu trúc đề thi");
+      const errorMessage = extractErrorMessage(error, "Không thể tải danh sách cấu trúc đề thi");
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -173,6 +271,20 @@ const TestTemplateTypeManagementPage: React.FC = () => {
     e.preventDefault();
     if (!userInfo?.id) return;
 
+    // Client-side validation
+    if (!createForm.typeName.trim()) {
+      toast.error("Vui lòng nhập tên cấu trúc đề thi");
+      return;
+    }
+    if (createForm.totalTestScore <= 0) {
+      toast.error("Tổng điểm phải lớn hơn 0");
+      return;
+    }
+    if (createForm.totalPassPercentage <= 0 || createForm.totalPassPercentage > 100) {
+      toast.error("Tỷ lệ đậu phải từ 1 đến 100");
+      return;
+    }
+
     setSubmitting(true);
     try {
       const formData = {
@@ -180,6 +292,7 @@ const TestTemplateTypeManagementPage: React.FC = () => {
         userId: userInfo.id
       };
       await createTestTemplateType(formData);
+      toast.success("Tạo cấu trúc đề thi thành công");
       setIsCreateModalOpen(false);
       setCreateForm({
         userId: "",
@@ -193,7 +306,8 @@ const TestTemplateTypeManagementPage: React.FC = () => {
       await loadTemplateTypes();
     } catch (error) {
       console.error("Failed to create template type:", error);
-      setError("Không thể tạo cấu trúc đề thi");
+      const errorMessage = extractErrorMessage(error, "Không thể tạo cấu trúc đề thi");
+      toast.error(errorMessage);
     } finally {
       setSubmitting(false);
     }
@@ -203,15 +317,31 @@ const TestTemplateTypeManagementPage: React.FC = () => {
     e.preventDefault();
     if (!editingTemplate) return;
 
+    // Client-side validation
+    if (!editForm.typeName?.trim()) {
+      toast.error("Vui lòng nhập tên cấu trúc đề thi");
+      return;
+    }
+    if (!editForm.totalTestScore || editForm.totalTestScore <= 0) {
+      toast.error("Tổng điểm phải lớn hơn 0");
+      return;
+    }
+    if (!editForm.totalPassPercentage || editForm.totalPassPercentage <= 0 || editForm.totalPassPercentage > 100) {
+      toast.error("Tỷ lệ đậu phải từ 1 đến 100");
+      return;
+    }
+
     setSubmitting(true);
     try {
       await updateTestTemplateType(editingTemplate.testTemplateTypeId, editForm);
+      toast.success("Cập nhật cấu trúc đề thi thành công");
       setIsEditModalOpen(false);
       setEditingTemplate(null);
       await loadTemplateTypes();
     } catch (error) {
       console.error("Failed to update template type:", error);
-      setError("Không thể cập nhật cấu trúc đề thi");
+      const errorMessage = extractErrorMessage(error, "Không thể cập nhật cấu trúc đề thi");
+      toast.error(errorMessage);
     } finally {
       setSubmitting(false);
     }
@@ -222,51 +352,41 @@ const TestTemplateTypeManagementPage: React.FC = () => {
 
     try {
       await deleteTestTemplateType(templateTypeId);
+      toast.success("Xóa cấu trúc đề thi thành công");
       await loadTemplateTypes();
     } catch (error) {
       console.error("Failed to delete template type:", error);
-      setError("Không thể xóa cấu trúc đề thi");
+      const errorMessage = extractErrorMessage(error, "Không thể xóa cấu trúc đề thi");
+      toast.error(errorMessage);
     }
   };
 
   const handleToggleActive = async (templateTypeId: string, currentActive: boolean) => {
     try {
       await updateTestTemplateTypeIsActive(templateTypeId, !currentActive);
+      toast.success(`${!currentActive ? 'Kích hoạt' : 'Vô hiệu hóa'} cấu trúc đề thi thành công`);
       await loadTemplateTypes();
     } catch (error: any) {
       console.error("Failed to toggle template type active status:", error);
-      
-      // Handle specific error messages
-      if (error?.response?.data?.errorCode === "NOT_VERIFIED") {
-        setError("Không thể kích hoạt: Cấu trúc đề thi chưa được duyệt.");
-      } else if (error?.response?.data?.errorCode === "NO_TEST_TEMPLATE") {
-        setError("Không thể kích hoạt: Không có phần thi nào thuộc cấu trúc này.");
-      } else if (error?.response?.data?.errorCode === "NO_TEST_TEMPLATE_CONFIG") {
-        setError("Không thể kích hoạt: Không có cấu hình câu hỏi nào thuộc phần thi của cấu trúc này.");
-      } else {
-        setError("Không thể cập nhật trạng thái cấu trúc đề thi");
-      }
+      const errorMessage = extractErrorMessage(error, "Không thể cập nhật trạng thái cấu trúc đề thi");
+      toast.error(errorMessage);
     }
   };
 
   const handleVerify = async (templateTypeId: string) => {
     if (!userInfo?.id) {
-      setError("Không thể xác định thông tin người dùng");
+      toast.error("Không thể xác định thông tin người dùng");
       return;
     }
 
     try {
       await verifyTestTemplateType(templateTypeId, userInfo.id);
       await loadTemplateTypes();
-      setSuccess("Đã duyệt cấu trúc đề thi thành công");
+      toast.success("Đã duyệt cấu trúc đề thi thành công");
     } catch (error: any) {
       console.error("Failed to verify template type:", error);
-      
-      if (error?.response?.data?.errorCode === "SELF_VERIFY_NOT_ALLOWED") {
-        setError("Không thể tự duyệt cấu trúc đề thi do chính mình tạo.");
-      } else {
-        setError("Không thể duyệt cấu trúc đề thi");
-      }
+      const errorMessage = extractErrorMessage(error, "Không thể duyệt cấu trúc đề thi");
+      toast.error(errorMessage);
     }
   };
 
@@ -289,6 +409,24 @@ const TestTemplateTypeManagementPage: React.FC = () => {
     e.preventDefault();
     if (!selectedTemplateType) return;
 
+    // Client-side validation
+    if (!createTemplateForm.templateName.trim()) {
+      toast.error("Vui lòng nhập tên phần thi");
+      return;
+    }
+    if (createTemplateForm.durationMinutes <= 0) {
+      toast.error("Thời gian làm bài phải lớn hơn 0");
+      return;
+    }
+    if (createTemplateForm.totalScore <= 0) {
+      toast.error("Tổng điểm phải lớn hơn 0");
+      return;
+    }
+    if (createTemplateForm.toPassPercentage <= 0 || createTemplateForm.toPassPercentage > 100) {
+      toast.error("Tỷ lệ đậu phải từ 1 đến 100");
+      return;
+    }
+
     setSubmitting(true);
     try {
       const formData = {
@@ -296,6 +434,7 @@ const TestTemplateTypeManagementPage: React.FC = () => {
         testTemplateTypeId: selectedTemplateType.testTemplateTypeId
       };
       await createTestTemplate(formData);
+      toast.success("Tạo phần thi thành công");
       setIsCreateTemplateModalOpen(false);
       setCreateTemplateForm({
         testTemplateTypeId: "",
@@ -312,11 +451,8 @@ const TestTemplateTypeManagementPage: React.FC = () => {
       }
     } catch (error: any) {
       console.error("Failed to create template:", error);
-      if (error?.response?.data?.errorCode === "TYPE_ACTIVE") {
-        setError("Không thể tạo phần thi khi cấu trúc đề thi đã được kích hoạt");
-      } else {
-        setError("Không thể tạo phần thi");
-      }
+      const errorMessage = extractErrorMessage(error, "Không thể tạo phần thi");
+      toast.error(errorMessage);
     } finally {
       setSubmitting(false);
     }
@@ -329,6 +465,7 @@ const TestTemplateTypeManagementPage: React.FC = () => {
     setSubmitting(true);
     try {
       await updateTestTemplate(editingTemplateTemplate.templateId, editTemplateForm);
+      toast.success("Cập nhật phần thi thành công");
       setIsEditTemplateModalOpen(false);
       setEditingTemplateTemplate(null);
       
@@ -338,7 +475,8 @@ const TestTemplateTypeManagementPage: React.FC = () => {
       }
     } catch (error) {
       console.error("Failed to update template:", error);
-      setError("Không thể cập nhật phần thi");
+      const errorMessage = extractErrorMessage(error, "Không thể cập nhật phần thi");
+      toast.error(errorMessage);
     } finally {
       setSubmitting(false);
     }
@@ -349,6 +487,7 @@ const TestTemplateTypeManagementPage: React.FC = () => {
 
     try {
       await deleteTestTemplate(templateId);
+      toast.success("Xóa phần thi thành công");
       
       // Update dropdown templates
       if (expandedTemplateTypes.has(selectedTemplateType.testTemplateTypeId)) {
@@ -356,7 +495,8 @@ const TestTemplateTypeManagementPage: React.FC = () => {
       }
     } catch (error) {
       console.error("Failed to delete template:", error);
-      setError("Không thể xóa phần thi");
+      const errorMessage = extractErrorMessage(error, "Không thể xóa phần thi");
+      toast.error(errorMessage);
     }
   };
 
@@ -392,7 +532,8 @@ const TestTemplateTypeManagementPage: React.FC = () => {
       setTemplatesByType(prev => ({ ...prev, [templateTypeId]: templatesData }));
     } catch (error) {
       console.error("Failed to load templates for type:", error);
-      setError("Không thể tải danh sách phần thi");
+      const errorMessage = extractErrorMessage(error, "Không thể tải danh sách phần thi");
+      toast.error(errorMessage);
     } finally {
       setLoadingTemplatesByType(prev => ({ ...prev, [templateTypeId]: false }));
     }
@@ -430,7 +571,8 @@ const TestTemplateTypeManagementPage: React.FC = () => {
       setConfigsByTemplate(prev => ({ ...prev, [templateId]: configsData }));
     } catch (error) {
       console.error("Failed to load configs for template:", error);
-      setError("Không thể tải danh sách cấu hình câu hỏi");
+      const errorMessage = extractErrorMessage(error, "Không thể tải danh sách cấu hình câu hỏi");
+      toast.error(errorMessage);
     } finally {
       setLoadingConfigsByTemplate(prev => ({ ...prev, [templateId]: false }));
     }
@@ -453,9 +595,28 @@ const TestTemplateTypeManagementPage: React.FC = () => {
     e.preventDefault();
     if (!selectedTemplate) return;
 
+    // Client-side validation
+    if (!createConfigForm.subContentId) {
+      toast.error("Vui lòng chọn nội dung con");
+      return;
+    }
+    if (createConfigForm.questionCount <= 0) {
+      toast.error("Số lượng câu hỏi phải lớn hơn 0");
+      return;
+    }
+    if (createConfigForm.pointPerQuestion <= 0) {
+      toast.error("Điểm mỗi câu phải lớn hơn 0");
+      return;
+    }
+    if (createConfigForm.totalPoints <= 0) {
+      toast.error("Tổng điểm phải lớn hơn 0");
+      return;
+    }
+
     setSubmitting(true);
     try {
       const response = await createTestTemplateConfig(selectedTemplate.templateId, createConfigForm);
+      toast.success("Tạo cấu hình câu hỏi thành công");
       
       // Update configs in the nested dropdown state
       setConfigsByTemplate(prev => ({
@@ -473,11 +634,8 @@ const TestTemplateTypeManagementPage: React.FC = () => {
       });
     } catch (error: any) {
       console.error("Failed to create config:", error);
-      if (error?.response?.data?.errorCode === "TYPE_ACTIVE") {
-        setError("Không thể tạo cấu hình câu hỏi khi cấu trúc đề thi đã được kích hoạt");
-      } else {
-        setError("Không thể tạo cấu hình câu hỏi");
-      }
+      const errorMessage = extractErrorMessage(error, "Không thể tạo cấu hình câu hỏi");
+      toast.error(errorMessage);
     } finally {
       setSubmitting(false);
     }
@@ -490,6 +648,7 @@ const TestTemplateTypeManagementPage: React.FC = () => {
     setSubmitting(true);
     try {
       const response = await updateTestTemplateConfig(editingConfig.configId, editConfigForm);
+      toast.success("Cập nhật cấu hình câu hỏi thành công");
       
       // Update configs in the nested dropdown state
       setConfigsByTemplate(prev => ({
@@ -503,7 +662,8 @@ const TestTemplateTypeManagementPage: React.FC = () => {
       setEditingConfig(null);
     } catch (error) {
       console.error("Failed to update config:", error);
-      setError("Không thể cập nhật cấu hình câu hỏi");
+      const errorMessage = extractErrorMessage(error, "Không thể cập nhật cấu hình câu hỏi");
+      toast.error(errorMessage);
     } finally {
       setSubmitting(false);
     }
@@ -514,6 +674,7 @@ const TestTemplateTypeManagementPage: React.FC = () => {
 
     try {
       await deleteTestTemplateConfig(configId);
+      toast.success("Xóa cấu hình câu hỏi thành công");
       
       // Update configs in the nested dropdown state
       setConfigsByTemplate(prev => ({
@@ -524,7 +685,8 @@ const TestTemplateTypeManagementPage: React.FC = () => {
       }));
     } catch (error) {
       console.error("Failed to delete config:", error);
-      setError("Không thể xóa cấu hình câu hỏi");
+      const errorMessage = extractErrorMessage(error, "Không thể xóa cấu hình câu hỏi");
+      toast.error(errorMessage);
     }
   };
 
@@ -601,27 +763,15 @@ const TestTemplateTypeManagementPage: React.FC = () => {
             </div>
           </div>
           <button
-            onClick={() => setIsCreateModalOpen(true)}
+            onClick={() => {
+              setIsCreateModalOpen(true);
+            }}
             className="flex items-center gap-2 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 font-semibold transition-colors"
           >
             <FaPlus className="text-sm" />
             Tạo Cấu trúc đề thi
           </button>
         </div>
-
-        {/* Error Display */}
-        {error && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-            <p className="text-red-800">{error}</p>
-          </div>
-        )}
-
-        {/* Success Display */}
-        {success && (
-          <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
-            <p className="text-green-800">{success}</p>
-          </div>
-        )}
 
         {/* Template Types List */}
         <div className="bg-white rounded-xl shadow-lg overflow-hidden">
@@ -889,6 +1039,8 @@ const TestTemplateTypeManagementPage: React.FC = () => {
                                                     setSubContents(subContentList.items);
                                                   } catch (error) {
                                                     console.error("Failed to load subContents:", error);
+                                                    const errorMessage = extractErrorMessage(error, "Không thể tải danh sách nội dung con");
+                                                    toast.error(errorMessage);
                                                   }
                                                 }
                                                 
@@ -1043,7 +1195,6 @@ const TestTemplateTypeManagementPage: React.FC = () => {
               >
                 <option value={TestType.JLPTAuto}>JLPT Auto</option>
                 <option value={TestType.EntryAuto}>Entry Auto</option>
-                <option value={TestType.CustomManual}>Custom Manual</option>
               </select>
             </div>
           </div>
@@ -1163,7 +1314,6 @@ const TestTemplateTypeManagementPage: React.FC = () => {
               >
                 <option value={TestType.JLPTAuto}>JLPT Auto</option>
                 <option value={TestType.EntryAuto}>Entry Auto</option>
-                <option value={TestType.CustomManual}>Custom Manual</option>
               </select>
             </div>
           </div>

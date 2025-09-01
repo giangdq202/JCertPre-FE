@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import InstructorSidebar from "../../components/sidebar/InstructorSidebar";
 import InstructorHeader from "../../components/header/InstructorHeader";
 import { Calendar, Badge, Modal, Button, Spin } from "antd";
@@ -8,7 +9,7 @@ import { FaBookOpen, FaClock, FaPlay, FaCalendarAlt, FaGraduationCap } from "rea
 import { HiOutlineAcademicCap, HiOutlineClock, HiOutlineCalendar } from "react-icons/hi2";
 import { useAuth } from "../../auth/AuthContext";
 import paths from "../../routes/path";
-import { livestreamApi, LivestreamTimetableDto } from "../../services/livestreamService";
+import { livestreamApi, LivestreamTimetableDto, LivestreamStatus } from "../../services/livestreamService";
 import { toast } from 'react-toastify';
 
 // Livestream interface for instructor courses
@@ -24,6 +25,7 @@ interface LivestreamEvent {
 
 const InstructorSchedulePage: React.FC = () => {
   const { userInfo, handleLogout } = useAuth();
+  const navigate = useNavigate();
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
   const [selectedEvents, setSelectedEvents] = useState<LivestreamTimetableDto[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -40,6 +42,14 @@ const InstructorSchedulePage: React.FC = () => {
   };
 
   const handleJoinLivestream = async (livestream: LivestreamTimetableDto) => {
+    console.log('🚀 Joining livestream:', {
+      livestreamId: livestream.livestreamId,
+      description: livestream.description,
+      scheduledDateTime: livestream.scheduledDateTime,
+      status: livestream.status,
+      isLive: livestream.isLive
+    });
+
     if (!userInfo?.id) {
       toast.error("Vui lòng đăng nhập để tham gia livestream.");
       return;
@@ -48,6 +58,7 @@ const InstructorSchedulePage: React.FC = () => {
     try {
       // Get join token for the livestream
       const joinTokenResponse = await livestreamApi.generateJoinToken(livestream.livestreamId, userInfo.id);
+      console.log('✅ Join token response:', joinTokenResponse);
       
       // Store livestream config in sessionStorage
       const livestreamConfig = {
@@ -61,8 +72,10 @@ const InstructorSchedulePage: React.FC = () => {
       
       sessionStorage.setItem('livestreamConfig', JSON.stringify(livestreamConfig));
       
-      // Navigate to livestream page
-      window.location.href = paths.student_livestream.replace(':livestreamId', livestream.livestreamId);
+      // Navigate to instructor livestream page using React Router
+      const instructorLivestreamPath = paths.instructor_livestream.replace(':livestreamId', livestream.livestreamId);
+      console.log('🎯 Navigating to:', instructorLivestreamPath);
+      navigate(instructorLivestreamPath, { state: livestreamConfig });
       
     } catch (error: any) {
       console.error("Lỗi khi tham gia livestream:", error);
@@ -336,7 +349,8 @@ const InstructorSchedulePage: React.FC = () => {
           >
             {selectedEvents.length > 0 ? (
               <div className="space-y-4">
-                {selectedEvents.map((livestream) => (
+                {selectedEvents.map((livestream) => {
+                  return (
                   <div
                     key={livestream.livestreamId}
                     className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl p-6 shadow-lg border border-blue-100 hover:shadow-xl transition-all duration-300"
@@ -352,8 +366,8 @@ const InstructorSchedulePage: React.FC = () => {
                             {livestream.courseName || 'Khóa học'}
                           </h4>
                           <Badge 
-                            color={livestream.status === 'LIVE' ? 'red' : 'green'} 
-                            text={livestream.status === 'LIVE' ? 'Đang diễn ra' : 'Sắp diễn ra'}
+                            color={livestream.status === LivestreamStatus.LIVE || livestream.isLive ? 'red' : 'green'} 
+                            text={livestream.status === LivestreamStatus.LIVE || livestream.isLive ? 'Đang diễn ra' : 'Sắp diễn ra'}
                             className="ml-auto"
                           />
                         </div>
@@ -388,7 +402,7 @@ const InstructorSchedulePage: React.FC = () => {
                           </div>
                         )}
                         
-                        {livestream.status === 'COMPLETED' && (
+                        {livestream.status === LivestreamStatus.COMPLETED && (
                           <div className="mb-4 p-3 bg-gray-50 border border-gray-200 rounded-lg">
                             <div className="flex items-center gap-2 text-gray-600">
                               <FaClock className="text-gray-500" />
@@ -402,18 +416,20 @@ const InstructorSchedulePage: React.FC = () => {
                         <Button
                           type="primary"
                           className={`font-bold text-white shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200 ${
-                            livestream.canStart 
+                            livestream.status === LivestreamStatus.LIVE || livestream.isLive || livestream.canStart
                               ? 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700' 
-                              : livestream.status === 'COMPLETED'
+                              : livestream.status === LivestreamStatus.COMPLETED
                               ? 'bg-gray-400 cursor-not-allowed'
                               : 'bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600'
                           }`}
                           icon={<FaPlay className="mr-2" />}
-                          onClick={() => livestream.canStart && handleJoinLivestream(livestream)}
-                          disabled={!livestream.canStart || livestream.status === 'COMPLETED'}
+                          onClick={() => (livestream.status === LivestreamStatus.LIVE || livestream.isLive || livestream.canStart) && handleJoinLivestream(livestream)}
+                          disabled={!(livestream.status === LivestreamStatus.LIVE || livestream.isLive || livestream.canStart) || livestream.status === LivestreamStatus.COMPLETED}
                         >
-                          {livestream.status === 'COMPLETED' 
-                            ? 'Đã kết thúc' 
+                          {livestream.status === LivestreamStatus.COMPLETED 
+                            ? 'Đã kết thúc'
+                            : (livestream.status === LivestreamStatus.LIVE || livestream.isLive)
+                            ? 'Tham gia'
                             : livestream.canStart 
                             ? 'Bắt đầu dạy' 
                             : 'Chưa đến giờ'
@@ -422,7 +438,8 @@ const InstructorSchedulePage: React.FC = () => {
                       </div>
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <div className="text-center py-8">

@@ -91,7 +91,7 @@ const StudentLearnCoursePage: React.FC = () => {
       .then(setCourse)
       .catch(() => setCourse(null));
     getLessonsByCourseId(courseId)
-      .then((res) => {
+      .then(async (res) => {
         setLessons(res.items);
         if (res.items.length > 0) setSelectedLessonId(res.items[0].lessonId);
         
@@ -110,9 +110,21 @@ const StudentLearnCoursePage: React.FC = () => {
           setLessonProgress(progressData);
         };
         
+        // Load tests for all lessons to properly display pass status
+        const loadAllLessonTests = async () => {
+          for (const lesson of res.items) {
+            try {
+              await loadLessonTest(lesson.lessonId);
+            } catch (error) {
+              console.error(`Failed to load test for lesson ${lesson.lessonId}:`, error);
+            }
+          }
+        };
+        
         // Add a small delay to ensure userInfo is loaded
         setTimeout(() => {
           loadAllProgress();
+          loadAllLessonTests();
         }, 100);
       })
       .finally(() => setLoadingLessons(false));
@@ -329,10 +341,34 @@ const StudentLearnCoursePage: React.FC = () => {
       
       // Check for newly completed tests and update lesson progress
       await checkAndUpdateLessonProgress(passedTestIdsSet);
+      
+      // Refresh lesson progress for all lessons to update UI
+      await refreshAllLessonProgress();
     } catch (error) {
       console.error('Failed to refresh test results:', error);
       // Fallback to empty set on error
       setPassedTestIds(new Set());
+    }
+  };
+
+  // Refresh lesson progress for all lessons
+  const refreshAllLessonProgress = async () => {
+    if (!userInfo?.id) return;
+    
+    try {
+      const progressData: { [key: string]: number } = {};
+      for (const lesson of lessons) {
+        try {
+          const progress = await getLessonCompletionRate(lesson.lessonId);
+          progressData[lesson.lessonId] = progress;
+        } catch (error) {
+          console.error(`Failed to load progress for lesson ${lesson.lessonId}:`, error);
+          progressData[lesson.lessonId] = 0;
+        }
+      }
+      setLessonProgress(progressData);
+    } catch (error) {
+      console.error('Failed to refresh lesson progress:', error);
     }
   };
 
@@ -354,6 +390,12 @@ const StudentLearnCoursePage: React.FC = () => {
             // Update lesson progress to 100% if test is passed but progress is not 100%
             await updateProgress(existingProgress.progressId, 100);
             console.log(`Updated lesson progress for lesson ${lesson.lessonId} to 100%`);
+            
+            // Update local state immediately
+            setLessonProgress(prev => ({
+              ...prev,
+              [lesson.lessonId]: 100
+            }));
           }
         }
       }
@@ -404,6 +446,10 @@ const StudentLearnCoursePage: React.FC = () => {
                   courseId={courseId}
                   onBack={handleBackFromTest} 
                   onTestCompleted={async () => {
+                    // Hide test interface immediately and show lesson content
+                    setShowTestInterface(false);
+                    setActiveTest(null);
+                    
                     // Refresh test results and lesson progress after test completion
                     await refreshTestResults();
                   }}

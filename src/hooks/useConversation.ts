@@ -25,6 +25,7 @@ export interface UseConversationReturn {
   createNewConversation: () => Promise<void>;
   sendNewMessage: (content: string) => Promise<void>;
   setCurrentConversation: (conversation: ConversationDto | null) => void;
+  setMessages: (messages: MessageDto[] | ((prev: MessageDto[]) => MessageDto[])) => void;
 }
 
 export const useConversation = (): UseConversationReturn => {
@@ -217,6 +218,7 @@ export const useConversation = (): UseConversationReturn => {
     loadConversation,
     createNewConversation,
     sendNewMessage,
-    setCurrentConversation
+    setCurrentConversation,
+    setMessages // Expose setMessages for SignalR updates
   };
 };

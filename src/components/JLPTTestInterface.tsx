@@ -93,6 +93,13 @@ const JLPTTestInterface: React.FC<JLPTTestInterfaceProps> = ({
   const [testResult, setTestResult] = useState<TestAttemptWithScoreSummary | null>(null);
   const [showResult, setShowResult] = useState(false);
 
+  // Warning modal states
+  const [showPartChangeWarning, setShowPartChangeWarning] = useState(false);
+  const [pendingPartNavigation, setPendingPartNavigation] = useState<{
+    partIndex: number;
+    questionIndex: number;
+  } | null>(null);
+
   // Audio states
   const [playingAudio, setPlayingAudio] = useState<string | null>(null);
   const [audioProgress, setAudioProgress] = useState<Map<string, number>>(new Map());
@@ -355,9 +362,20 @@ const JLPTTestInterface: React.FC<JLPTTestInterfaceProps> = ({
       return () => clearTimeout(timer);
     } else if (partTimeLeft === 0 && !isPartTimeUp) {
       setIsPartTimeUp(true);
-      // Auto move to next part
+      // Auto move to next part when time is up (no warning needed)
       if (currentPartIndex < testParts.length - 1) {
-        moveToNextPart();
+        const nextPartIndex = currentPartIndex + 1;
+        const nextPart = testParts[nextPartIndex];
+        
+        setCurrentPartIndex(nextPartIndex);
+        setCurrentQuestionIndex(0);
+        setPartTimeLeft(nextPart.durationMinutes * 60);
+        setIsPartTimeUp(false);
+        
+        // Load first question of next part
+        if (nextPart.questions[0]) {
+          loadQuestion(nextPart.questions[0].questionId);
+        }
       }
     }
   }, [partTimeLeft, isPartTimeUp, currentPartIndex, testParts.length]);
@@ -375,24 +393,6 @@ const JLPTTestInterface: React.FC<JLPTTestInterfaceProps> = ({
     }
   }, [totalTimeLeft]);
 
-  // Move to next part
-  const moveToNextPart = useCallback(() => {
-    if (currentPartIndex < testParts.length - 1) {
-      const nextPartIndex = currentPartIndex + 1;
-      const nextPart = testParts[nextPartIndex];
-      
-      setCurrentPartIndex(nextPartIndex);
-      setCurrentQuestionIndex(0);
-      setPartTimeLeft(nextPart.durationMinutes * 60);
-      setIsPartTimeUp(false);
-      
-      // Load first question of next part
-      if (nextPart.questions[0]) {
-        loadQuestion(nextPart.questions[0].questionId);
-      }
-    }
-  }, [currentPartIndex, testParts]);
-
   // Navigate to question (updated rule):
   // - User can move forward to any later part at any time
   // - Once moved to a later part, earlier parts are locked (cannot go back)
@@ -403,19 +403,48 @@ const JLPTTestInterface: React.FC<JLPTTestInterfaceProps> = ({
       return;
     }
 
-    // Allow jumping forward to any later part anytime
+    // If moving to a new part (not just within the same part), show warning
+    if (partIndex > currentPartIndex) {
+      setPendingPartNavigation({ partIndex, questionIndex });
+      setShowPartChangeWarning(true);
+      return;
+    }
+
+    // Allow navigation within the same part
     const question = testParts[partIndex]?.questions[questionIndex];
     if (question) {
       setCurrentPartIndex(partIndex);
       setCurrentQuestionIndex(questionIndex);
-      // Reset timer when moving to a new part (only when changing part)
-      if (partIndex !== currentPartIndex) {
-        const nextPart = testParts[partIndex];
-        setPartTimeLeft(nextPart.durationMinutes * 60);
-        setIsPartTimeUp(false);
-      }
       await loadQuestion(question.questionId);
     }
+  };
+
+  // Handle confirmed navigation to next part
+  const handleConfirmedNavigation = async () => {
+    if (!pendingPartNavigation) return;
+
+    const { partIndex, questionIndex } = pendingPartNavigation;
+    const question = testParts[partIndex]?.questions[questionIndex];
+    
+    if (question) {
+      setCurrentPartIndex(partIndex);
+      setCurrentQuestionIndex(questionIndex);
+      // Reset timer when moving to a new part
+      const nextPart = testParts[partIndex];
+      setPartTimeLeft(nextPart.durationMinutes * 60);
+      setIsPartTimeUp(false);
+      await loadQuestion(question.questionId);
+    }
+
+    // Close modal and reset pending navigation
+    setShowPartChangeWarning(false);
+    setPendingPartNavigation(null);
+  };
+
+  // Handle cancelled navigation
+  const handleCancelNavigation = () => {
+    setShowPartChangeWarning(false);
+    setPendingPartNavigation(null);
   };
 
   // Handle answer selection
@@ -933,6 +962,44 @@ const JLPTTestInterface: React.FC<JLPTTestInterfaceProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Part Change Warning Modal */}
+      {showPartChangeWarning && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <div className="flex items-center gap-3 mb-4">
+              <FaExclamationTriangle className="text-yellow-500 text-xl" />
+              <h3 className="text-lg font-semibold text-gray-900">
+                Cảnh báo chuyển phần
+              </h3>
+            </div>
+            
+            <div className="mb-6">
+              <p className="text-gray-700 mb-3">
+                Bạn đang chuẩn bị chuyển sang <strong>Phần {pendingPartNavigation ? testParts[pendingPartNavigation.partIndex]?.partNumber : ''}</strong>.
+              </p>
+              <p className="text-red-600 font-medium">
+                ⚠️ Lưu ý: Khi chuyển sang phần tiếp theo, bạn sẽ không thể quay lại phần trước nữa!
+              </p>
+            </div>
+            
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={handleCancelNavigation}
+                className="px-4 py-2 text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                Hủy bỏ
+              </button>
+              <button
+                onClick={handleConfirmedNavigation}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Tôi đã hiểu
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

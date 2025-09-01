@@ -8,46 +8,36 @@ import { TestType, CourseLevel } from "../../services/testService";
 import { FaPlay, FaGraduationCap, FaClock, FaUsers, FaHistory } from "react-icons/fa";
 import { useAuth } from "../../auth/AuthContext";
 import { 
-  getAllTestTemplateTypes, 
-  TestTemplateTypeDto 
+  getTemplateTypeSummary,
+  TestTemplateSummaryDto
 } from "../../services/testTemplateTypeService";
-import { 
-  getAllByTypeId as getTemplatesByTypeId, 
-  TestTemplateDto 
-} from "../../services/testTemplateService";
-import { 
-  getAllByTemplateId as getConfigsByTemplateId, 
-  TestTemplateConfigDto 
-} from "../../services/testTemplateConfigService";
 import {
   getStudentProfile,
   StudentProfileDto,
 } from "../../services/studentProfileService";
 import {
   getMyEnrollments,
-  EnrollmentDetailDto,
 } from "../../services/enrollmentService";
-import { useNotification } from "../../components/notifications";
 
 interface TestOption {
   id: string; // use testTemplateTypeId for uniqueness
   title: string; // e.g., "JLPT N5"
   testType: TestType;
   courseLevel: CourseLevel;
-  estimatedDuration: number;
-  // Keep reference to templates for test execution
-  templates: TestTemplateDto[];
+  totalTestScore: number;
+  totalPassPercentage: number;
+  totalDurationMinutes: number;
+  // Keep reference to template summaries for test execution
+  templates: TestTemplateSummaryDto[];
 }
 
 const StudentExamPage: React.FC = () => {
   const { userInfo } = useAuth();
-  const { error } = useNotification();
   const [selectedTest, setSelectedTest] = useState<TestOption | null>(null);
   const [isInTest, setIsInTest] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string>("");
   const [studentProfile, setStudentProfile] = useState<StudentProfileDto | null>(null);
-  const [enrollments, setEnrollments] = useState<EnrollmentDetailDto[]>([]);
   const [hasEnrollments, setHasEnrollments] = useState<boolean>(false);
   const [checkingEnrollment, setCheckingEnrollment] = useState<boolean>(true);
   
@@ -76,30 +66,14 @@ const StudentExamPage: React.FC = () => {
     }
   };
 
-  // Helper function to check if test level is allowed for user
-  const isTestLevelAllowed = (testLevel: CourseLevel, userLevel: CourseLevel): boolean => {
-    // User can take tests at their current level or one level higher
-    if (testLevel === userLevel) return true;
-    
-    // Check if test is exactly one level higher
-    const levelProgression = [CourseLevel.N5, CourseLevel.N4, CourseLevel.N3, CourseLevel.N2, CourseLevel.N1];
-    const userIndex = levelProgression.indexOf(userLevel);
-    const testIndex = levelProgression.indexOf(testLevel);
-    
-    return testIndex === userIndex + 1; // Exactly one level higher
-  };
-
   // Check if user has any enrollments
   const checkEnrollments = async () => {
     if (!userInfo?.id) return;
     
-    try {
-      setCheckingEnrollment(true);
-      const enrollmentList = await getMyEnrollments();
-      setEnrollments(enrollmentList);
-      setHasEnrollments(enrollmentList.length > 0);
-      
-      if (enrollmentList.length === 0) {
+      try {
+        setCheckingEnrollment(true);
+        const enrollmentList = await getMyEnrollments();
+        setHasEnrollments(enrollmentList.length > 0);      if (enrollmentList.length === 0) {
         setErrorMsg("Bạn cần đăng ký ít nhất một khóa học để có thể làm bài test. Vui lòng đăng ký khóa học trước khi tiếp tục.");
       }
     } catch (error) {
@@ -136,7 +110,7 @@ const StudentExamPage: React.FC = () => {
     initializeData();
   }, [userInfo?.id]);
 
-  // Load available options from template types, templates and configs
+  // Load available options using new summary API
   useEffect(() => {
     const loadOptions = async () => {
       if (!studentProfile || !hasEnrollments || checkingEnrollment) return; // Wait for profile and enrollment check
@@ -144,55 +118,41 @@ const StudentExamPage: React.FC = () => {
       setLoading(true);
       setErrorMsg("");
       try {
-        // Fetch active template types for JLPTAuto only
-        const jlptTypes = await getAllTestTemplateTypes({ 
-          type: TestType.JLPTAuto, 
-          isActive: true, 
-          pageSize: 100 
-        });
-
-        const allTypes: TestTemplateTypeDto[] = jlptTypes.items;
         const userCurrentLevel = getCourseLevelFromString(studentProfile.currentLevel);
-
         const options: TestOption[] = [];
 
-        // For each type, load templates and ensure type has at least one template with configs
-        for (const type of allTypes) {
-          const testLevel = type.courseLevel as CourseLevel;
-          
-          // Only include tests at current level or one level higher
-          if (!isTestLevelAllowed(testLevel, userCurrentLevel)) {
-            continue;
-          }
-          
-          const templates: TestTemplateDto[] = await getTemplatesByTypeId(type.testTemplateTypeId);
-          
-          // Filter templates that have configs
-          const validTemplates: TestTemplateDto[] = [];
-          for (const template of templates) {
-            const configs: TestTemplateConfigDto[] = await getConfigsByTemplateId(template.templateId);
-            if (configs && configs.length > 0) {
-              validTemplates.push(template);
+        // Get available levels: current level and one level higher
+        const levelProgression = [CourseLevel.N5, CourseLevel.N4, CourseLevel.N3, CourseLevel.N2, CourseLevel.N1];
+        const userIndex = levelProgression.indexOf(userCurrentLevel);
+        const availableLevels = [userCurrentLevel]; // Current level
+        
+        // Add one level higher if not already at highest level
+        if (userIndex < levelProgression.length - 1) {
+          availableLevels.push(levelProgression[userIndex + 1]);
+        }
+
+        // For each available level, try to get template type summary
+        for (const level of availableLevels) {
+          try {
+            const summary = await getTemplateTypeSummary(level, TestType.JLPTAuto);
+            
+            if (summary && summary.testTemplates.length > 0) {
+              console.log('Template Type Summary:', summary);
+              
+              options.push({
+                id: summary.testTemplateTypeId,
+                title: summary.typeName,
+                testType: summary.testType,
+                courseLevel: summary.courseLevel,
+                totalTestScore: summary.totalTestScore,
+                totalPassPercentage: summary.totalPassPercentage,
+                totalDurationMinutes: summary.totalDurationMinutes,
+                templates: summary.testTemplates
+              });
             }
-          }
-          
-          // Only add option if there are valid templates
-          if (validTemplates.length > 0) {
-            console.log('Template Type testType:', type.testType, 'Type of:', typeof type.testType);
-            console.log('Template Type courseLevel:', type.courseLevel, 'Type of:', typeof type.courseLevel);
-            
-            // Calculate average duration from all valid templates
-            const avgDuration = validTemplates.reduce((sum, template) => 
-              sum + (template.durationMinutes || 0), 0) / validTemplates.length;
-            
-            options.push({
-              id: type.testTemplateTypeId,
-              title: type.typeName, // Just the type name, e.g., "JLPT N4"
-              testType: type.testType as TestType,
-              courseLevel: type.courseLevel as CourseLevel,
-              estimatedDuration: Math.round(avgDuration),
-              templates: validTemplates
-            });
+          } catch (levelError) {
+            console.log(`No template type found for level ${CourseLevel[level]} with JLPTAuto type`);
+            // Continue to next level if this level doesn't have a template type
           }
         }
 
@@ -343,7 +303,7 @@ const StudentExamPage: React.FC = () => {
                 <div className="flex items-center gap-4 mb-6 text-sm text-gray-500">
                   <div className="flex items-center gap-1">
                     <FaClock />
-                    <span>~{testOption.estimatedDuration} phút</span>
+                    <span>~{testOption.totalDurationMinutes} phút</span>
                   </div>
                   <div className="flex items-center gap-1">
                     <FaUsers />

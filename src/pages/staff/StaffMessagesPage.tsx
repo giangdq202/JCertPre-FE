@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import StaffHeader from '../../components/header/StaffHeader';
 import StaffSidebar from '../../components/sidebar/StaffSidebar';
 import ChatHeader from '../../components/chat/ChatHeader';
 import ChatMessage from '../../components/chat/ChatMessage';
 import ChatInput from '../../components/chat/ChatInput';
+import ChatConnectionStatus from '../../components/chat/ChatConnectionStatus';
 import ChatStudyPlanSplitView from '../../components/studyplan/ChatStudyPlanSplitView';
 import { 
   HiOutlineChatBubbleLeftRight, 
@@ -15,9 +16,12 @@ import { HiX } from 'react-icons/hi';
 import { getConversation, sendMessage, ConversationDto, MessageDto, MessageRequest } from '../../services/conversationService';
 import { useAuth } from '../../auth/AuthContext';
 import { toast } from 'react-toastify';
+import { useSignalRChat } from '../../hooks/useSignalRChat';
+import { SIGNALR_CONFIG } from '../../config/signalr';
+import { signalrService } from '../../services/signalrService';
 
 const StaffMessagesPage: React.FC = () => {
-  const { inquiryId: conversationId } = useParams<{ inquiryId: string }>();
+  const { conversationId } = useParams<{ conversationId: string }>();
   const navigate = useNavigate();
   const { userInfo } = useAuth();
   const [conversation, setConversation] = useState<ConversationDto | null>(null);
@@ -28,6 +32,46 @@ const StaffMessagesPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [isStudyPlanMode, setIsStudyPlanMode] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // SignalR real-time chat integration
+  const handleNewMessage = useCallback((message: MessageDto) => {
+    console.log('[StaffMessagesPage] New message received:', message);
+    console.log('[StaffMessagesPage] Message details:', {
+      messageId: message.messageId,
+      senderId: message.senderId,
+      currentUserId: userInfo?.id,
+      content: message.content
+    });
+    
+    // *** THAY ĐỔI: Nhận tất cả messages (kể cả của chính mình) ***
+    // Điều này đảm bảo real-time sync giữa các client
+    setMessages((prevMessages: MessageDto[]) => {
+      console.log('[StaffMessagesPage] Current messages count:', prevMessages.length);
+      const messageExists = prevMessages.some((m: MessageDto) => m.messageId === message.messageId);
+      console.log('[StaffMessagesPage] Message already exists:', messageExists);
+      
+      if (!messageExists) {
+        const updatedMessages = [...prevMessages, message];
+        const sortedMessages = updatedMessages.sort((a, b) => 
+          new Date(a.sentAt).getTime() - new Date(b.sentAt).getTime()
+        );
+        console.log('[StaffMessagesPage] Updated messages count:', sortedMessages.length);
+        return sortedMessages;
+      }
+      return prevMessages;
+    });
+    
+    // Chỉ show toast cho messages từ người khác
+    if (message.senderId !== userInfo?.id) {
+      toast.info(`Tin nhắn mới từ ${message.senderName || 'Học viên'}`);
+    }
+  }, [userInfo?.id]);
+
+  const { isConnected } = useSignalRChat({
+    conversationId: null, // Không auto-join, sẽ manual join sau khi load conversation
+    onMessageReceived: handleNewMessage,
+    enabled: SIGNALR_CONFIG.ENABLED // Luôn enable connection, nhưng không auto-join
+  });
 
   // Load conversation data
   useEffect(() => {
@@ -50,6 +94,17 @@ const StaffMessagesPage: React.FC = () => {
           new Date(a.sentAt).getTime() - new Date(b.sentAt).getTime()
         );
         setMessages(sortedMessages);
+        
+        // *** THÊM: Manual join conversation sau khi load xong ***
+        if (conversationData.conversationId && isConnected) {
+          console.log('[StaffMessagesPage] Manually joining conversation:', conversationData.conversationId);
+          try {
+            await signalrService.joinConversation(conversationData.conversationId);
+            console.log('[StaffMessagesPage] Successfully joined conversation');
+          } catch (error) {
+            console.error('[StaffMessagesPage] Failed to join conversation:', error);
+          }
+        }
       } catch (err) {
         console.error('Failed to load conversation:', err);
         setError('Không thể tải cuộc hội thoại');
@@ -60,15 +115,25 @@ const StaffMessagesPage: React.FC = () => {
     };
 
     loadConversation();
+    // Removed auto-refresh interval since we now use SignalR for real-time updates
+  }, [conversationId]);
 
-    // Auto-refresh conversation every 10 seconds, but not when in study plan mode
-    const interval = setInterval(() => {
-      if (!isStudyPlanMode) {
-        loadConversation();
+  // Effect để join conversation khi cả connection và conversation đều sẵn sàng
+  useEffect(() => {
+    const joinConversationWhenReady = async () => {
+      if (conversation?.conversationId && isConnected) {
+        console.log('[StaffMessagesPage] Connection and conversation ready, joining...');
+        try {
+          await signalrService.joinConversation(conversation.conversationId);
+          console.log('[StaffMessagesPage] Successfully joined conversation via effect');
+        } catch (error) {
+          console.error('[StaffMessagesPage] Failed to join conversation via effect:', error);
+        }
       }
-    }, 10000);
-    return () => clearInterval(interval);
-  }, [conversationId, isStudyPlanMode]);
+    };
+
+    joinConversationWhenReady();
+  }, [conversation?.conversationId, isConnected]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -89,16 +154,14 @@ const StaffMessagesPage: React.FC = () => {
         senderId: userInfo.id
       };
 
+      console.log('[StaffMessagesPage] Sending message via API...');
       const sentMessage = await sendMessage(conversation.conversationId, messageRequest);
+      console.log('[StaffMessagesPage] Message sent successfully:', sentMessage);
       
-      // Add message to current messages (sắp xếp theo thời gian)
-      setMessages(prev => {
-        const updatedMessages = [...prev, sentMessage];
-        return updatedMessages.sort((a, b) => 
-          new Date(a.sentAt).getTime() - new Date(b.sentAt).getTime()
-        );
-      });
-
+      // *** THAY ĐỔI: Không add message vào state ngay lập tức ***
+      // Để SignalR handle việc add message real-time
+      // Điều này đảm bảo cả hai phía (student & staff) đều nhận message cùng lúc
+      
       setNewMessage('');
     } catch (err) {
       console.error('Failed to send message:', err);
@@ -189,11 +252,18 @@ const StaffMessagesPage: React.FC = () => {
   const chatHeader = (
     <ChatHeader
       title={student?.fullName || 'Học viên'}
-      subtitle={student?.email || conversation.conversationName}
+      subtitle={isConnected ? 
+        `${student?.email || conversation.conversationName} - Đang kết nối` : 
+        `${student?.email || conversation.conversationName} - Mất kết nối`
+      }
       avatar={student?.avatarUrl}
       showBackButton={true}
       onBackClick={() => navigate('/staff/inquiries')}
       theme="orange"
+      isOnline={isConnected}
+      additionalActions={
+        <ChatConnectionStatus isConnected={isConnected} theme="orange" />
+      }
     />
   );
 
@@ -289,6 +359,28 @@ const StaffMessagesPage: React.FC = () => {
           )}
         </div>
       </div>
+      
+      {/* Debug Panel - chỉ hiển thị khi debug mode bật */}
+      {SIGNALR_CONFIG.DEBUG_MODE && (
+        <div className="fixed bottom-4 right-4 max-w-sm">
+          <div className="bg-white rounded-lg shadow-lg border p-2">
+            <div className="text-xs font-medium text-gray-600 mb-2">
+              Staff SignalR Debug
+            </div>
+            <div className="text-xs">
+              Connection: <span className={isConnected ? 'text-green-600' : 'text-red-600'}>
+                {isConnected ? 'Connected' : 'Disconnected'}
+              </span>
+            </div>
+            <div className="text-xs">
+              Conversation: {conversation?.conversationId || 'None'}
+            </div>
+            <div className="text-xs">
+              Config Enabled: {SIGNALR_CONFIG.ENABLED ? 'Yes' : 'No'}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

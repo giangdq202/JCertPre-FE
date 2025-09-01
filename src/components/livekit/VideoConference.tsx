@@ -205,7 +205,7 @@ const VideoConferenceRoom: React.FC<VideoConferenceRoomProps> = ({
         roomName: livestreamConfig.roomName,
         participantName: livestreamConfig.title || 'Student',
         token: livestreamConfig.token,
-        role: 'Student',
+        role: livestreamConfig.role || 'Student', // Use role from stored config
         isLivestream: true,
         ...livestreamConfig
       };
@@ -221,6 +221,11 @@ const VideoConferenceRoom: React.FC<VideoConferenceRoomProps> = ({
   };
 
   const roomConfig = getRoomConfig();
+  console.log('🏠 Room config debug:', { 
+    roomConfig, 
+    hasLivestreamId: !!roomConfig?.livestreamId,
+    livestreamId: roomConfig?.livestreamId 
+  });
   const roomName = roomConfig?.roomName || paramRoomName;
   const participantName = roomConfig?.participantName;
   const token = roomConfig?.token;
@@ -264,6 +269,7 @@ const VideoConferenceRoom: React.FC<VideoConferenceRoomProps> = ({
         onToggleParticipants={() => setShowParticipants(!showParticipants)}
         showChat={showChat}
         showParticipants={showParticipants}
+        livestreamId={roomConfig?.livestreamId}
       />
     </LiveKitRoom>
   );
@@ -290,6 +296,7 @@ const MyVideoConference: React.FC<MyVideoConferenceProps> = ({
   showParticipants,
   livestreamId,
 }) => {
+  console.log('🎭 VideoConference role check:', { userRole, roomName, participantName, livestreamId });
   const theme = useTheme();
   const [layout, setLayout] = useState<'grid' | 'focus' | 'carousel'>('grid');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -300,14 +307,25 @@ const MyVideoConference: React.FC<MyVideoConferenceProps> = ({
   const { localParticipant } = useLocalParticipant();
 
   const handleMuteParticipant = async (participantIdentity: string) => {
-    if (!livestreamId) {
-      console.error('Livestream ID not available for mute operation');
+    // Use livestreamId from prop, or fallback to roomName as they should be the same
+    const effectiveLivestreamId = livestreamId || roomName;
+    console.log('🔇 Attempting to mute participant:', { 
+      participantIdentity, 
+      livestreamId, 
+      roomName,
+      effectiveLivestreamId 
+    });
+    
+    if (!effectiveLivestreamId) {
+      console.error('❌ No livestreamId or roomName available for mute operation');
       return;
     }
+    
     try {
-      await livestreamApi.muteParticipant(livestreamId, participantIdentity, { mute: true });
+      await livestreamApi.muteParticipant(effectiveLivestreamId, participantIdentity, { mute: true });
+      console.log('✅ Successfully muted participant:', participantIdentity);
     } catch (error) {
-      console.error('Failed to mute participant:', error);
+      console.error('❌ Failed to mute participant:', error);
     }
   };
 
@@ -511,7 +529,14 @@ const MyVideoConference: React.FC<MyVideoConferenceProps> = ({
                 {showParticipants && (
                   <div className="h-full">
                     <List sx={{ p: 0 }}>
-                      {participants.map((participant) => (
+                      {participants.map((participant) => {
+                        console.log('👥 Participant check:', {
+                          identity: participant.identity,
+                          isLocal: participant.isLocal,
+                          userRole,
+                          showMuteButton: (userRole === 'Instructor' || userRole === 'instructor') && !participant.isLocal
+                        });
+                        return (
                         <ListItem key={participant.identity} sx={{ 
                           borderBottom: '1px solid #f1f5f9',
                           '&:hover': { backgroundColor: '#f8fafc' }
@@ -544,7 +569,7 @@ const MyVideoConference: React.FC<MyVideoConferenceProps> = ({
                               </div>
                             }
                           />
-                          {userRole === 'Instructor' && !participant.isLocal && (
+                          {(userRole === 'Instructor' || userRole === 'instructor') && !participant.isLocal && (
                             <ListItemSecondaryAction>
                               <Tooltip title="Mute">
                                 <IconButton
@@ -558,7 +583,8 @@ const MyVideoConference: React.FC<MyVideoConferenceProps> = ({
                             </ListItemSecondaryAction>
                           )}
                         </ListItem>
-                      ))}
+                        );
+                      })}
                     </List>
                   </div>
                 )}

@@ -61,7 +61,7 @@ const menuItems = [
   {
     name: "Câu hỏi",
     icon: <GiGraduateCap size={20} />,
-    path: "/question-management",
+    path: "/student/quiz",
   },
   {
     name: "Tin nhắn",

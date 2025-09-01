@@ -36,17 +36,21 @@ import PaymentErrorPage from "../pages/PaymentErrorPage";
 import PaymentPendingPage from "../pages/PaymentPendingPage";
 import MessagesPage from "../pages/student/MessagesPage";
 import VocabularyPage from "../pages/student/VocabularyPage";
+import StudentDoQuizPage from "../pages/student/StudentDoQuizPage";
 import StudentStudyPlanPage from "../pages/student/StudentStudyPlanPage";
 // Instructor imports
 import InstructorHomePage from "../pages/instructor/InstructorHomePage";
 import InstructorSchedulePage from "../pages/instructor/InstructorSchedulePage";
 import InstructorCoursesPage from "../pages/instructor/InstructorCoursesPage";
 import InstructorCourseDetailPage from "../pages/instructor/InstructorCourseDetailPage";
+import InstructorLiveStreamPage from "../pages/instructor/InstructorLiveStreamPage";
 // Admin imports
 import AdminHomePage from "../pages/admin/AdminHomePage";
 import AdminUserManagementPage from "../pages/admin/AdminUserManagementPage";
 // LiveKit imports
 import LiveKitHomePage from "../pages/livekit/LiveKitHomePage";
+// Debug imports
+import SignalRDebugPage from "../pages/debug/SignalRDebugPage";
 import PreJoin from "../components/livekit/PreJoin";
 import VideoConference from "../components/livekit/VideoConference";
 import RoomManager from "../components/livekit/RoomManager";
@@ -54,7 +58,6 @@ import { adminPaths } from "./path";
 import EditQuestionPage from "../pages/EditQuestionPage";
 
 const AppRoutes: React.FC = () => {
-  console.log("AppRoutes: Rendering routes");
   return (
     <div className="w-full">
       <Routes>
@@ -102,7 +105,7 @@ const AppRoutes: React.FC = () => {
         <Route
           path={paths.student_livestream}
           element={
-            <ProtectedRoute allowedRoles={["STUDENT"]}>
+            <ProtectedRoute allowedRoles={["STUDENT", "INSTRUCTOR"]}>
               <StudentLivestreamPage />
             </ProtectedRoute>
           }
@@ -156,6 +159,14 @@ const AppRoutes: React.FC = () => {
           }
         />
         <Route
+          path={paths.student_quiz}
+          element={
+            <ProtectedRoute allowedRoles={["STUDENT"]}>
+              <StudentDoQuizPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path={paths.student_study_plans}
           element={
             <ProtectedRoute allowedRoles={["STUDENT"]}>
@@ -182,7 +193,7 @@ const AppRoutes: React.FC = () => {
         <Route
           path={paths.question_management}
           element={
-            <ProtectedRoute allowedRoles={["STUDENT", "ACADEMIC_MANAGER"]}>
+            <ProtectedRoute allowedRoles={["ACADEMIC_MANAGER"]}>
               <QuestionManagementPage />
             </ProtectedRoute>
           }
@@ -303,7 +314,7 @@ const AppRoutes: React.FC = () => {
         <Route
           path={paths.livekit_home}
           element={
-            <ProtectedRoute allowedRoles={["STUDENT", "ACADEMIC_MANAGER"]}>
+            <ProtectedRoute allowedRoles={["STUDENT", "ACADEMIC_MANAGER", "INSTRUCTOR"]}>
               <LiveKitHomePage />
             </ProtectedRoute>
           }
@@ -311,7 +322,7 @@ const AppRoutes: React.FC = () => {
         <Route
           path={paths.livekit_join}
           element={
-            <ProtectedRoute allowedRoles={["STUDENT", "ACADEMIC_MANAGER"]}>
+            <ProtectedRoute allowedRoles={["STUDENT", "ACADEMIC_MANAGER", "INSTRUCTOR"]}>
               <PreJoin />
             </ProtectedRoute>
           }
@@ -319,7 +330,7 @@ const AppRoutes: React.FC = () => {
         <Route
           path={paths.livekit_join_room}
           element={
-            <ProtectedRoute allowedRoles={["STUDENT", "ACADEMIC_MANAGER"]}>
+            <ProtectedRoute allowedRoles={["STUDENT", "ACADEMIC_MANAGER", "INSTRUCTOR"]}>
               <PreJoin />
             </ProtectedRoute>
           }
@@ -327,7 +338,7 @@ const AppRoutes: React.FC = () => {
         <Route
           path={paths.livekit_create}
           element={
-            <ProtectedRoute allowedRoles={["ACADEMIC_MANAGER"]}>
+            <ProtectedRoute allowedRoles={["ACADEMIC_MANAGER", "INSTRUCTOR"]}>
               <RoomManager />
             </ProtectedRoute>
           }
@@ -335,7 +346,7 @@ const AppRoutes: React.FC = () => {
         <Route
           path={paths.livekit_manage}
           element={
-            <ProtectedRoute allowedRoles={["ACADEMIC_MANAGER"]}>
+            <ProtectedRoute allowedRoles={["ACADEMIC_MANAGER", "INSTRUCTOR"]}>
               <RoomManager />
             </ProtectedRoute>
           }
@@ -343,7 +354,7 @@ const AppRoutes: React.FC = () => {
         <Route
           path={paths.livekit_room}
           element={
-            <ProtectedRoute allowedRoles={["STUDENT", "ACADEMIC_MANAGER"]}>
+            <ProtectedRoute allowedRoles={["STUDENT", "ACADEMIC_MANAGER", "INSTRUCTOR"]}>
               <VideoConference />
             </ProtectedRoute>
           }
@@ -381,6 +392,14 @@ const AppRoutes: React.FC = () => {
             </ProtectedRoute>
           }
         />
+        <Route
+          path={paths.instructor_livestream}
+          element={
+            <ProtectedRoute allowedRoles={["INSTRUCTOR"]}>
+              <InstructorLiveStreamPage />
+            </ProtectedRoute>
+          }
+        />
         {/* Admin routes */}
         <Route
           path={paths.admin_home}
@@ -398,6 +417,17 @@ const AppRoutes: React.FC = () => {
             </ProtectedRoute>
           }
         />
+        
+        {/* Debug routes (development only) */}
+        <Route 
+          path={paths.signalr_debug} 
+          element={
+            <ProtectedRoute allowedRoles={["STUDENT", "STAFF", "INSTRUCTOR", "ADMIN"]}>
+              <SignalRDebugPage />
+            </ProtectedRoute>
+          } 
+        />
+        
         {/* Route 404 */}
         {/* <Route path="*" element={<Navigate to="/" replace />} /> */}
       </Routes>

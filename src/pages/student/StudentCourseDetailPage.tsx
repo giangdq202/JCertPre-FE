@@ -468,6 +468,16 @@ const StudentCourseDetailPage = () => {
                                                         </div>
                                                     </div>
                                                     
+                                                    {/* Course Navigation Button - Always available */}
+                                                    <button
+                                                        onClick={() => {
+                                                            courseId && navigate(paths.learn_course.replace(':courseId', courseId));
+                                                        }}
+                                                        className="w-full bg-blue-600 text-white font-bold py-3 rounded-lg hover:bg-blue-700 transition-colors shadow-lg"
+                                                    >
+                                                        Đi đến khóa học của bạn
+                                                    </button>
+                                                    
                                                     {/* Feedback Button */}
                                                     <button
                                                         onClick={() => setIsFeedbackModalOpen(true)}

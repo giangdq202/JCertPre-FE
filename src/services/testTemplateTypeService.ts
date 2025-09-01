@@ -52,6 +52,26 @@ export interface TestTemplateTypeDto {
   totalPassPercentage: number;
 }
 
+export interface TestTemplateSummaryDto {
+  templateId: string;
+  templateName: string;
+  totalScore: number;
+  toPassPercentage: number;
+  durationMinutes: number;
+  totalQuestionCount: number;
+}
+
+export interface TestTemplateTypeSummaryDto {
+  testTemplateTypeId: string;
+  typeName: string;
+  courseLevel: CourseLevel;
+  testType: TestType;
+  totalTestScore: number;
+  totalPassPercentage: number;
+  totalDurationMinutes: number;
+  testTemplates: TestTemplateSummaryDto[];
+}
+
 export interface UpdateTestTemplateTypeDto {
   typeName?: string;
   courseLevel?: CourseLevel;
@@ -189,6 +209,32 @@ export const updateTestTemplateTypeIsActive = async (
   }
 };
 
+/**
+ * Get test template type summary with templates and configurations
+ * @param courseLevel - Course level to filter by
+ * @param testType - Test type to filter by
+ * @returns Promise<TestTemplateTypeSummaryDto | null>
+ */
+export const getTemplateTypeSummary = async (
+  courseLevel: CourseLevel,
+  testType: TestType
+): Promise<TestTemplateTypeSummaryDto | null> => {
+  try {
+    const response = await axiosInstance.get(`${GET_TEST_TEMPLATE_TYPES_URL}/summary`, {
+      params: {
+        courseLevel,
+        testType
+      }
+    });
+    return response.data;
+  } catch (error: any) {
+    if (error.response?.status === 404) {
+      return null; // No template type found for this level/type combination
+    }
+    console.error("Failed to get template type summary:", error);
+    throw error;
+  }
+};
 /**
  * Verify a test template type by id.
  * @param testTemplateTypeId - The test template type ID

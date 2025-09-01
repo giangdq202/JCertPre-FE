@@ -22,6 +22,7 @@ const paths = {
   student_schedule: "/student/schedule",
   student_messages: "/student/messages",
   student_vocabulary: "/student/vocabulary",
+  student_quiz: "/student/quiz",
   student_study_plans: "/student/study-plans",
   staff_sub_content_management: "/staff/sub-content-management",
   question_management: "/question-management",
@@ -29,7 +30,7 @@ const paths = {
   staff_test_template_types: "/staff/test-template-types",
   // Staff chat routes
   staff_inquiries: "/staff/inquiries",
-  staff_messages: "/staff/messages/:inquiryId",
+  staff_messages: "/staff/messages/:conversationId",
   // Payment routes
   credit_purchase: "/credit-purchase",
   credit_history: "/credit-history",
@@ -50,9 +51,12 @@ const paths = {
   instructor_schedule: "/instructor/schedule",
   instructor_courses: "/instructor/courses",
   instructor_course_detail: "/instructor/course-detail/:courseId",
+  instructor_livestream: "/instructor/livestream/:livestreamId",
   // Admin routes
   admin_home: "/admin/home",
   edit_question: "/edit-question/:questionId",
+  // Debug routes (development only)
+  signalr_debug: "/debug/signalr",
 };
 
 // Admin paths
