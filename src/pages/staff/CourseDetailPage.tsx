@@ -393,7 +393,7 @@ const CourseDetailPage: React.FC = () => {
           title: courseData.title,
           description: courseData.description,
           level: courseData.level,
-          courseType: CourseType.Public, // Always set to Public regardless of current value
+          courseType: courseData.courseType, // Preserve original courseType
           price: courseData.price,
           startDate: courseData.startDate,
           endDate: courseData.endDate,
@@ -545,11 +545,10 @@ const CourseDetailPage: React.FC = () => {
       }
     }
     
-    // Validate dates if both start and end dates are provided and trying to publish
-    if (newStatus === CourseStatus.Published && courseFormState.startDate && courseFormState.endDate) {
-      const dateValidation = validateCourseDates(courseFormState.startDate, courseFormState.endDate);
-      if (!dateValidation.isValid) {
-        showWarning("Cảnh báo", dateValidation.message);
+    // Validate enrollment requirement for Draft status
+    if (newStatus === CourseStatus.Draft) {
+      if (course.enrollmentsCount > 0) {
+        showWarning("Cảnh báo", "Không thể chuyển khóa học về trạng thái Nháp khi đã có học viên đăng ký.");
         return;
       }
     }
@@ -613,6 +612,7 @@ const CourseDetailPage: React.FC = () => {
         try {
           // Auto-update course status to Draft when no instructors left
           const updateStatusData: UpdateCourseDto = {
+            ...courseFormState, // Preserve all existing field values
             status: CourseStatus.Draft
           };
           await updateCourse(courseId, updateStatusData);

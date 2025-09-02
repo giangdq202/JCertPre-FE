@@ -10,7 +10,7 @@ import CourseCard, {
 } from "../../components/card/CourseCard";
 import Pagination from "../../components/pagination/Pagination";
 import { getMyEnrollments, EnrollmentDetailDto } from "../../services/enrollmentService";
-import { getCourseById, CourseDto } from "../../services/courseService";
+import { getCourseById, CourseDto, getPersonalCoursesList, CourseLevel } from "../../services/courseService";
 import { useLessonProgress } from "../../hooks/useLessonProgress";
 import { useCourseRatings } from "../../hooks/useCourseRatings";
 import { useAuth } from "../../auth/AuthContext";
@@ -36,6 +36,7 @@ const MyCoursePage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [selectedLevel, setSelectedLevel] = useState<string>(""); // empty = all
   const [selectedStatus, setSelectedStatus] = useState<string>(""); // empty = all
+  const [selectedCourseType, setSelectedCourseType] = useState<string>(""); // empty = all
 
   // ---------- Pagination states ----------
   const [page, setPage] = useState<number>(1);
@@ -52,18 +53,18 @@ const MyCoursePage: React.FC = () => {
   const courseIds = myCourses.map(course => course.id);
   const { ratings, loading: loadingRatings } = useCourseRatings(courseIds);
 
-  // Fetch enrolled courses from API
+  // Fetch enrolled courses and personal courses from API
   useEffect(() => {
-    const fetchEnrolledCourses = async () => {
+    const fetchAllCourses = async () => {
+      if (!userInfo?.id) return;
+      
       setIsLoading(true);
       setError(null);
       
       try {
-        // Get enrollments
+        // Fetch enrolled courses
         const enrollments = await getMyEnrollments();
-        
-        // Fetch course details for each enrollment
-        const coursesWithDetails = await Promise.all(
+        const enrolledCoursesWithDetails = await Promise.all(
           enrollments.map(async (enrollment) => {
             try {
               const courseDetails = await getCourseById(enrollment.courseId);
@@ -74,18 +75,17 @@ const MyCoursePage: React.FC = () => {
                 level: getLevelString(courseDetails.level),
                 price: courseDetails.price,
                 thumbnail: courseDetails.thumbnailUrl || "",
-                courseType: getCourseTypeString(courseDetails.courseType),
+                courseType: "Public" as CourseTypeEnum, // Mark enrolled courses as Public
                 status: getStatusString(courseDetails.status),
                 description: courseDetails.description,
                 progress: 0, // Will be updated with actual completion rate
               };
             } catch (error) {
               console.error(`Error fetching course details for ${enrollment.courseId}:`, error);
-              // Return basic info from enrollment if course fetch fails
               return {
                 id: enrollment.courseId,
                 title: enrollment.courseTitle || "Unknown Course",
-                level: "N5", // Default level
+                level: "N5",
                 price: 0,
                 thumbnail: "",
                 courseType: "Public" as CourseTypeEnum,
@@ -96,18 +96,35 @@ const MyCoursePage: React.FC = () => {
             }
           })
         );
+
+        // Fetch personal courses
+        const personalCourses = await getPersonalCoursesList(userInfo.id);
+        const personalCoursesWithDetails = personalCourses.map((course) => ({
+          id: course.courseId,
+          title: course.title,
+          level: getLevelString(course.level),
+          price: course.price,
+          thumbnail: course.thumbnailUrl || "",
+          courseType: "Personal" as CourseTypeEnum,
+          status: getStatusString(course.status),
+          description: course.description,
+          progress: 0, // Personal courses don't have progress tracking
+        }));
+
+        // Combine both types of courses
+        const allCourses = [...enrolledCoursesWithDetails, ...personalCoursesWithDetails];
+        setMyCourses(allCourses);
         
-        setMyCourses(coursesWithDetails);
       } catch (error) {
-        console.error("Error fetching enrolled courses:", error);
-        setError("Không thể tải danh sách khóa học đã đăng ký");
+        console.error("Error fetching courses:", error);
+        setError("Không thể tải danh sách khóa học");
       } finally {
         setIsLoading(false);
       }
     };
 
-    fetchEnrolledCourses();
-  }, []);
+    fetchAllCourses();
+  }, [userInfo?.id]);
 
   // Fetch completion rates for courses
   useEffect(() => {
@@ -180,7 +197,7 @@ const MyCoursePage: React.FC = () => {
     return statusMap[status] || "Published";
   };
 
-  // Filter courses based on search term, selected level, and completion status
+  // Filter courses based on search term, selected level, completion status, and course type
   const filteredCourses = useMemo(() => {
     return myCourses.filter((course) => {
       const matchesSearch = course.title
@@ -193,10 +210,12 @@ const MyCoursePage: React.FC = () => {
       const matchesStatus = selectedStatus === "" || 
         (selectedStatus === "completed" && (course.progress || 0) >= 100) ||
         (selectedStatus === "incomplete" && (course.progress || 0) < 100);
+
+      const matchesCourseType = selectedCourseType === "" || course.courseType === selectedCourseType;
       
-      return matchesSearch && matchesLevel && matchesStatus;
+      return matchesSearch && matchesLevel && matchesStatus && matchesCourseType;
     });
-  }, [myCourses, searchTerm, selectedLevel, selectedStatus]);
+  }, [myCourses, searchTerm, selectedLevel, selectedStatus, selectedCourseType]);
 
   // Pagination
   const startIndex = (page - 1) * pageSize;
@@ -207,6 +226,7 @@ const MyCoursePage: React.FC = () => {
     setSearchTerm("");
     setSelectedLevel("");
     setSelectedStatus("");
+    setSelectedCourseType("");
   };
 
   // Handle course click - navigate to course detail page
@@ -295,6 +315,16 @@ const MyCoursePage: React.FC = () => {
               <option value="">Tất cả trạng thái</option>
               <option value="completed">Đã hoàn thành</option>
               <option value="incomplete">Chưa hoàn thành</option>
+            </select>
+
+            <select
+              value={selectedCourseType}
+              onChange={(e) => setSelectedCourseType(e.target.value)}
+              className="border rounded-lg px-3 py-2 text-sm bg-white shadow-sm focus:ring-2 focus:ring-green-400"
+            >
+              <option value="">Tất cả loại khóa học</option>
+              <option value="Public">Công khai</option>
+              <option value="Personal">Cá nhân</option>
             </select>
 
             <button

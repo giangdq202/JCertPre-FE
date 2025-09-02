@@ -14,6 +14,7 @@ import {
   getCourseById,
   getCourseInstructors,
   CourseType,
+  getPersonalCoursesList,
 } from "../../services/courseService";
 import { InstructorInfoDto } from "../../services/courseService";
 import {
@@ -90,6 +91,10 @@ const StudentHomePage = () => {
   const [courseCompletionRates, setCourseCompletionRates] = useState<{ [courseId: string]: number }>({});
   const [isLoadingCompletionRates, setIsLoadingCompletionRates] = useState(false);
   const [enrolledCourseDetails, setEnrolledCourseDetails] = useState<{ [courseId: string]: CourseDto }>({});
+  
+  // Personal courses state
+  const [personalCourses, setPersonalCourses] = useState<CourseDto[]>([]);
+  const [isLoadingPersonalCourses, setIsLoadingPersonalCourses] = useState(true);
 
   // Get course ratings for recommended courses
   const recommendedCourseIds = recommendedCourses.map(course => course.courseId);
@@ -179,6 +184,30 @@ const StudentHomePage = () => {
       fetchEnrolledCourses();
     }
   }, [isLoadingProfile]);
+
+  // Fetch personal courses for the student
+  useEffect(() => {
+    const fetchPersonalCourses = async () => {
+      if (!userInfo?.id) {
+        return;
+      }
+      
+      setIsLoadingPersonalCourses(true);
+      try {
+        const personalCoursesList = await getPersonalCoursesList(userInfo.id);
+        setPersonalCourses(personalCoursesList);
+      } catch (err) {
+        console.error("Error fetching personal courses:", err);
+        error("Lỗi", "Không thể tải danh sách khóa học cá nhân.");
+      } finally {
+        setIsLoadingPersonalCourses(false);
+      }
+    };
+    
+    if (!isLoadingProfile && userInfo?.id) {
+      fetchPersonalCourses();
+    }
+  }, [isLoadingProfile, userInfo?.id, error]);
 
   // Fetch completion rates for enrolled courses
   useEffect(() => {
@@ -731,18 +760,20 @@ const StudentHomePage = () => {
                 Xem tất cả
               </Link>
             </div>
-            {isLoadingEnrolledCourses ? (
+            {(isLoadingEnrolledCourses || isLoadingPersonalCourses) ? (
               <div className="flex justify-center items-center h-24 bg-white rounded-2xl shadow-xl">
                 <div className="animate-spin rounded-full h-8 w-8 border-4 border-t-4 border-green-500 border-opacity-25"></div>
                 <p className="ml-4 text-gray-600">Đang tải khóa học...</p>
               </div>
-            ) : enrolledCourses.length === 0 ? (
+            ) : (enrolledCourses.length === 0 && personalCourses.length === 0) ? (
               <div className="bg-white p-6 rounded-2xl shadow-xl">
-                <p className="text-gray-600">Bạn chưa đăng ký khóa học nào.</p>
+                <p className="text-gray-600">Bạn chưa có khóa học nào.</p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                {enrolledCourses.slice(0, 3).map((enrollment) => {
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                {/* Display enrolled courses */}
+                {enrolledCourses.slice(0, 2).map((enrollment) => {
                   const instructorNode = (() => {
                     const instructor = enrolledInstructors[enrollment.courseId]?.[0];
                     if (instructor) {
@@ -799,7 +830,42 @@ const StudentHomePage = () => {
                     />
                   );
                 })}
-              </div>
+                
+                {/* Display personal courses */}
+                {personalCourses.slice(0, 1).map((personalCourse) => {
+                  return (
+                    <CourseCard
+                      key={`personal-${personalCourse.courseId}`}
+                      id={personalCourse.courseId}
+                      thumbnail={personalCourse.thumbnailUrl || "https://placehold.co/400x200/E8F5E8/2E7D32?text=Personal+Course"}
+                      title={personalCourse.title}
+                      description={personalCourse.description}
+                      level={CourseLevel[personalCourse.level] || "N5"}
+                      price={personalCourse.price}
+                      progress={0} // Personal courses don't have progress tracking yet
+                      courseType="Personal"
+                      buttonText="Xem chi tiết"
+                      onClick={() => navigate(`/student/course-detail/${personalCourse.courseId}`)}
+                      averageRating={undefined} // Personal courses don't have ratings
+                      studentName={userInfo?.fullName || "Học viên"}
+                      onCertificateDownload={() => {
+                        console.log('Certificate downloaded for personal course:', personalCourse.title);
+                      }}
+                      instructor={(() => {
+                        const instructor = personalCourse.instructors?.[0];
+                        if (instructor) {
+                          return {
+                            avatarUrl: instructor.avatarUrl || undefined,
+                            fullName: instructor.fullName,
+                          };
+                        }
+                        return undefined;
+                      })()}
+                    />
+                  );
+                })}
+                </div>
+              </>
             )}
           </div>
 

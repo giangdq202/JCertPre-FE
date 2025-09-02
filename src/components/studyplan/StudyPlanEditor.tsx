@@ -21,6 +21,7 @@ import {
 } from '../../services/studyPlanItemService';
 import { UpdateStudyPlanRequest, UpdateStudyPlanItemRequest } from '../../types/StudyPlan';
 import { CourseListDto, getCourseById, CourseDto } from '../../services/courseService';
+import { getTestTemplateTypeNameById } from '../../services/testTemplateTypeService';
 import CourseTestSearchModal, { TestOption } from './CourseTestSearchModal';
 import { StudyPlanDto, StudyPlanItemDto, ItemStatus } from '../../types/StudyPlan';
 
@@ -29,9 +30,10 @@ interface StudyPlanItem {
   sequence: number;
   itemType: 'course' | 'test';
   courseId?: string;
-  testId?: string;
+  testTemplateTypeId?: string; // Changed from testId to testTemplateTypeId
   courseName?: string;
   testName?: string;
+  description?: string; // Add description field
   isNew?: boolean; // Flag to indicate if this is a new item
   isDeleted?: boolean; // Flag to mark items for deletion
 }
@@ -39,6 +41,7 @@ interface StudyPlanItem {
 interface StudyPlanEditorProps {
   studyPlan: StudyPlanDto;
   studyPlanItems: StudyPlanItemDto[];
+  studentId?: string; // Add studentId to fetch personal courses
   onSave: () => void;
   onCancel: () => void;
   onDelete?: () => void; // Optional delete callback
@@ -47,6 +50,7 @@ interface StudyPlanEditorProps {
 const StudyPlanEditor: React.FC<StudyPlanEditorProps> = ({
   studyPlan,
   studyPlanItems,
+  studentId,
   onSave,
   onCancel,
   onDelete
@@ -77,13 +81,24 @@ const StudyPlanEditor: React.FC<StudyPlanEditorProps> = ({
             if (item.itemType === 'course' && item.courseId) {
               const course: CourseDto = await getCourseById(item.courseId);
               courseName = course.title;
-            } else if (item.itemType === 'test' && item.testId) {
-              testName = `Test ${item.testId}`; // Placeholder, update with actual test service if available
+            } else if (item.itemType === 'test' && item.testTemplateTypeId) {
+              const testName_temp = await getTestTemplateTypeNameById(item.testTemplateTypeId);
+              testName = testName_temp || `Test ${item.testTemplateTypeId}`;
+            }
+            
+            // Also load both course and test if both IDs exist
+            if (item.courseId && !courseName) {
+              const course: CourseDto = await getCourseById(item.courseId);
+              courseName = course.title;
+            }
+            if (item.testTemplateTypeId && !testName) {
+              const testName_temp = await getTestTemplateTypeNameById(item.testTemplateTypeId);
+              testName = testName_temp || `Test ${item.testTemplateTypeId}`;
             }
           } catch (error) {
             console.error('Error loading item details:', error);
-            courseName = item.itemType === 'course' ? `Course ${item.courseId}` : undefined;
-            testName = item.itemType === 'test' ? `Test ${item.testId}` : undefined;
+            courseName = item.courseId ? `Course ${item.courseId}` : undefined;
+            testName = item.testTemplateTypeId ? `Test ${item.testTemplateTypeId}` : undefined;
           }
           
           return {
@@ -91,9 +106,10 @@ const StudyPlanEditor: React.FC<StudyPlanEditorProps> = ({
             sequence: item.sequence,
             itemType: item.itemType as 'course' | 'test',
             courseId: item.courseId,
-            testId: item.testId,
+            testTemplateTypeId: item.testTemplateTypeId,
             courseName,
             testName,
+            description: item.description, // Include description from API
             isNew: false,
             isDeleted: false
           };
@@ -105,18 +121,19 @@ const StudyPlanEditor: React.FC<StudyPlanEditorProps> = ({
     loadItemsWithDetails();
   }, [studyPlanItems]);
 
-  const addItem = (type: 'course' | 'test') => {
+  const addItem = () => {
     const newItem: StudyPlanItem = {
       id: `temp_${Date.now()}`,
       sequence: items.filter(item => !item.isDeleted).length + 1,
-      itemType: type,
+      itemType: 'course', // Default to course since UI item can contain both
       isNew: true,
       isDeleted: false
     };
     setItems([...items, newItem]);
-    setEditingItemIndex(items.length);
-    setSearchType(type);
-    setShowSearchModal(true);
+    // Remove the automatic modal opening
+    // setEditingItemIndex(items.length);
+    // setSearchType(type);
+    // setShowSearchModal(true);
   };
 
   const removeItem = (index: number) => {
@@ -141,10 +158,10 @@ const StudyPlanEditor: React.FC<StudyPlanEditorProps> = ({
     setItems(newItems);
   };
 
-  const editItem = (index: number) => {
-    setEditingItemIndex(index);
-    setSearchType(items[index].itemType);
-    setShowSearchModal(true);
+  const updateItemDescription = (index: number, description: string) => {
+    const newItems = [...items];
+    newItems[index] = { ...newItems[index], description };
+    setItems(newItems);
   };
 
   const handleItemSelected = (selectedItem: CourseListDto | TestOption) => {
@@ -156,9 +173,8 @@ const StudyPlanEditor: React.FC<StudyPlanEditorProps> = ({
       newItems[editingItemIndex] = {
         ...newItems[editingItemIndex],
         courseId: course.courseId,
-        courseName: course.title,
-        testId: undefined,
-        testName: undefined
+        courseName: course.title
+        // Don't clear testId and testName - keep existing test if any
       };
     } else {
       const test = selectedItem as TestOption;
@@ -173,10 +189,9 @@ const StudyPlanEditor: React.FC<StudyPlanEditorProps> = ({
       
       newItems[editingItemIndex] = {
         ...newItems[editingItemIndex],
-        testId: test.testId, // Change this to test.testTemplateId if needed
-        testName: test.title,
-        courseId: undefined,
-        courseName: undefined
+        testTemplateTypeId: test.testId, // Map test.testId to testTemplateTypeId
+        testName: test.title
+        // Don't clear courseId and courseName - keep existing course if any
       };
     }
     
@@ -212,14 +227,13 @@ const StudyPlanEditor: React.FC<StudyPlanEditorProps> = ({
       return;
     }
 
-    // Check if all active items have required data
+    // Check if all active items have at least one content (course or test)
     const invalidItems = activeItems.filter(item => 
-      (item.itemType === 'course' && !item.courseId) ||
-      (item.itemType === 'test' && !item.testId)
+      !item.courseId && !item.testTemplateTypeId
     );
 
     if (invalidItems.length > 0) {
-      toast.error('Vui lòng chọn khóa học/bài test cho tất cả các mục');
+      toast.error('Vui lòng chọn ít nhất một khóa học hoặc bài test cho tất cả các mục');
       return;
     }
 
@@ -247,19 +261,26 @@ const StudyPlanEditor: React.FC<StudyPlanEditorProps> = ({
 
       // Create new items
       const newItems = items.filter(item => item.isNew && !item.isDeleted);
+      
       newItems.forEach(item => {
+        console.log('=== PROCESSING NEW ITEM ===');
+        console.log('Item data:', item);
+        console.log('courseId:', item.courseId);
+        console.log('testTemplateTypeId:', item.testTemplateTypeId);
+        
         const itemRequest: CreateStudyPlanItemRequest = {
           planId: studyPlan.planId,
           sequence: item.sequence,
           itemType: item.itemType,
           courseId: item.courseId,
-          testId: item.testId,
+          testTemplateTypeId: item.testTemplateTypeId,
+          description: item.description || '',
           status: ItemStatus.NOT_STARTED
         };
         
-        console.log('Creating new study plan item:', itemRequest);
-        
+        console.log('Creating study plan item with both course and test:', itemRequest);
         promises.push(createStudyPlanItem(itemRequest));
+        console.log('=== END PROCESSING ITEM ===');
       });
 
       // Update existing items (sequence or content changes)
@@ -272,15 +293,17 @@ const StudyPlanEditor: React.FC<StudyPlanEditorProps> = ({
           const hasChanges = 
             originalItem.sequence !== item.sequence ||
             originalItem.courseId !== item.courseId ||
-            originalItem.testId !== item.testId ||
-            originalItem.itemType !== item.itemType;
+            originalItem.testTemplateTypeId !== item.testTemplateTypeId ||
+            originalItem.itemType !== item.itemType ||
+            originalItem.description !== item.description; // Check description changes
             
           if (hasChanges) {
             const updateRequest: UpdateStudyPlanItemRequest = {
               sequence: item.sequence,
               itemType: item.itemType,
               courseId: item.courseId,
-              testId: item.testId
+              testTemplateTypeId: item.testTemplateTypeId,
+              description: item.description || '' // Include description
             };
             promises.push(updateStudyPlanItem(item.id, updateRequest));
           }
@@ -292,9 +315,19 @@ const StudyPlanEditor: React.FC<StudyPlanEditorProps> = ({
       toast.success('Lộ trình học đã được cập nhật thành công!');
       onSave();
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating study plan:', error);
-      toast.error('Có lỗi xảy ra khi cập nhật lộ trình học');
+      
+      // Handle validation errors
+      if (error.response?.status === 400 && error.response?.data?.errors) {
+        const errors = error.response.data.errors;
+        const errorMessages = Object.entries(errors)
+          .map(([field, messages]: [string, any]) => `${field}: ${Array.isArray(messages) ? messages.join(', ') : messages}`)
+          .join('\n');
+        toast.error(`Validation errors:\n${errorMessages}`);
+      } else {
+        toast.error('Có lỗi xảy ra khi cập nhật lộ trình học');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -409,13 +442,12 @@ const StudyPlanEditor: React.FC<StudyPlanEditorProps> = ({
               </h4>
               <div className="flex gap-2">
                 <button
-                  onClick={() => addItem('course')}
+                  onClick={() => addItem()}
                   className="flex items-center gap-2 px-3 py-2 text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
                 >
                   <HiPlus className="w-4 h-4" />
-                  Thêm khóa học
+                  Thêm lộ trình học
                 </button>
-                {/* Temporarily hidden due to backend issues */}
                 {/* <button
                   onClick={() => addItem('test')}
                   className="flex items-center gap-2 px-3 py-2 text-sm bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
@@ -430,7 +462,7 @@ const StudyPlanEditor: React.FC<StudyPlanEditorProps> = ({
               <div className="text-center py-8 text-gray-500">
                 <HiOutlineBookOpen className="w-12 h-12 mx-auto text-gray-300 mb-3" />
                 <p>Chưa có mục nào trong lộ trình</p>
-                <p className="text-sm">Nhấn nút "Thêm khóa học" hoặc "Thêm bài test" để bắt đầu</p>
+                <p className="text-sm">Nhấn nút "Thêm lộ trình học" để bắt đầu</p>
               </div>
             ) : (
               <div className="space-y-3">
@@ -440,58 +472,93 @@ const StudyPlanEditor: React.FC<StudyPlanEditorProps> = ({
                   return (
                     <div
                       key={item.id}
-                      className={`flex items-center gap-4 p-4 border rounded-lg transition-colors ${
-                        item.isNew ? 'border-green-300 bg-green-50' : 'border-gray-200 bg-white'
+                      className={`p-4 border rounded-lg transition-colors space-y-3 ${
+                        item.isNew ? 'border-green-300 bg-green-50' : 'border-gray-200 bg-white hover:border-gray-300'
                       }`}
                     >
-                      <div className="flex-shrink-0 w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center text-sm font-medium text-orange-600">
-                        {item.sequence}
-                      </div>
-                      
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          {item.itemType === 'course' ? (
-                            <HiOutlineBookOpen className="w-4 h-4 text-blue-500" />
-                          ) : (
-                            <HiOutlineClipboardList className="w-4 h-4 text-green-500" />
-                          )}
-                          <span className={`text-xs px-2 py-1 rounded ${
-                            item.itemType === 'course' 
-                              ? 'bg-blue-100 text-blue-700' 
-                              : 'bg-green-100 text-green-700'
-                          }`}>
-                            {item.itemType === 'course' ? 'Khóa học' : 'Bài test'}
-                          </span>
-                          {item.isNew && (
-                            <span className="text-xs px-2 py-1 rounded bg-green-100 text-green-700">
-                              Mới
-                            </span>
-                          )}
+                      {/* Item Header */}
+                      <div className="flex items-center gap-4">
+                        <div className="flex-shrink-0 w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center text-sm font-medium text-orange-600">
+                          {item.sequence}
                         </div>
-                        <p className="text-sm text-gray-900 font-medium">
-                          {item.courseName || item.testName || (
-                            <span className="text-gray-500 italic">
-                              Chưa chọn {item.itemType === 'course' ? 'khóa học' : 'bài test'}
-                            </span>
-                          )}
-                        </p>
+                        
+                        <div className="flex-1 space-y-2">
+                          {/* Course Section */}
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <HiOutlineBookOpen className="w-4 h-4 text-blue-500" />
+                              <span className="text-xs px-2 py-1 rounded bg-blue-100 text-blue-700">
+                                Khóa học
+                              </span>
+                              {item.courseName ? (
+                                <span className="text-sm text-gray-900 font-medium">{item.courseName}</span>
+                              ) : (
+                                <span className="text-sm text-gray-500 italic">Chưa chọn khóa học</span>
+                              )}
+                            </div>
+                            <button
+                              onClick={() => {
+                                setEditingItemIndex(index);
+                                setSearchType('course');
+                                setShowSearchModal(true);
+                              }}
+                              className="p-1 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded transition-colors text-xs"
+                              title="Chọn khóa học"
+                            >
+                              <HiSearch className="w-3 h-3" />
+                            </button>
+                          </div>
+
+                          {/* Test Section */}
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <HiOutlineClipboardList className="w-4 h-4 text-green-500" />
+                              <span className="text-xs px-2 py-1 rounded bg-green-100 text-green-700">
+                                Bài test
+                              </span>
+                              {item.testName ? (
+                                <span className="text-sm text-gray-900 font-medium">{item.testName}</span>
+                              ) : (
+                                <span className="text-sm text-gray-500 italic">Chưa chọn bài test</span>
+                              )}
+                            </div>
+                            <button
+                              onClick={() => {
+                                setEditingItemIndex(index);
+                                setSearchType('test');
+                                setShowSearchModal(true);
+                              }}
+                              className="p-1 text-gray-400 hover:text-green-500 hover:bg-green-50 rounded transition-colors text-xs"
+                              title="Chọn bài test"
+                            >
+                              <HiSearch className="w-3 h-3" />
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => removeItem(index)}
+                            className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
+                            title="Xóa mục"
+                          >
+                            <HiTrash className="w-4 h-4" />
+                          </button>
+                        </div>
                       </div>
 
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => editItem(index)}
-                          className="p-2 text-gray-400 hover:text-orange-500 hover:bg-orange-50 rounded transition-colors"
-                          title={`Chọn ${item.itemType === 'course' ? 'khóa học' : 'bài test'}`}
-                        >
-                          <HiSearch className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => removeItem(index)}
-                          className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
-                          title="Xóa mục"
-                        >
-                          <HiTrash className="w-4 h-4" />
-                        </button>
+                      {/* Description Field */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Ghi chú cho mục này (tùy chọn)
+                        </label>
+                        <textarea
+                          value={item.description || ''}
+                          onChange={(e) => updateItemDescription(index, e.target.value)}
+                          placeholder="Thêm ghi chú, hướng dẫn hoặc yêu cầu đặc biệt cho mục này..."
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-sm"
+                          rows={2}
+                        />
                       </div>
                     </div>
                   );
@@ -567,6 +634,7 @@ const StudyPlanEditor: React.FC<StudyPlanEditorProps> = ({
         {showSearchModal && (
           <CourseTestSearchModal
             type={searchType}
+            studentId={studentId}
             onSelect={handleItemSelected}
             onClose={() => {
               setShowSearchModal(false);

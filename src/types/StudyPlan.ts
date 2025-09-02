@@ -25,8 +25,9 @@ export interface StudyPlanItemDto {
   sequence: number;
   itemType: string;
   courseId?: string;
-  testId?: string;
+  testTemplateTypeId?: string; // Changed from testId to testTemplateTypeId
   status: ItemStatus;
+  description?: string; // Added description field
 }
 
 // ====== REQUEST INTERFACES ======
@@ -53,16 +54,18 @@ export interface CreateStudyPlanItemRequest {
   sequence: number;
   itemType: string;
   courseId?: string;
-  testId?: string;
+  testTemplateTypeId?: string; // Changed from testId to testTemplateTypeId
   status?: ItemStatus;
+  description?: string; // Added description field
 }
 
 export interface UpdateStudyPlanItemRequest {
   sequence?: number;
   itemType?: string;
   courseId?: string;
-  testId?: string;
+  testTemplateTypeId?: string; // Changed from testId to testTemplateTypeId
   status?: ItemStatus;
+  description?: string; // Added description field
 }
 
 // ====== EXTENDED INTERFACES ======

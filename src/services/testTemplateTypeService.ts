@@ -128,6 +128,26 @@ export const getAllTestTemplateTypes = async (params: GetAllTestTemplateTypesPar
 };
 
 /**
+ * Get test template type name by ID
+ * @param testTemplateTypeId - The test template type ID
+ * @returns Promise<string | null>
+ */
+export const getTestTemplateTypeNameById = async (testTemplateTypeId: string): Promise<string | null> => {
+  try {
+    // Get all test template types with large page size to get all
+    const result = await getAllTestTemplateTypes({ pageSize: 1000, isActive: true });
+    
+    // Find the one with matching ID
+    const testTemplateType = result.items.find(item => item.testTemplateTypeId === testTemplateTypeId);
+    
+    return testTemplateType ? testTemplateType.typeName : null;
+  } catch (error) {
+    console.error("Failed to get test template type name by ID:", error);
+    return null;
+  }
+};
+
+/**
  * Create a new test template type.
  * @param dto - The create test template type data
  * @returns Promise<TestTemplateTypeDto>

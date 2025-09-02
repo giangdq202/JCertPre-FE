@@ -34,6 +34,12 @@ export const GET_COURSES_BY_INSTRUCTOR_URL = (instructorId: string) =>
   `${COURSE_BASE_URL}/instructor/${instructorId}`;
 export const GET_COURSES_BY_STUDENT_URL = (studentId: string) => 
   `${COURSE_BASE_URL}/student/${studentId}`;
+export const CREATE_PERSONAL_COURSE_URL = (userPersonalId: string) => 
+  `${COURSE_BASE_URL}/personal/${userPersonalId}`;
+export const GET_PERSONAL_COURSE_DETAIL_URL = (courseId: string) => 
+  `${COURSE_BASE_URL}/personal/detail/${courseId}`;
+export const GET_PERSONAL_COURSES_LIST_URL = (userPersonalId: string) => 
+  `${COURSE_BASE_URL}/personal/list/${userPersonalId}`;
 
 // ===== ENROLLMENT ENDPOINTS =====
 export const ENROLLMENT_BASE_URL = `${BASE_URL}/enrollments`;

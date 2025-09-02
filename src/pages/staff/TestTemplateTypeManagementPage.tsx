@@ -85,6 +85,10 @@ const TestTemplateTypeManagementPage: React.FC = () => {
   const [isEditConfigModalOpen, setIsEditConfigModalOpen] = useState(false);
   const [editingConfig, setEditingConfig] = useState<TestTemplateConfigDto | null>(null);
 
+  // Confirm delete modal states
+  const [isDeleteConfirmModalOpen, setIsDeleteConfirmModalOpen] = useState(false);
+  const [deleteConfigInfo, setDeleteConfigInfo] = useState<{configId: string, templateId: string, configName: string} | null>(null);
+
   const [createForm, setCreateForm] = useState<CreateTestTemplateTypeDto>({
     userId: "",
     typeName: "",
@@ -188,6 +192,8 @@ const TestTemplateTypeManagementPage: React.FC = () => {
             return "Điểm số không hợp lệ.";
           case "DUPLICATE_CONFIG_SEQUENCE":
             return "Thứ tự cấu hình đã tồn tại trong phần thi này.";
+          case "DUPLICATE_SUBCONTENT":
+            return "Nội dung con này đã được sử dụng trong một phần thi khác của cùng loại cấu trúc đề thi.";
           case "INSUFFICIENT_QUESTIONS":
             return "Không đủ câu hỏi trong nội dung con để tạo cấu hình.";
           case "CONFIG_POINTS_EXCEED_TEMPLATE":
@@ -669,9 +675,7 @@ const TestTemplateTypeManagementPage: React.FC = () => {
     }
   };
 
-  const handleDeleteConfig = async (configId: string) => {
-    if (!window.confirm("Bạn có chắc chắn muốn xóa cấu hình câu hỏi này?") || !selectedTemplate) return;
-
+  const handleDeleteConfig = async (configId: string, templateId: string) => {
     try {
       await deleteTestTemplateConfig(configId);
       toast.success("Xóa cấu hình câu hỏi thành công");
@@ -679,15 +683,24 @@ const TestTemplateTypeManagementPage: React.FC = () => {
       // Update configs in the nested dropdown state
       setConfigsByTemplate(prev => ({
         ...prev,
-        [selectedTemplate.templateId]: prev[selectedTemplate.templateId]?.filter(config => 
+        [templateId]: prev[templateId]?.filter(config => 
           config.configId !== configId
         ) || []
       }));
+      
+      // Close confirm modal
+      setIsDeleteConfirmModalOpen(false);
+      setDeleteConfigInfo(null);
     } catch (error) {
       console.error("Failed to delete config:", error);
       const errorMessage = extractErrorMessage(error, "Không thể xóa cấu hình câu hỏi");
       toast.error(errorMessage);
     }
+  };
+
+  const openDeleteConfigConfirm = (configId: string, templateId: string, configName: string) => {
+    setDeleteConfigInfo({ configId, templateId, configName });
+    setIsDeleteConfirmModalOpen(true);
   };
 
   const openEditConfigModal = (config: TestTemplateConfigDto) => {
@@ -1097,7 +1110,11 @@ const TestTemplateTypeManagementPage: React.FC = () => {
                                                         <FaEdit />
                                                       </button>
                                                       <button
-                                                        onClick={() => handleDeleteConfig(config.configId)}
+                                                        onClick={() => openDeleteConfigConfirm(
+                                                          config.configId, 
+                                                          templateItem.templateId, 
+                                                          config.subContent?.subContentNameDescription || 'N/A'
+                                                        )}
                                                         disabled={template.isActive}
                                                         className={`text-xs ${
                                                           template.isActive 
@@ -1842,6 +1859,79 @@ const TestTemplateTypeManagementPage: React.FC = () => {
             </button>
           </div>
         </form>
+      </Modal>
+
+      {/* Delete Config Confirmation Modal */}
+      <Modal
+        isOpen={isDeleteConfirmModalOpen}
+        onClose={() => {
+          setIsDeleteConfirmModalOpen(false);
+          setDeleteConfigInfo(null);
+        }}
+        title="Xác nhận xóa cấu hình"
+      >
+        <div className="space-y-4">
+          <div className="flex items-center space-x-3">
+            <div className="flex-shrink-0">
+              <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
+                <FaExclamationTriangle className="text-red-600 text-xl" />
+              </div>
+            </div>
+            <div className="flex-1">
+              <h3 className="text-lg font-medium text-gray-900">
+                Xóa cấu hình câu hỏi
+              </h3>
+              <p className="text-sm text-gray-500 mt-1">
+                Bạn có chắc chắn muốn xóa cấu hình câu hỏi này không?
+              </p>
+            </div>
+          </div>
+          
+          {deleteConfigInfo && (
+            <div className="bg-gray-50 rounded-lg p-4">
+              <div className="text-sm">
+                <div className="font-medium text-gray-900 mb-1">
+                  Thông tin cấu hình:
+                </div>
+                <div className="text-gray-600">
+                  <strong>Nội dung:</strong> {deleteConfigInfo.configName}
+                </div>
+              </div>
+            </div>
+          )}
+          
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+            <div className="flex items-start space-x-2">
+              <FaExclamationTriangle className="text-yellow-600 mt-0.5 flex-shrink-0" />
+              <div className="text-sm text-yellow-800">
+                <strong>Cảnh báo:</strong> Hành động này không thể hoàn tác. Cấu hình câu hỏi sẽ bị xóa vĩnh viễn.
+              </div>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4">
+            <button
+              type="button"
+              onClick={() => {
+                setIsDeleteConfirmModalOpen(false);
+                setDeleteConfigInfo(null);
+              }}
+              className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium"
+            >
+              Hủy bỏ
+            </button>
+            <button
+              onClick={() => {
+                if (deleteConfigInfo) {
+                  handleDeleteConfig(deleteConfigInfo.configId, deleteConfigInfo.templateId);
+                }
+              }}
+              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
+            >
+              Xóa cấu hình
+            </button>
+          </div>
+        </div>
       </Modal>
     </div>
   );

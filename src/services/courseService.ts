@@ -9,6 +9,9 @@ import {
   REMOVE_INSTRUCTOR_FROM_COURSE_URL,
   GET_COURSE_INSTRUCTORS_URL,
   GET_COURSE_INSTRUCTOR_HISTORY_URL,
+  CREATE_PERSONAL_COURSE_URL,
+  GET_PERSONAL_COURSE_DETAIL_URL,
+  GET_PERSONAL_COURSES_LIST_URL,
 } from "../consts/apiUrl/baseUrl";
 import { Pagination } from "../types/pagination"; // Ensure this path is correct
 import { DocumentDto } from "./documentService"; // Ensure this path is correct (needed for LessonDto)
@@ -382,4 +385,99 @@ export const getCourseInstructors = async (courseId: string): Promise<Instructor
 export const getCourseInstructorHistory = async (courseId: string): Promise<CourseInstructorHistoryDto[]> => {
   const { data } = await axiosInstance.get<CourseInstructorHistoryDto[]>(GET_COURSE_INSTRUCTOR_HISTORY_URL(courseId));
   return data;
+};
+
+export const createPersonalCourse = async (
+  userPersonalId: string,
+  createCourseDto: CreateCourseDto
+): Promise<CourseDto> => {
+  try {
+    const formData = new FormData();
+    formData.append("Title", createCourseDto.title);
+    formData.append("Description", createCourseDto.description);
+    formData.append("Level", createCourseDto.level.toString());
+    formData.append("CourseType", createCourseDto.courseType.toString());
+    formData.append("Price", createCourseDto.price.toString());
+    formData.append("StartDate", createCourseDto.startDate);
+    formData.append("EndDate", createCourseDto.endDate);
+    if (createCourseDto.thumbnailFile) {
+      formData.append("ThumbnailFile", createCourseDto.thumbnailFile);
+    }
+    if (createCourseDto.thumbnailUrl) {
+      formData.append("ThumbnailUrl", createCourseDto.thumbnailUrl);
+    }
+
+    // Gửi yêu cầu POST đến API khóa học cá nhân
+    const response = await axiosInstance.post<CourseDto>(
+      CREATE_PERSONAL_COURSE_URL(userPersonalId),
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      }
+    );
+    return response.data;
+  } catch (error) {
+    console.error(`CreatePersonalCourse API error for user ${userPersonalId}:`, error);
+    throw error; // Ném lỗi để component gọi có thể bắt và xử lý
+  }
+};
+
+export const getPersonalCourseDetail = async (courseId: string): Promise<CourseDto> => {
+  try {
+    // Validate courseId format
+    if (!courseId || courseId.trim() === '') {
+      throw new Error('CourseId is empty or invalid');
+    }
+    
+    // Log the URL being called
+    const url = GET_PERSONAL_COURSE_DETAIL_URL(courseId);
+    console.log(`Calling getPersonalCourseDetail with URL: ${url}`);
+    console.log(`CourseId: ${courseId}`);
+    
+    const response = await axiosInstance.get<CourseDto>(url);
+    return response.data;
+  } catch (error: any) {
+    console.error(`GetPersonalCourseDetail API error for ID ${courseId}:`, error);
+    if (error.response) {
+      console.error("Response data:", error.response.data);
+      console.error("Response status:", error.response.status);
+      console.error("Response headers:", error.response.headers);
+    } else if (error.request) {
+      console.error("Request was made but no response received:", error.request);
+    } else {
+      console.error("Error setting up request:", error.message);
+    }
+    throw error;
+  }
+};
+
+export const getPersonalCoursesList = async (userPersonalId: string): Promise<CourseDto[]> => {
+  try {
+    // Validate userPersonalId format
+    if (!userPersonalId || userPersonalId.trim() === '') {
+      throw new Error('UserPersonalId is empty or invalid');
+    }
+    
+    // Log the URL being called
+    const url = GET_PERSONAL_COURSES_LIST_URL(userPersonalId);
+    console.log(`Calling getPersonalCoursesList with URL: ${url}`);
+    console.log(`UserPersonalId: ${userPersonalId}`);
+    
+    const response = await axiosInstance.get<CourseDto[]>(url);
+    return response.data;
+  } catch (error: any) {
+    console.error(`GetPersonalCoursesList API error for user ${userPersonalId}:`, error);
+    if (error.response) {
+      console.error("Response data:", error.response.data);
+      console.error("Response status:", error.response.status);
+      console.error("Response headers:", error.response.headers);
+    } else if (error.request) {
+      console.error("Request was made but no response received:", error.request);
+    } else {
+      console.error("Error setting up request:", error.message);
+    }
+    throw error;
+  }
 };

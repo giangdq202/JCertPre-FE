@@ -7,14 +7,30 @@ import paths from '../routes/path';
 const PaymentCancelledPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { userInfo } = useAuth();
+  const { userInfo, isAuthenticated, isLoading } = useAuth();
   const [countdown, setCountdown] = useState(5);
   
-  // Get order information from navigation state
-  const orderCode = location.state?.orderCode;
-  const fromCallback = location.state?.from === 'callback';
+  // Get order information from navigation state or URL params
+  const orderCode = location.state?.orderCode || new URLSearchParams(location.search).get('orderCode');
+  // const fromCallback = location.state?.from === 'callback'; // Currently unused
+
+  // Handle unauthenticated users
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      // If user is not authenticated, redirect to login with return URL
+      navigate(paths.login, { 
+        state: { 
+          returnUrl: location.pathname + location.search,
+          message: 'Vui lòng đăng nhập để xem kết quả thanh toán' 
+        } 
+      });
+    }
+  }, [isAuthenticated, isLoading, navigate, location]);
 
   useEffect(() => {
+    // Only start countdown if user is authenticated
+    if (!isAuthenticated || isLoading) return;
+
     const timer = setInterval(() => {
       setCountdown((prev) => {
         if (prev <= 1) {
@@ -31,7 +47,24 @@ const PaymentCancelledPage: React.FC = () => {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [navigate, userInfo?.roleName]);
+  }, [navigate, userInfo?.roleName, isAuthenticated, isLoading]);
+
+  // Show loading while checking authentication
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Đang kiểm tra thông tin đăng nhập...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // If not authenticated, the useEffect will handle redirect
+  if (!isAuthenticated) {
+    return null;
+  }
 
   const handleGoHome = () => {
     if (userInfo?.roleName === 'STUDENT') {

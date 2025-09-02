@@ -73,27 +73,6 @@ export const AudioUpdateModal: React.FC<AudioUpdateModalProps> = ({
     onClose();
   };
 
-  const handleRemoveAudio = async () => {
-    if (window.confirm('Bạn có chắc chắn muốn xóa audio của câu hỏi này?')) {
-      setIsUploading(true);
-      try {
-        // Send empty FormData to remove audio
-        const updatedQuestion = await updateQuestion(question.id, {
-          audioFile: undefined
-        });
-        
-        success('Xóa audio thành công!');
-        onSuccess(updatedQuestion);
-        handleClose();
-      } catch (error: any) {
-        console.error('Error removing audio:', error);
-        errorNotification(error.response?.data?.message || 'Lỗi khi xóa audio!');
-      } finally {
-        setIsUploading(false);
-      }
-    }
-  };
-
   // Clean up preview URL on unmount
   React.useEffect(() => {
     return () => {
@@ -128,21 +107,19 @@ export const AudioUpdateModal: React.FC<AudioUpdateModalProps> = ({
           {hasExistingAudio && (
             <div className="border rounded-lg p-3 bg-gray-50">
               <h4 className="text-sm font-medium mb-2">Audio hiện tại:</h4>
-              <audio controls className="w-full">
-                {question.questionAttachments
-                  ?.filter(att => att.mediaType === 'audio' || att.mediaType.startsWith('audio/'))
-                  .map((att, index) => (
-                    <source key={index} src={att.mediaUrl} type="audio/mpeg" />
-                  ))}
-                Trình duyệt của bạn không hỗ trợ phát audio.
-              </audio>
-              <button
-                onClick={handleRemoveAudio}
-                disabled={isUploading}
-                className="mt-2 text-red-600 hover:text-red-800 text-sm disabled:opacity-50"
-              >
-                {isUploading ? 'Đang xóa...' : 'Xóa audio hiện tại'}
-              </button>
+              {question.questionAttachments
+                ?.filter(att => att.mediaType === 'audio' || att.mediaType.startsWith('audio/'))
+                .map((att, index) => (
+                  <div key={index} className="mb-2">
+                    <audio controls className="w-full">
+                      <source src={att.mediaUrl} type={att.mediaType} />
+                      Trình duyệt của bạn không hỗ trợ phát audio.
+                    </audio>
+                  </div>
+                ))}
+              <p className="text-xs text-gray-500 mt-2">
+                Chọn file audio mới để thay thế
+              </p>
             </div>
           )}
 

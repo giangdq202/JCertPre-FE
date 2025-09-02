@@ -197,20 +197,22 @@ const StaffMessagesPage: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50">
-        <StaffHeader />
-        <div className="flex">
+      <div className="h-screen bg-gray-50">
+        <div className="fixed top-0 left-0 right-0 z-30">
+          <StaffHeader />
+        </div>
+        <div className="fixed left-0 top-16 bottom-0 z-20">
           <StaffSidebar />
-          <div className="flex-1 flex items-center justify-center">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto mb-4"></div>
-              <h3 className="text-xl font-semibold text-gray-600 mb-2">
-                Đang tải cuộc hội thoại
-              </h3>
-              <p className="text-gray-500">
-                Vui lòng chờ trong giây lát...
-              </p>
-            </div>
+        </div>
+        <div className="ml-64 mt-16 h-screen flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto mb-4"></div>
+            <h3 className="text-xl font-semibold text-gray-600 mb-2">
+              Đang tải cuộc hội thoại
+            </h3>
+            <p className="text-gray-500">
+              Vui lòng chờ trong giây lát...
+            </p>
           </div>
         </div>
       </div>
@@ -219,27 +221,29 @@ const StaffMessagesPage: React.FC = () => {
 
   if (error || !conversation) {
     return (
-      <div className="min-h-screen bg-gray-50">
-        <StaffHeader />
-        <div className="flex">
+      <div className="h-screen bg-gray-50">
+        <div className="fixed top-0 left-0 right-0 z-30">
+          <StaffHeader />
+        </div>
+        <div className="fixed left-0 top-16 bottom-0 z-20">
           <StaffSidebar />
-          <div className="flex-1 flex items-center justify-center">
-            <div className="text-center">
-              <HiOutlineChatBubbleLeftRight className="mx-auto text-6xl text-gray-300 mb-4" />
-              <h3 className="text-xl font-semibold text-gray-600 mb-2">
-                {error || 'Không tìm thấy cuộc hội thoại'}
-              </h3>
-              <p className="text-gray-500 mb-4">
-                Vui lòng quay lại trang cuộc hội thoại tư vấn
-              </p>
-              <button
-                onClick={() => navigate('/staff/inquiries')}
-                className="bg-orange-500 text-white px-4 py-2 rounded-lg hover:bg-orange-600 transition-colors flex items-center gap-2 mx-auto"
-              >
-                <HiOutlineArrowLeft className="w-4 h-4" />
-                Quay lại
-              </button>
-            </div>
+        </div>
+        <div className="ml-64 mt-16 h-screen flex items-center justify-center">
+          <div className="text-center">
+            <HiOutlineChatBubbleLeftRight className="mx-auto text-6xl text-gray-300 mb-4" />
+            <h3 className="text-xl font-semibold text-gray-600 mb-2">
+              {error || 'Không tìm thấy cuộc hội thoại'}
+            </h3>
+            <p className="text-gray-500 mb-4">
+              Vui lòng quay lại trang cuộc hội thoại tư vấn
+            </p>
+            <button
+              onClick={() => navigate('/staff/inquiries')}
+              className="bg-orange-500 text-white px-4 py-2 rounded-lg hover:bg-orange-600 transition-colors flex items-center gap-2 mx-auto"
+            >
+              <HiOutlineArrowLeft className="w-4 h-4" />
+              Quay lại
+            </button>
           </div>
         </div>
       </div>
@@ -262,13 +266,35 @@ const StaffMessagesPage: React.FC = () => {
       theme="orange"
       isOnline={isConnected}
       additionalActions={
-        <ChatConnectionStatus isConnected={isConnected} theme="orange" />
+        <div className="flex items-center gap-3">
+          <ChatConnectionStatus isConnected={isConnected} theme="orange" />
+          {!isStudyPlanMode && student && (
+            <button
+              onClick={() => setIsStudyPlanMode(true)}
+              className="flex items-center gap-2 px-3 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors text-sm"
+              title="Thiết kế lộ trình học cho học viên"
+            >
+              <HiOutlineAcademicCap className="w-4 h-4" />
+              Thiết kế lộ trình
+            </button>
+          )}
+          {isStudyPlanMode && (
+            <button
+              onClick={() => setIsStudyPlanMode(false)}
+              className="flex items-center gap-2 px-3 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors text-sm"
+              title="Đóng chế độ thiết kế lộ trình"
+            >
+              <HiX className="w-4 h-4" />
+              Đóng thiết kế
+            </button>
+          )}
+        </div>
       }
     />
   );
 
   const chatMessages = (
-    <div className="flex-1 overflow-y-auto p-6 space-y-4">
+    <div className="space-y-4">
       {messages.map((message) => {
         const isOwnMessage = message.senderId === userInfo?.id;
         return (
@@ -288,38 +314,6 @@ const StaffMessagesPage: React.FC = () => {
 
   const chatInput = (
     <div>
-      {/* Study Plan Action Bar */}
-      {!isStudyPlanMode && student && (
-        <div className="border-t border-gray-200 p-4 bg-gray-50">
-          <div className="flex items-center justify-center">
-            <button
-              onClick={() => setIsStudyPlanMode(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors"
-              title="Thiết kế lộ trình học cho học viên"
-            >
-              <HiOutlineAcademicCap className="w-5 h-5" />
-              Thiết kế lộ trình học cho {student.fullName || 'học viên'}
-            </button>
-          </div>
-        </div>
-      )}
-      
-      {/* Close Study Plan Mode Button */}
-      {isStudyPlanMode && (
-        <div className="border-t border-gray-200 p-4 bg-orange-50">
-          <div className="flex items-center justify-center">
-            <button
-              onClick={() => setIsStudyPlanMode(false)}
-              className="flex items-center gap-2 px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
-              title="Đóng chế độ thiết kế lộ trình"
-            >
-              <HiX className="w-5 h-5" />
-              Đóng chế độ thiết kế lộ trình
-            </button>
-          </div>
-        </div>
-      )}
-      
       {/* Chat Input */}
       <ChatInput
         value={newMessage}
@@ -334,53 +328,62 @@ const StaffMessagesPage: React.FC = () => {
   );
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <StaffHeader />
-      <div className="flex">
-        <StaffSidebar />
-        
-        <div className="flex-1 flex flex-col bg-white">
-          {isStudyPlanMode && student ? (
-            <ChatStudyPlanSplitView
-              chatHeader={chatHeader}
-              chatMessages={chatMessages}
-              chatInput={chatInput}
-              studentId={student.id}
-              studentName={student.fullName || 'Học viên'}
-              onClose={() => setIsStudyPlanMode(false)}
-              onStudyPlanCreated={handleStudyPlanCreated}
-            />
-          ) : (
-            <>
-              {chatHeader}
-              {chatMessages}
-              {chatInput}
-            </>
-          )}
-        </div>
+    <div className="h-screen bg-gray-50">
+      {/* Fixed Staff Header */}
+      <div className="fixed top-0 left-0 right-0 z-30">
+        <StaffHeader />
       </div>
       
-      {/* Debug Panel - chỉ hiển thị khi debug mode bật */}
-      {SIGNALR_CONFIG.DEBUG_MODE && (
-        <div className="fixed bottom-4 right-4 max-w-sm">
-          <div className="bg-white rounded-lg shadow-lg border p-2">
-            <div className="text-xs font-medium text-gray-600 mb-2">
-              Staff SignalR Debug
+      {/* Fixed Sidebar */}
+      <div className="fixed left-0 top-16 bottom-0 z-20">
+        <StaffSidebar />
+      </div>
+      
+      {/* Chat Content Area - với margin để tránh header và sidebar */}
+      <div className="ml-64 mt-16 h-screen flex flex-col bg-white relative">
+        {isStudyPlanMode && student ? (
+          <ChatStudyPlanSplitView
+            chatHeader={chatHeader}
+            chatMessages={chatMessages}
+            chatInput={chatInput}
+            studentId={student.id}
+            studentName={student.fullName || 'Học viên'}
+            studentEmail={student.email || ''}
+            onClose={() => setIsStudyPlanMode(false)}
+            onStudyPlanCreated={handleStudyPlanCreated}
+          />
+        ) : (
+          <>
+            {/* Fixed Chat Header */}
+            <div className="fixed top-16 left-64 right-0 z-20 bg-white border-b border-gray-200">
+              {chatHeader}
             </div>
-            <div className="text-xs">
-              Connection: <span className={isConnected ? 'text-green-600' : 'text-red-600'}>
-                {isConnected ? 'Connected' : 'Disconnected'}
-              </span>
+            
+            {/* Messages - Scrollable area với padding cho fixed elements */}
+            <div className="pt-20 pb-32 px-6 space-y-4 overflow-y-auto h-full">
+              {messages.map((message) => {
+                const isOwnMessage = message.senderId === userInfo?.id;
+                return (
+                  <ChatMessage
+                    key={message.messageId}
+                    content={message.content}
+                    timestamp={message.sentAt}
+                    isOwnMessage={isOwnMessage}
+                    senderName={!isOwnMessage ? message.senderName : undefined}
+                    messageTheme="orange"
+                  />
+                );
+              })}
+              <div ref={messagesEndRef} />
             </div>
-            <div className="text-xs">
-              Conversation: {conversation?.conversationId || 'None'}
+            
+            {/* Fixed Chat Input at bottom */}
+            <div className="fixed bottom-0 left-64 right-0 z-20 bg-white border-t border-gray-200">
+              {chatInput}
             </div>
-            <div className="text-xs">
-              Config Enabled: {SIGNALR_CONFIG.ENABLED ? 'Yes' : 'No'}
-            </div>
-          </div>
-        </div>
-      )}
+          </>
+        )}
+      </div>
     </div>
   );
 };

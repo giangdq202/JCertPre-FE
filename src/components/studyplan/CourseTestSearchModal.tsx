@@ -11,7 +11,8 @@ import {
   CourseListDto, 
   CourseStatus, 
   CourseType, 
-  CourseLevel as CourseLevelEnum 
+  CourseLevel as CourseLevelEnum,
+  getPersonalCoursesList
 } from '../../services/courseService';
 import { 
   TestType, 
@@ -48,12 +49,14 @@ interface CourseTestSearchModalProps {
   type: 'course' | 'test';
   onSelect: (item: CourseListDto | TestOption) => void;
   onClose: () => void;
+  studentId?: string; // Add studentId to fetch personal courses
 }
 
 const CourseTestSearchModal: React.FC<CourseTestSearchModalProps> = ({
   type,
   onSelect,
-  onClose
+  onClose,
+  studentId
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedLevel, setSelectedLevel] = useState<string>('');
@@ -79,13 +82,46 @@ const CourseTestSearchModal: React.FC<CourseTestSearchModalProps> = ({
     setIsLoading(true);
     setError('');
     try {
-      const response = await getCourses({
+      // Load public courses
+      const publicCoursesResponse = await getCourses({
         pageNumber: 1,
         pageSize: 100,
         status: CourseStatus.Published,
         courseType: CourseType.Public
       });
-      setCourses(response.items);
+      
+      let allCourses = publicCoursesResponse.items;
+      
+      // Load personal courses if studentId is provided
+      if (studentId) {
+        try {
+          const personalCourses = await getPersonalCoursesList(studentId);
+          // Convert CourseDto[] to CourseListDto[] format
+          const personalCoursesListDto: CourseListDto[] = personalCourses.map(course => ({
+            courseId: course.courseId,
+            title: `[Cá nhân] ${course.title}`, // Mark as personal course
+            description: course.description,
+            level: course.level,
+            courseType: course.courseType,
+            price: course.price,
+            thumbnailUrl: course.thumbnailUrl,
+            status: course.status,
+            createdAt: course.createdAt,
+            startDate: course.startDate,
+            endDate: course.endDate,
+            enrollmentsCount: course.enrollmentsCount,
+            instructorsCount: course.instructors?.length || 0
+          }));
+          
+          // Combine public and personal courses
+          allCourses = [...publicCoursesResponse.items, ...personalCoursesListDto];
+        } catch (personalCoursesError) {
+          console.error('Error loading personal courses:', personalCoursesError);
+          // Continue with just public courses if personal courses fail
+        }
+      }
+      
+      setCourses(allCourses);
     } catch (err) {
       console.error('Error loading courses:', err);
       setError('Không thể tải danh sách khóa học');

@@ -45,11 +45,14 @@ export const createStudyPlanItem = async (itemData: CreateStudyPlanItemRequest):
     if (itemData.courseId) {
       params.append('courseId', itemData.courseId);
     }
-    if (itemData.testId) {
-      params.append('testId', itemData.testId);
+    if (itemData.testTemplateTypeId) {
+      params.append('testTemplateTypeId', itemData.testTemplateTypeId);
     }
     if (itemData.status !== undefined) {
       params.append('status', itemData.status.toString());
+    }
+    if (itemData.description) {
+      params.append('description', itemData.description);
     }
     
     const response = await axiosInstance.post<StudyPlanItemDto>(
@@ -315,7 +318,7 @@ export const validateStudyPlanItem = (item: CreateStudyPlanItemRequest): string[
     errors.push('Course ID is required for course items');
   }
 
-  if (item.itemType === 'test' && !item.testId) {
+  if (item.itemType === 'test' && !item.testTemplateTypeId) {
     errors.push('Test ID is required for test items');
   }
 
@@ -357,7 +360,7 @@ export const createTestItem = async (
     planId,
     sequence: itemSequence,
     itemType: 'test',
-    testId,
+    testTemplateTypeId: testId,
     status: ItemStatus.NOT_STARTED
   });
 };

@@ -19,6 +19,7 @@ import {
   CourseListDto,
   CourseStatus,
   CourseLevel,
+  CourseType,
   CourseQueryParameters,
 } from "../../services/courseService";
 
@@ -49,7 +50,9 @@ const StaffCourseManagementPage: React.FC = () => {
   const fetchCourses = useCallback(async () => {
     setLoading(true);
     try {
+      console.log("Query parameters being sent:", queryParameters);
       const response = await getCourses(queryParameters);
+      console.log("Courses response:", response);
       setCourses(response.items);
       setPagination((prev) => ({
         ...prev,
@@ -116,6 +119,16 @@ const StaffCourseManagementPage: React.FC = () => {
     setQueryParameters((prev) => ({
       ...prev,
       level: value,
+      pageNumber: 1,
+    }));
+  };
+
+  // Xử lý thay đổi bộ lọc loại khóa học
+  const handleCourseTypeFilterChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const value = e.target.value === "" ? null : Number(e.target.value) as CourseType;
+    setQueryParameters((prev) => ({
+      ...prev,
+      courseType: value,
       pageNumber: 1,
     }));
   };
@@ -199,6 +212,21 @@ const StaffCourseManagementPage: React.FC = () => {
                 </select>
               </div>
 
+              {/* Course Type Filter */}
+              <div className="min-w-[150px]">
+                <label htmlFor="coursetype-filter" className="block text-sm font-medium text-gray-700 mb-1">Loại khóa học</label>
+                <select
+                  id="coursetype-filter"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white text-gray-800 focus:ring-green-500 focus:border-green-500 transition-colors appearance-none"
+                  onChange={handleCourseTypeFilterChange}
+                  value={queryParameters.courseType === null ? "" : queryParameters.courseType}
+                >
+                  <option value="">Tất cả loại</option>
+                  <option value={CourseType.Public}>Công khai</option>
+                  <option value={CourseType.Personal}>Cá nhân</option>
+                </select>
+              </div>
+
               {/* Create New Course Button */}
               <button
                 onClick={() => navigate("/course-management/create")}
@@ -225,6 +253,7 @@ const StaffCourseManagementPage: React.FC = () => {
                   <tr>
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider rounded-tl-lg">Tiêu đề</th>
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cấp độ</th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Loại</th>
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Giá (VND)</th>
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Trạng thái</th>
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Số học viên</th>
@@ -241,6 +270,13 @@ const StaffCourseManagementPage: React.FC = () => {
                         </Link>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{CourseLevel[course.level]}</td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full
+                          ${course.courseType === CourseType.Public ? 'bg-blue-100 text-blue-800' : 'bg-purple-100 text-purple-800'}
+                        `}>
+                          {course.courseType === CourseType.Public ? 'Công khai' : 'Cá nhân'}
+                        </span>
+                      </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{course.price.toLocaleString("vi-VN")}</td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full

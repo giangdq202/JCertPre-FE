@@ -56,8 +56,8 @@ const StudentStudyPlanPage: React.FC = () => {
                     itemWithDetails.courseTitle = course.title;
                   }
                   // Note: Test title loading would need test service
-                  if (item.testId) {
-                    itemWithDetails.testTitle = `Test ID: ${item.testId}`;
+                  if (item.testTemplateTypeId) {
+                    itemWithDetails.testTitle = `Test ID: ${item.testTemplateTypeId}`;
                   }
                 } catch (error) {
                   console.error(`Error loading details for item ${item.itemId}:`, error);
@@ -65,8 +65,8 @@ const StudentStudyPlanPage: React.FC = () => {
                   if (item.courseId) {
                     itemWithDetails.courseTitle = `Course ID: ${item.courseId}`;
                   }
-                  if (item.testId) {
-                    itemWithDetails.testTitle = `Test ID: ${item.testId}`;
+                  if (item.testTemplateTypeId) {
+                    itemWithDetails.testTitle = `Test ID: ${item.testTemplateTypeId}`;
                   }
                 }
                 
@@ -100,7 +100,7 @@ const StudentStudyPlanPage: React.FC = () => {
   const handleItemClick = (item: StudyPlanItemWithDetails) => {
     if (item.courseId) {
       navigate(`/student/course-detail/${item.courseId}`);
-    } else if (item.testId) {
+    } else if (item.testTemplateTypeId) {
       // Navigate to test page if needed
       toast.info("Tính năng thi thử sẽ có sớm");
     }
