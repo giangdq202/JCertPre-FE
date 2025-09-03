@@ -29,6 +29,40 @@ const StaffSettingsPage = () => <div className="p-6 text-gray-700">Nội dung tr
 
 const StaffDashboardContent = () => {
     const navigate = useNavigate(); // Use useNavigate hook inside the component
+    const { userInfo } = useAuth();
+    
+    // State for real data
+    const [inquiriesCount, setInquiriesCount] = useState<number>(0);
+    const [activeCoursesCount, setActiveCoursesCount] = useState<number>(0);
+    const [loading, setLoading] = useState<boolean>(true);
+
+    // Load real data
+    useEffect(() => {
+        const loadDashboardData = async () => {
+            if (!userInfo?.id) return;
+            
+            setLoading(true);
+            try {
+                // Load inquiries count
+                const conversations = await getMyConversations(userInfo.id);
+                setInquiriesCount(conversations.length);
+
+                // Load courses count (simplified - no filters)
+                const coursesResponse = await getCourses({
+                    pageNumber: 1,
+                    pageSize: 10, // Small page size is enough, we only need totalItemsCount
+                });
+                setActiveCoursesCount(coursesResponse.totalItemsCount);
+            } catch (error) {
+                console.error('Failed to load dashboard data:', error);
+                // Keep default values on error
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        loadDashboardData();
+    }, [userInfo?.id]);
 
     return (
         <div className="p-6">
