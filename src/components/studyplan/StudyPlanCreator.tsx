@@ -356,10 +356,35 @@ const StudyPlanCreator: React.FC<StudyPlanCreatorProps> = ({
         </div>
 
         {items.length === 0 ? (
-          <div className="text-center py-8 text-gray-500">
-            <HiOutlineBookOpen className="w-12 h-12 mx-auto text-gray-300 mb-3" />
-            <p>Chưa có mục nào trong lộ trình</p>
-            <p className="text-sm">Nhấn nút "Thêm lộ trình học" để bắt đầu</p>
+          <div className="bg-white rounded-lg border border-gray-200 p-8">
+            <div className="text-center">
+              <div className="relative">
+                <div className="absolute inset-0 bg-gradient-to-br from-orange-100 to-orange-200 rounded-full w-16 h-16 mx-auto opacity-20 animate-pulse"></div>
+                <HiOutlineBookOpen className="w-16 h-16 text-orange-400 mx-auto mb-4 relative z-10" />
+              </div>
+              
+              <h4 className="text-lg font-semibold text-gray-800 mb-2">
+                Lộ trình học chưa có nội dung
+              </h4>
+              <p className="text-gray-600 mb-4 max-w-sm mx-auto">
+                Bắt đầu tạo lộ trình học bằng cách thêm các khóa học và bài kiểm tra.
+              </p>
+              
+              <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                <div className="flex items-center gap-2 text-sm text-gray-500 bg-gray-50 px-4 py-2 rounded-lg border">
+                  <HiOutlineBookOpen className="w-4 h-4" />
+                  <span>Thêm khóa học</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm text-gray-500 bg-gray-50 px-4 py-2 rounded-lg border">
+                  <HiOutlineClipboardList className="w-4 h-4" />
+                  <span>Thêm bài kiểm tra</span>
+                </div>
+              </div>
+              
+              <div className="mt-4 text-xs text-gray-500 bg-orange-50 px-4 py-2 rounded-lg border border-orange-100 inline-block">
+                💡 Nhấn nút "Thêm lộ trình học" ở trên để bắt đầu
+              </div>
+            </div>
           </div>
         ) : (
           <div className="space-y-3">

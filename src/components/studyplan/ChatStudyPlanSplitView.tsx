@@ -228,9 +228,32 @@ const ChatStudyPlanSplitView: React.FC<ChatStudyPlanSplitViewProps> = ({
                 ))}
               </div>
             ) : (
-              <div className="text-center py-8 text-gray-500">
-                <HiOutlineBookOpen className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-                <p>Học viên chưa có khóa học cá nhân nào</p>
+              <div className="bg-white rounded-lg border border-gray-200 p-8">
+                <div className="text-center">
+                  <div className="relative">
+                    <div className="absolute inset-0 bg-gradient-to-br from-blue-100 to-blue-200 rounded-full w-16 h-16 mx-auto opacity-20 animate-pulse"></div>
+                    <HiOutlineBookOpen className="w-16 h-16 text-blue-400 mx-auto mb-4 relative z-10" />
+                  </div>
+                  
+                  <h4 className="text-lg font-semibold text-gray-800 mb-2">
+                    Chưa có khóa học cá nhân
+                  </h4>
+                  <p className="text-gray-600 mb-4 max-w-sm mx-auto">
+                    Tạo khóa học cá nhân để {studentName} có thể học tập theo lộ trình riêng.
+                  </p>
+                  
+                  <button
+                    onClick={handleCreateCourse}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm"
+                  >
+                    <HiPlus className="w-4 h-4" />
+                    Tạo khóa học đầu tiên
+                  </button>
+                  
+                  <div className="mt-4 text-xs text-gray-500 bg-blue-50 px-4 py-2 rounded-lg border border-blue-100 inline-block">
+                    💡 Khóa học cá nhân giúp tùy chỉnh nội dung phù hợp với từng học viên
+                  </div>
+                </div>
               </div>
             )}
           </div>

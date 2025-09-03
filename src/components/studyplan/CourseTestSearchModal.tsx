@@ -367,9 +367,24 @@ const CourseTestSearchModal: React.FC<CourseTestSearchModalProps> = ({
                     </div>
                   ))
                 ) : (
-                  <div className="text-center py-8 text-gray-500">
-                    <HiOutlineBookOpen className="w-12 h-12 mx-auto text-gray-300 mb-3" />
-                    <p>Không tìm thấy khóa học nào</p>
+                  <div className="bg-white rounded-lg border border-gray-200 p-8">
+                    <div className="text-center">
+                      <div className="relative">
+                        <div className="absolute inset-0 bg-gradient-to-br from-blue-100 to-blue-200 rounded-full w-16 h-16 mx-auto opacity-20 animate-pulse"></div>
+                        <HiOutlineBookOpen className="w-16 h-16 text-blue-400 mx-auto mb-4 relative z-10" />
+                      </div>
+                      
+                      <h4 className="text-lg font-semibold text-gray-800 mb-2">
+                        Không tìm thấy khóa học
+                      </h4>
+                      <p className="text-gray-600 mb-4">
+                        Thử thay đổi từ khóa tìm kiếm hoặc chọn cấp độ khác.
+                      </p>
+                      
+                      <div className="text-xs text-gray-500 bg-blue-50 px-4 py-2 rounded-lg border border-blue-100 inline-block">
+                        💡 Hãy thử tìm kiếm với từ khóa khác
+                      </div>
+                    </div>
                   </div>
                 )
               ) : (
@@ -405,9 +420,24 @@ const CourseTestSearchModal: React.FC<CourseTestSearchModalProps> = ({
                     </div>
                   ))
                 ) : (
-                  <div className="text-center py-8 text-gray-500">
-                    <HiOutlineClipboardList className="w-12 h-12 mx-auto text-gray-300 mb-3" />
-                    <p>Không tìm thấy bài test nào</p>
+                  <div className="bg-white rounded-lg border border-gray-200 p-8">
+                    <div className="text-center">
+                      <div className="relative">
+                        <div className="absolute inset-0 bg-gradient-to-br from-green-100 to-green-200 rounded-full w-16 h-16 mx-auto opacity-20 animate-pulse"></div>
+                        <HiOutlineClipboardList className="w-16 h-16 text-green-400 mx-auto mb-4 relative z-10" />
+                      </div>
+                      
+                      <h4 className="text-lg font-semibold text-gray-800 mb-2">
+                        Không tìm thấy bài test
+                      </h4>
+                      <p className="text-gray-600 mb-4">
+                        Thử thay đổi từ khóa tìm kiếm hoặc chọn loại test khác.
+                      </p>
+                      
+                      <div className="text-xs text-gray-500 bg-green-50 px-4 py-2 rounded-lg border border-green-100 inline-block">
+                        💡 Kiểm tra lại bộ lọc và từ khóa tìm kiếm
+                      </div>
+                    </div>
                   </div>
                 )
               )}

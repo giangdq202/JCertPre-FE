@@ -7,6 +7,7 @@ import {
   HiChevronRight,
   HiChevronDown,
   HiOutlineExclamationCircle,
+  HiOutlineQuestionMarkCircle,
   HiOutlineCheckCircle,
   HiOutlineClock,
   HiPencil,
@@ -340,7 +341,7 @@ const StudentStudyPlans: React.FC<StudentStudyPlansProps> = ({
       setStudyPlans(plansWithItems);
     } catch (err) {
       console.error('Error loading study plans:', err);
-      setError('Không thể tải lộ trình học của học viên');
+      setError('Hãy tạo kế hoạch học tập ngay');
     } finally {
       setIsLoading(false);
     }
@@ -428,15 +429,30 @@ const StudentStudyPlans: React.FC<StudentStudyPlansProps> = ({
 
   if (error) {
     return (
-      <div className="p-6">
-        <div className="text-center py-8">
-          <HiOutlineExclamationCircle className="w-12 h-12 text-red-400 mx-auto mb-4" />
-          <p className="text-red-600">{error}</p>
+      <div className="p-8">
+        <div className="text-center py-12 bg-gradient-to-br from-green-50 to-green-100 rounded-xl border border-green-100">
+          <div className="relative">
+            <div className="absolute inset-0 bg-gradient-to-br from-green-100 to-green-200 rounded-full w-20 h-20 mx-auto opacity-20 animate-pulse"></div>
+            <HiOutlineQuestionMarkCircle className="w-20 h-20 text-green-400 mx-auto mb-6 relative z-10" />
+          </div>
+          
+          <h3 className="text-xl font-semibold text-gray-800 mb-3">
+            Hiện tại bạn chưa có kế hoạch học tập nào
+          </h3>
+          <p className="text-gray-600 mb-6 max-w-md mx-auto">
+            {error}
+          </p>
+          
           <button
             onClick={loadStudyPlans}
-            className={`mt-4 px-4 py-2 ${getThemeClasses().button} text-white rounded-lg transition-colors`}
+            className={`px-6 py-3 ${getThemeClasses().button} text-white rounded-lg transition-all duration-200 hover:scale-105 focus:ring-4 focus:ring-opacity-50 focus:outline-none`}
           >
-            Thử lại
+            <div className="flex items-center gap-2">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              Thử lại
+            </div>
           </button>
         </div>
       </div>
@@ -445,15 +461,36 @@ const StudentStudyPlans: React.FC<StudentStudyPlansProps> = ({
 
   if (studyPlans.length === 0) {
     return (
-      <div className="p-6">
-        <div className="text-center py-8">
-          <HiOutlineAcademicCap className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-          <h4 className="text-lg font-medium text-gray-600 mb-2">
-            Chưa có lộ trình học
-          </h4>
-          <p className="text-gray-500">
-            {studentName} chưa có lộ trình học nào được tạo.
+      <div className="p-8">
+        <div className="text-center py-12 bg-gradient-to-br from-blue-50 to-indigo-100 rounded-xl border border-blue-100">
+          <div className="relative">
+            <div className="absolute inset-0 bg-gradient-to-br from-blue-100 to-blue-200 rounded-full w-24 h-24 mx-auto opacity-20 animate-pulse"></div>
+            <HiOutlineAcademicCap className="w-24 h-24 text-blue-400 mx-auto mb-6 relative z-10" />
+          </div>
+          
+          <h3 className="text-xl font-semibold text-gray-800 mb-3">
+            Hiện bạn chưa có kế hoạch học tập nào
+          </h3>
+          <p className="text-gray-600 mb-6 max-w-md mx-auto leading-relaxed">
+            Hãy liên hệ với giáo viên để được tạo kế hoạch học tập phù hợp với trình độ và mục tiêu của bạn.
           </p>
+          
+          <div className="flex flex-col sm:flex-row gap-3 justify-center items-center">
+            <div className="flex items-center gap-2 text-sm text-gray-500 bg-white px-4 py-2 rounded-lg border">
+              <HiOutlineBookOpen className="w-4 h-4" />
+              <span>Khóa học cá nhân hóa</span>
+            </div>
+            <div className="flex items-center gap-2 text-sm text-gray-500 bg-white px-4 py-2 rounded-lg border">
+              <HiOutlineClipboardList className="w-4 h-4" />
+              <span>Bài kiểm tra định kỳ</span>
+            </div>
+          </div>
+          
+          <div className="mt-6 p-4 bg-white bg-opacity-70 rounded-lg border border-blue-200 max-w-md mx-auto">
+            <p className="text-sm text-gray-600">
+              💡 <strong>Mẹo:</strong> Kế hoạch học tập sẽ giúp bạn theo dõi tiến độ và đạt được mục tiêu JLPT hiệu quả hơn!
+            </p>
+          </div>
         </div>
       </div>
     );
