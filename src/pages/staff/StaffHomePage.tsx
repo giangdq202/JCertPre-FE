@@ -107,7 +107,9 @@ const StaffDashboardContent = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
                 <div className="bg-white p-6 rounded-xl shadow-lg">
                     <h3 className="text-lg font-semibold text-gray-800 mb-4">Tổng quan yêu cầu tư vấn</h3>
-                    <p className="text-gray-600">Bạn có <strong>5</strong> yêu cầu tư vấn mới.</p>
+                    <p className="text-gray-600">
+                        Bạn có <strong>{loading ? '...' : inquiriesCount}</strong> yêu cầu tư vấn.
+                    </p>
                     <button
                         onClick={() => navigate(paths.staff_home)}
                         className="mt-4 bg-orange-500 text-white py-2 px-4 rounded-lg hover:bg-orange-600 transition-colors duration-200"
@@ -116,8 +118,10 @@ const StaffDashboardContent = () => {
                     </button>
                 </div>
                 <div className="bg-white p-6 rounded-xl shadow-lg">
-                    <h3 className="text-lg font-semibold text-gray-800 mb-4">Khóa học đang hoạt động</h3>
-                    <p className="text-gray-600">Hiện có <strong>15</strong> khóa học đang hoạt động.</p>
+                    <h3 className="text-lg font-semibold text-gray-800 mb-4">Tổng số khóa học</h3>
+                    <p className="text-gray-600">
+                        Hiện có <strong>{loading ? '...' : activeCoursesCount}</strong> khóa học trong hệ thống.
+                    </p>
                     <button
                         onClick={() => navigate(paths.course_management)}
                         className="mt-4 bg-orange-500 text-white py-2 px-4 rounded-lg hover:bg-orange-600 transition-colors duration-200"
