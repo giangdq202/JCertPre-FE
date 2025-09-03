@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import StaffSidebar from "../../components/sidebar/StaffSidebar";
 import StaffHeader from "../../components/header/StaffHeader";
 import { Routes, Route, useNavigate } from 'react-router-dom'; // Removed useLocation as it's not directly used here
@@ -6,12 +6,17 @@ import StaffCourseManagementPage from "./StaffCourseManagementPage";
 import CreateCoursePage from "./CreateCoursePage"; // Import CreateCoursePage
 import CourseDetailPage from "./CourseDetailPage"; // Import CourseDetailPage
 import paths from "../../routes/path";
+import { useAuth } from "../../auth/AuthContext";
 
 // Lottie animation import
 import Lottie from "lottie-react";
 import studyAnimation from "../../animations/study.json"; // Assuming this path is correct and animation exists
 import { MdOutlineQuestionAnswer } from "react-icons/md";
 import { FaChalkboardTeacher } from "react-icons/fa";
+
+// Import services
+import { getMyConversations } from "../../services/conversationService";
+import { getCourses } from "../../services/courseService";
 
 // Placeholder components for other staff pages
 const InquiriesPage = () => <div className="p-6 text-gray-700">Nội dung trang Yêu cầu tư vấn (Staff)</div>;
