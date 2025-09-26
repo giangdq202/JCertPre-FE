@@ -5,7 +5,9 @@ import {
   GET_TEST_ATTEMPTS_BY_USER_URL,
   UPDATE_TEST_ATTEMPT_STATUS_URL,
   GET_TEST_ATTEMPT_WITH_SCORE_URL,
+  GET_PAGED_ATTEMPTS_BY_TEST_ID_URL,
 } from "../consts/apiUrl/baseUrl";
+import { Pagination } from "../types/pagination";
 
 
 export enum TestAttemptStatus {
@@ -146,6 +148,40 @@ export const getTestAttemptWithScoreSummary = async (
     return response.data;
   } catch (error) {
     console.error("Failed to get test attempt with score summary:", error);
+    throw error;
+  }
+};
+
+/**
+ * Get paged test attempts by test ID with optional isPass filter.
+ * @param testId - The test ID
+ * @param isPass - Optional filter for pass/fail status (true for passed, false for failed, undefined for all)
+ * @param pageIndex - Page number (1-based, default: 1)
+ * @param pageSize - Number of items per page (default: 10)
+ * @returns Promise<Pagination<TestAttemptDto>>
+ */
+export const getPagedAttemptsByTestIdAndIsPass = async (
+  testId: string,
+  isPass?: boolean,
+  pageIndex: number = 1,
+  pageSize: number = 10
+): Promise<Pagination<TestAttemptDto>> => {
+  try {
+    const params: Record<string, any> = {
+      pageIndex,
+      pageSize,
+    };
+    
+    if (isPass !== undefined) {
+      params.isPass = isPass;
+    }
+
+    const response = await axiosInstance.get(GET_PAGED_ATTEMPTS_BY_TEST_ID_URL(testId), {
+      params,
+    });
+    return response.data;
+  } catch (error) {
+    console.error("Failed to get paged test attempts by test ID and isPass:", error);
     throw error;
   }
 }; 

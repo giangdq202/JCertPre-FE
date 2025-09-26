@@ -4,7 +4,7 @@ import { getLessonsByCourseId } from "../../services/lessonService";
 import { LessonDto } from "../../types/lesson.types";
 import { getDocumentsByLessonId, DocumentDto } from "../../services/documentService";
 import { getCourseById, CourseDto } from "../../services/courseService";
-import { getByLessonId, TestDto } from "../../services/testService";
+import { getByLessonId, TestDto, TestType } from "../../services/testService";
 import { getAllTestAttemptsByUserId, TestAttemptDto, TestAttemptStatus } from "../../services/testAttemptService";
 import { 
   getLessonProgressByUserAndLesson
@@ -12,12 +12,13 @@ import {
 import { livestreamApi, LivestreamDto, LivestreamStatus } from "../../services/livestreamService";
 import StudentHeader from "../../components/header/StudentHeader";
 import StudentSideBar from "../../components/sidebar/StudentSideBar";
-import { FaChevronRight, FaFilePdf, FaDownload, FaVideo, FaEdit, FaPlay, FaClock, FaCalendarAlt, FaUser, FaExclamationTriangle } from "react-icons/fa";
+import { FaChevronRight, FaFilePdf, FaDownload, FaVideo, FaEdit, FaPen, FaPlay, FaClock, FaCalendarAlt, FaUser, FaExclamationTriangle } from "react-icons/fa";
 import { FiCheckCircle, FiCircle } from "react-icons/fi";
 import { HiOutlineClock } from "react-icons/hi2";
 import { useLessonProgress } from "../../hooks/useLessonProgress";
 import { VideoLessonPlayer } from "../../components/VideoLessonPlayer";
 import { TestInterface } from "../../components/TestInterface";
+import WritingTestInterface from "../../components/WritingTestInterface";
 import { useAuth } from "../../auth/AuthContext";
 import { useNotification } from '../../components/notifications';
 import paths from "../../routes/path";
@@ -440,20 +441,36 @@ const StudentLearnCoursePage: React.FC = () => {
             {/* Main Content */}
             <div className="flex-1">
               {showTestInterface && activeTest ? (
-                <TestInterface 
-                  test={activeTest} 
-                  lessonId={selectedLessonId || undefined}
-                  courseId={courseId}
-                  onBack={handleBackFromTest} 
-                  onTestCompleted={async () => {
-                    // Hide test interface immediately and show lesson content
-                    setShowTestInterface(false);
-                    setActiveTest(null);
-                    
-                    // Refresh test results and lesson progress after test completion
-                    await refreshTestResults();
-                  }}
-                />
+                // Conditional rendering based on test type
+                activeTest.testType === TestType.WrittenManual ? (
+                  <WritingTestInterface 
+                    test={activeTest}
+                    onBack={handleBackFromTest}
+                    onTestCompleted={async () => {
+                      // Hide test interface immediately and show lesson content
+                      setShowTestInterface(false);
+                      setActiveTest(null);
+                      
+                      // Refresh test results and lesson progress after test completion
+                      await refreshTestResults();
+                    }}
+                  />
+                ) : (
+                  <TestInterface 
+                    test={activeTest} 
+                    lessonId={selectedLessonId || undefined}
+                    courseId={courseId}
+                    onBack={handleBackFromTest} 
+                    onTestCompleted={async () => {
+                      // Hide test interface immediately and show lesson content
+                      setShowTestInterface(false);
+                      setActiveTest(null);
+                      
+                      // Refresh test results and lesson progress after test completion
+                      await refreshTestResults();
+                    }}
+                  />
+                )
               ) : (
                 <>
                   <h2 className="text-2xl font-bold text-gray-800 mb-4">{selectedLessonId && lessons.find(l => l.lessonId === selectedLessonId)?.title}</h2>
@@ -681,10 +698,16 @@ const StudentLearnCoursePage: React.FC = () => {
                             
                             {lessonTests[lesson.lessonId] ? (
                               <div className="flex flex-col gap-2">
-                                <div className="flex items-center justify-between gap-2 p-2 rounded-lg bg-blue-50 border border-blue-200">
+                                <div className={`flex items-center justify-between gap-2 p-2 rounded-lg border ${
+                                  lessonTests[lesson.lessonId]?.testType === TestType.WrittenManual 
+                                    ? 'bg-purple-50 border-purple-200' 
+                                    : 'bg-blue-50 border-blue-200'
+                                }`}>
                                   <div className="flex items-center gap-2 flex-1">
                                     {isTestPassed(lessonTests[lesson.lessonId]!.testId) ? (
                                       <FiCheckCircle className="text-green-600" />
+                                    ) : lessonTests[lesson.lessonId]?.testType === TestType.WrittenManual ? (
+                                      <FaPen className="text-purple-600" />
                                     ) : (
                                       <FaEdit className="text-blue-600" />
                                     )}
@@ -693,6 +716,11 @@ const StudentLearnCoursePage: React.FC = () => {
                                         <span className="text-sm font-medium text-gray-800 block">
                                           {lessonTests[lesson.lessonId]?.title}
                                         </span>
+                                        {lessonTests[lesson.lessonId]?.testType === TestType.WrittenManual && (
+                                          <span className="text-xs text-purple-600 font-medium bg-purple-100 px-2 py-0.5 rounded">
+                                            Viết
+                                          </span>
+                                        )}
                                         {isTestPassed(lessonTests[lesson.lessonId]!.testId) && (
                                           <span className="text-xs text-green-600 font-medium bg-green-100 px-2 py-0.5 rounded">
                                             Đã pass ✓

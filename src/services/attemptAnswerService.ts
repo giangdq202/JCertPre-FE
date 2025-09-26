@@ -4,12 +4,19 @@ import {
   CREATE_ATTEMPT_ANSWER_URL,
   UPDATE_ATTEMPT_ANSWER_URL,
   GET_ATTEMPT_ANSWERS_URL,
+  ADD_OR_UPDATE_WRITING_ANSWERS_URL,
+  GET_ALL_WRITTEN_BY_ATTEMPT_ID_URL,
+  SCORE_WRITING_URL,
 } from "../consts/apiUrl/baseUrl";
 import {
   AttemptAnswerDto,
   CreateAttemptAnswerDto,
   UpdateAttemptAnswerDto,
-  AddOrUpdateAttemptAnswerDto
+  AddOrUpdateAttemptAnswerDto,
+  CreateWritingAttemptAnswerDto,
+  WrittenAnswerDto,
+  ScoringWritingRequestDto,
+  ScoringWritingResponseDto,
 } from "../types/attemptAnswer.types";
 
 /**
@@ -92,6 +99,59 @@ export const getAttemptAnswersByAttemptId = async (attemptId: string): Promise<A
     return response.data;
   } catch (error) {
     console.error("Failed to get attempt answers by attempt ID:", error);
+    throw error;
+  }
+};
+
+/**
+ * Add or update writing answers for a student.
+ * @param dtos - Array of writing attempt answer data
+ * @returns Promise<WrittenAnswerDto[]>
+ */
+export const addOrUpdateWritingAnswers = async (
+  dtos: CreateWritingAttemptAnswerDto[]
+): Promise<WrittenAnswerDto[]> => {
+  try {
+    const response = await axiosInstance.post(ADD_OR_UPDATE_WRITING_ANSWERS_URL, dtos);
+    return response.data;
+  } catch (error) {
+    console.error("Failed to add or update writing answers:", error);
+    throw error;
+  }
+};
+
+/**
+ * Get all written answers for a test attempt.
+ * @param attemptId - The attempt ID
+ * @returns Promise<WrittenAnswerDto[]>
+ */
+export const getAllWrittenByAttemptId = async (attemptId: string): Promise<WrittenAnswerDto[]> => {
+  try {
+    const response = await axiosInstance.get(GET_ALL_WRITTEN_BY_ATTEMPT_ID_URL(attemptId));
+    return response.data;
+  } catch (error) {
+    console.error("Failed to get all written answers by attempt ID:", error);
+    throw error;
+  }
+};
+
+/**
+ * Score a writing answer by answerId.
+ * Updates GraderComment, sets isCorrect to true, and sets score.
+ * Also updates TestAttempt.isPass based on passing percentage.
+ * @param answerId - The answer ID to score
+ * @param dto - The scoring data (Score and GraderComment)
+ * @returns Promise<ScoringWritingResponseDto>
+ */
+export const scoringWriting = async (
+  answerId: string,
+  dto: ScoringWritingRequestDto
+): Promise<ScoringWritingResponseDto> => {
+  try {
+    const response = await axiosInstance.patch(SCORE_WRITING_URL(answerId), dto);
+    return response.data;
+  } catch (error) {
+    console.error("Failed to score writing answer:", error);
     throw error;
   }
 };

@@ -53,6 +53,7 @@ const StudentDoQuizPage: React.FC = () => {
     [ContentName.Grammar]: "Ngữ Pháp",
     [ContentName.Reading]: "Đọc Hiểu",
     [ContentName.Listening]: "Nghe Hiểu",
+    [ContentName.Writing]: "Viết", // Added for completeness but not shown in UI
   };
 
   const SUBCONTENT_NAME_LABELS: Record<SubContentName, string> = {
@@ -70,7 +71,18 @@ const StudentDoQuizPage: React.FC = () => {
     [SubContentName.Mondai12]: "Hiểu điểm chính",
     [SubContentName.Mondai13]: "Diễn đạt bằng lời nói",
     [SubContentName.Mondai14]: "Phản hồi tức thời",
+    [SubContentName.Mondai15]: "Viết đoạn văn ngắn", // Added for completeness but won't be used in UI
   };
+
+  // Define which ContentName values to show in UI (excluding Writing)
+  const AVAILABLE_CONTENT_NAMES = [
+    ContentName.Kanji,
+    ContentName.Vocabulary,
+    ContentName.Grammar,
+    ContentName.Reading,
+    ContentName.Listening
+    // ContentName.Writing is intentionally excluded
+  ];
 
   // Get subcontent options based on selected content
   const getSubContentOptions = (contentName: ContentName): SubContentName[] => {
@@ -275,9 +287,9 @@ const StudentDoQuizPage: React.FC = () => {
                     onChange={(e) => setSelectedContentName(parseInt(e.target.value) as ContentName)}
                     className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent"
                   >
-                    {Object.entries(CONTENT_NAME_LABELS).map(([value, label]) => (
-                      <option key={value} value={value}>
-                        {label}
+                    {AVAILABLE_CONTENT_NAMES.map(contentName => (
+                      <option key={contentName} value={contentName}>
+                        {CONTENT_NAME_LABELS[contentName]}
                       </option>
                     ))}
                   </select>

@@ -93,6 +93,7 @@ const QuestionManagementPage: React.FC = () => {
     [ContentName.Grammar]: "Ngữ Pháp",
     [ContentName.Reading]: "Đọc Hiểu",
     [ContentName.Listening]: "Nghe Hiểu",
+    [ContentName.Writing]: "Viết", // Added for completeness but not shown in UI
   };
 
   const SUBCONTENT_NAME_LABELS: Record<SubContentName, string> = {
@@ -109,7 +110,8 @@ const QuestionManagementPage: React.FC = () => {
     [SubContentName.Mondai11]: "Hiểu đề bài",
     [SubContentName.Mondai12]: "Hiểu điểm chính",
     [SubContentName.Mondai13]: "Diễn đạt bằng lời nói",
-    [SubContentName.Mondai14]: "Phản hồi tức thời"
+    [SubContentName.Mondai14]: "Phản hồi tức thời",
+    [SubContentName.Mondai15]: "Viết đoạn văn ngắn", // Added for completeness but not shown in UI
   };
 
   // Static mapping between ContentName and SubContentName based on backend enum
@@ -118,8 +120,19 @@ const QuestionManagementPage: React.FC = () => {
     [ContentName.Vocabulary]: [SubContentName.Mondai3, SubContentName.Mondai4],
     [ContentName.Grammar]: [SubContentName.Mondai5, SubContentName.Mondai6, SubContentName.Mondai7],
     [ContentName.Reading]: [SubContentName.Mondai8, SubContentName.Mondai9, SubContentName.Mondai10],
-    [ContentName.Listening]: [SubContentName.Mondai11, SubContentName.Mondai12, SubContentName.Mondai13, SubContentName.Mondai14]
+    [ContentName.Listening]: [SubContentName.Mondai11, SubContentName.Mondai12, SubContentName.Mondai13, SubContentName.Mondai14],
+    [ContentName.Writing]: [SubContentName.Mondai15]
   };
+
+  // Define which ContentName values to show in UI (excluding Writing for now)
+  const AVAILABLE_CONTENT_NAMES = [
+    ContentName.Kanji,
+    ContentName.Vocabulary,
+    ContentName.Grammar,
+    ContentName.Reading,
+    ContentName.Listening
+    // ContentName.Writing is intentionally excluded
+  ];
 
   // Helper function to safely get content name label
   const getContentNameLabel = (contentNameEnum: ContentName | number): string => {
@@ -128,7 +141,7 @@ const QuestionManagementPage: React.FC = () => {
       const enumValue = typeof contentNameEnum === 'number' ? contentNameEnum : Number(contentNameEnum);
       
       // Check if it's a valid enum value
-      if (isNaN(enumValue) || enumValue < 0 || enumValue > 4) {
+      if (isNaN(enumValue) || enumValue < 0 || enumValue > 5) { // Updated to include Writing (5)
         console.warn("Invalid contentName value:", contentNameEnum);
         return "Unknown";
       }
@@ -586,10 +599,8 @@ const QuestionManagementPage: React.FC = () => {
             <span>📖</span> Lọc theo nội dung
           </h4>
           {/* ContentName and SubContentName filter with hierarchy */}
-          {Object.keys(ContentName)
-            .filter(k => isNaN(Number(k)))
-            .map((key) => {
-              const value = ContentName[key as keyof typeof ContentName] as unknown as ContentName;
+          {AVAILABLE_CONTENT_NAMES.map((value) => {
+              const key = ContentName[value]; // Get the string key from the enum value
               const isContentSelected = contentName.includes(value);
               const subContents = CONTENT_TO_SUBCONTENT_MAPPING[value] || [];
               

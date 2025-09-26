@@ -43,6 +43,7 @@ export interface CreateQuestionDto {
   contentName: ContentName;
   level: CourseLevel;
   subContentName: SubContentName;
+  questionType: QuestionType;
   audioFile?: File;
 }
 
@@ -117,7 +118,16 @@ export enum ContentName {
   Vocabulary = 1,
   Grammar = 2,
   Reading = 3,
-  Listening = 4
+  Listening = 4,
+  Writing = 5
+}
+
+/**
+ * Question types
+ */
+export enum QuestionType {
+  MultipleChoice = 0,
+  Writing = 1
 }
 
 /**
@@ -149,6 +159,7 @@ export enum SubContentName {
   Mondai12 = 11, // Hiểu điểm chính
   Mondai13 = 12, // Diễn đạt bằng lời nói
   Mondai14 = 13, // Phản hồi tức thời
+  Mondai15 = 14, // Viết đoạn văn ngắn
 }
 
 /**

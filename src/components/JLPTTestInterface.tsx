@@ -108,6 +108,8 @@ const JLPTTestInterface: React.FC<JLPTTestInterfaceProps> = ({
   // Audio control functions
   const handlePlayAudio = async (audioUrl: string) => {
     try {
+      console.log('Attempting to play audio:', audioUrl);
+      
       // Pause any currently playing audio
       if (playingAudio && playingAudio !== audioUrl) {
         const currentlyPlaying = audioRefs.current.get(playingAudio);
@@ -142,8 +144,12 @@ const JLPTTestInterface: React.FC<JLPTTestInterfaceProps> = ({
 
         audio.addEventListener('error', (e) => {
           console.error('Audio error:', e);
-          error('Lỗi audio', 'Không thể phát âm thanh');
+          error('Lỗi audio', 'Không thể phát âm thanh. Vui lòng thử lại.');
           setPlayingAudio(null);
+        });
+
+        audio.addEventListener('canplaythrough', () => {
+          console.log('Audio ready to play:', audioUrl);
         });
       }
 
@@ -152,12 +158,27 @@ const JLPTTestInterface: React.FC<JLPTTestInterfaceProps> = ({
         audio.pause();
         setPlayingAudio(null);
       } else {
-        await audio.play();
-        setPlayingAudio(audioUrl);
+        // Ensure audio is ready before playing
+        if (audio.readyState >= 2) { // HAVE_CURRENT_DATA
+          await audio.play();
+          setPlayingAudio(audioUrl);
+        } else {
+          // Wait for audio to load
+          audio.addEventListener('canplaythrough', async () => {
+            try {
+              await audio.play();
+              setPlayingAudio(audioUrl);
+            } catch (playError) {
+              console.error('Error playing audio after load:', playError);
+              error('Lỗi audio', 'Không thể phát âm thanh. Vui lòng thử lại.');
+              setPlayingAudio(null);
+            }
+          }, { once: true });
+        }
       }
     } catch (err) {
       console.error('Error playing audio:', err);
-      error('Lỗi audio', 'Không thể phát âm thanh');
+      error('Lỗi audio', 'Không thể phát âm thanh. Vui lòng kiểm tra đường truyền mạng.');
       setPlayingAudio(null);
     }
   };
@@ -827,7 +848,7 @@ const JLPTTestInterface: React.FC<JLPTTestInterfaceProps> = ({
                               alt="Question attachment" 
                               className="max-w-full h-auto rounded-lg shadow-sm"
                             />
-                          ) : attachment.mediaType.startsWith('audio/') ? (
+                          ) : (attachment.mediaType === 'audio' || attachment.mediaType.startsWith('audio/')) ? (
                             <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
                               <div className="flex items-center justify-between mb-3">
                                 <div className="flex items-center gap-2">
@@ -835,7 +856,12 @@ const JLPTTestInterface: React.FC<JLPTTestInterfaceProps> = ({
                                   <span className="text-sm font-medium text-blue-800">Audio câu hỏi</span>
                                 </div>
                                 <button
-                                  onClick={() => handlePlayAudio(attachment.mediaUrl)}
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    handlePlayAudio(attachment.mediaUrl);
+                                  }}
                                   className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
                                   title={playingAudio === attachment.mediaUrl ? "Tạm dừng" : "Phát audio"}
                                 >
@@ -863,9 +889,7 @@ const JLPTTestInterface: React.FC<JLPTTestInterfaceProps> = ({
                                 </div>
                               )}
                               
-                              <p className="text-xs text-blue-600 mt-2">
-                                💡 Nhấn nút phát để nghe audio trực tiếp trong trang
-                              </p>
+                              
                             </div>
                           ) : (
                             <div className="bg-gray-100 p-4 rounded-lg">

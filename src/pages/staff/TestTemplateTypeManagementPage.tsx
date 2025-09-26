@@ -730,9 +730,17 @@ const TestTemplateTypeManagementPage: React.FC = () => {
       [TestType.JLPTAuto]: "JLPT Tự động",
       [TestType.EntryAuto]: "Đầu vào Tự động", 
       [TestType.CustomManual]: "Tùy chỉnh Thủ công",
+      [TestType.WrittenManual]: "Viết Thủ công", // Added for completeness but won't be used in UI
     };
     return labels[type] || "Không xác định";
   };
+
+  // Define available test types for UI (excluding WrittenManual)
+  const AVAILABLE_TEST_TYPES = [
+    TestType.JLPTAuto,
+    TestType.EntryAuto,
+    // TestType.WrittenManual is intentionally excluded
+  ];
 
   if (loading) {
     return (
@@ -1210,8 +1218,11 @@ const TestTemplateTypeManagementPage: React.FC = () => {
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                 required
               >
-                <option value={TestType.JLPTAuto}>JLPT Auto</option>
-                <option value={TestType.EntryAuto}>Entry Auto</option>
+                {AVAILABLE_TEST_TYPES.map(testType => (
+                  <option key={testType} value={testType}>
+                    {getTestTypeLabel(testType)}
+                  </option>
+                ))}
               </select>
             </div>
           </div>
@@ -1329,8 +1340,11 @@ const TestTemplateTypeManagementPage: React.FC = () => {
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                 required
               >
-                <option value={TestType.JLPTAuto}>JLPT Auto</option>
-                <option value={TestType.EntryAuto}>Entry Auto</option>
+                {AVAILABLE_TEST_TYPES.map(testType => (
+                  <option key={testType} value={testType}>
+                    {getTestTypeLabel(testType)}
+                  </option>
+                ))}
               </select>
             </div>
           </div>

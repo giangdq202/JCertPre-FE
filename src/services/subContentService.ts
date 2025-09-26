@@ -24,6 +24,7 @@ export enum SubContentName {
   Mondai12 = 11, // Hiểu điểm chính
   Mondai13 = 12, // Diễn đạt bằng lời nói
   Mondai14 = 13, // Phản hồi tức thời
+  Mondai15 = 14, // Viết đoạn văn ngắn
 }
 
 export enum CourseLevel {
@@ -40,6 +41,7 @@ export enum ContentName {
   Grammar = 2, // ngữ pháp
   Reading = 3, // đọc hiểu
   Listening = 4, // nghe hiểu
+  Writing = 5, // viết
 }
 
 // --- Validation rules for sub-content fields ---

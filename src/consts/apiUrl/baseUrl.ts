@@ -1,6 +1,6 @@
-// export const BASE_URL = "http://localhost:5001/api";
+ export const BASE_URL = "http://localhost:5001/api";
 
-export const BASE_URL = "https://be.zd-dev.xyz/api";
+// export const BASE_URL = "https://be.zd-dev.xyz/api";
 
 // ===== AUTH ENDPOINTS =====
 export const AUTH_BASE_URL = `${BASE_URL}/auth`;
@@ -134,7 +134,9 @@ export const UPDATE_TEST_URL = (testId: string) => `${TEST_BASE_URL}/${testId}`;
 export const DELETE_TEST_URL = (testId: string) => `${TEST_BASE_URL}/${testId}`;
 export const UPDATE_TEST_STATUS_URL = (testId: string) => `${TEST_BASE_URL}/${testId}/status`;
 export const GET_TEST_BY_LESSON_URL = (lessonId: string) => `${TEST_BASE_URL}/by-lesson/${lessonId}`;
+export const GET_WRITING_BY_LESSON_URL = (lessonId: string) => `${TEST_BASE_URL}/by-lesson/${lessonId}/writing/get`;
 export const CREATE_TEST_BY_LESSON_URL = (lessonId: string) => `${TEST_BASE_URL}/by-lesson/${lessonId}`;
+export const CREATE_WRITING_BY_LESSON_URL = (lessonId: string) => `${TEST_BASE_URL}/by-lesson/${lessonId}/writing`;
 export const AUTO_CREATE_TEST_URL = (userId: string) => `${TEST_BASE_URL}/auto-create?userId=${userId}`;
 export const GET_TESTS_BY_USER_URL = (userId: string) => `${TEST_BASE_URL}/user/${userId}`;
 
@@ -145,6 +147,7 @@ export const GET_TEST_ATTEMPTS_BY_USER_URL = (userId: string) => `${TEST_ATTEMPT
 export const START_TEST_ATTEMPT_URL = `${TEST_ATTEMPT_BASE_URL}/start`;
 export const SUBMIT_TEST_ATTEMPT_URL = `${TEST_ATTEMPT_BASE_URL}/submit`;
 export const UPDATE_TEST_ATTEMPT_STATUS_URL = (attemptId: string) => `${TEST_ATTEMPT_BASE_URL}/update-status/${attemptId}`;
+export const GET_PAGED_ATTEMPTS_BY_TEST_ID_URL = (testId: string) => `${TEST_ATTEMPT_BASE_URL}/by-test/${testId}/paged`;
 
 // ===== TEST QUESTION ENDPOINTS =====
 export const TEST_QUESTION_BASE_URL = `${BASE_URL}/test-questions`;
@@ -161,6 +164,9 @@ export const ADD_OR_UPDATE_ATTEMPT_ANSWERS_URL = `${ATTEMPT_ANSWER_BASE_URL}/add
 export const CREATE_ATTEMPT_ANSWER_URL = `${ATTEMPT_ANSWER_BASE_URL}/create`;
 export const UPDATE_ATTEMPT_ANSWER_URL = `${ATTEMPT_ANSWER_BASE_URL}/update`;
 export const GET_ATTEMPT_ANSWERS_URL = (attemptId: string) => `${ATTEMPT_ANSWER_BASE_URL}/by-attempt/${attemptId}`;
+export const ADD_OR_UPDATE_WRITING_ANSWERS_URL = `${ATTEMPT_ANSWER_BASE_URL}/writing`;
+export const GET_ALL_WRITTEN_BY_ATTEMPT_ID_URL = (attemptId: string) => `${ATTEMPT_ANSWER_BASE_URL}/written/${attemptId}`;
+export const SCORE_WRITING_URL = (answerId: string) => `${ATTEMPT_ANSWER_BASE_URL}/score-writing/${answerId}`;
 
 // ===== CONVERSATION ENDPOINTS =====
 export const CONVERSATION_BASE_URL = `${BASE_URL}/conversations`;

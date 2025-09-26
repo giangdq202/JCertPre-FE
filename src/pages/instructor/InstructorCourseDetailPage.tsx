@@ -2,12 +2,14 @@ import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import InstructorSidebar from "../../components/sidebar/InstructorSidebar";
 import InstructorHeader from "../../components/header/InstructorHeader";
-import { FaChevronRight, FaQuestionCircle, FaEye, FaEyeSlash } from "react-icons/fa";
+import { FaChevronRight, FaQuestionCircle, FaPen, FaEye, FaEyeSlash, FaEdit } from "react-icons/fa";
 import { getCourseById, CourseDto, CourseLevel } from "../../services/courseService";
-import { LessonDto, getLessonsByCourseId } from "../../services/lessonService";
+import { LessonDto } from "../../types/lesson.types";
+import { getLessonsByCourseId } from "../../services/lessonService";
 import { getByLessonId, TestDto, TestStatus, updateTestStatus } from "../../services/testService";
 import CreateTestModal from "../../components/modals/CreateTestModal";
 import EditTestModal from "../../components/modals/EditTestModal";
+import CreateWritingTestModal from "../../components/modals/CreateWritingTestModal";
 import { toast } from 'react-toastify';
 
 const InstructorCourseDetailPage: React.FC = () => {
@@ -21,12 +23,14 @@ const InstructorCourseDetailPage: React.FC = () => {
 
   // Test creation state
   const [isCreateTestModalVisible, setIsCreateTestModalVisible] = useState(false);
+  const [isCreateWritingTestModalVisible, setIsCreateWritingTestModalVisible] = useState(false);
   const [isEditTestModalVisible, setIsEditTestModalVisible] = useState(false);
   const [currentLessonForTest, setCurrentLessonForTest] = useState<string>("");
   const [currentTestForEdit, setCurrentTestForEdit] = useState<TestDto | null>(null);
   
   // Test management state
   const [lessonTests, setLessonTests] = useState<{ [key: string]: TestDto | null }>({});
+  const [lessonWritingTests, setLessonWritingTests] = useState<{ [key: string]: TestDto | null }>({});
   const [loadingTests, setLoadingTests] = useState<{ [key: string]: boolean }>({});
 
   // Fetch course and lessons data
@@ -62,10 +66,24 @@ const InstructorCourseDetailPage: React.FC = () => {
     setLoadingTests(prev => ({ ...prev, [lessonId]: true }));
     try {
       const test = await getByLessonId(lessonId);
-      setLessonTests(prev => ({ ...prev, [lessonId]: test }));
+      if (test) {
+        // Check test type to determine which state to update
+        if (test.testType === 3) { // Writing test
+          setLessonWritingTests(prev => ({ ...prev, [lessonId]: test }));
+          setLessonTests(prev => ({ ...prev, [lessonId]: null }));
+        } else { // Multiple choice test
+          setLessonTests(prev => ({ ...prev, [lessonId]: test }));
+          setLessonWritingTests(prev => ({ ...prev, [lessonId]: null }));
+        }
+      } else {
+        // No test found
+        setLessonTests(prev => ({ ...prev, [lessonId]: null }));
+        setLessonWritingTests(prev => ({ ...prev, [lessonId]: null }));
+      }
     } catch (error) {
       console.error(`Failed to load test for lesson ${lessonId}:`, error);
       setLessonTests(prev => ({ ...prev, [lessonId]: null }));
+      setLessonWritingTests(prev => ({ ...prev, [lessonId]: null }));
     } finally {
       setLoadingTests(prev => ({ ...prev, [lessonId]: false }));
     }
@@ -74,8 +92,8 @@ const InstructorCourseDetailPage: React.FC = () => {
   const handleLessonPanelToggle = (lessonId: string) => {
     setActiveLessonPanel(activeLessonPanel === lessonId ? [] : lessonId);
     
-    // Load test for this lesson if not already loaded
-    if (!lessonTests[lessonId] && !loadingTests[lessonId]) {
+    // Load test for this lesson if not already loaded (single API call for both types)
+    if (!lessonTests[lessonId] && !lessonWritingTests[lessonId] && !loadingTests[lessonId]) {
       loadLessonTest(lessonId);
     }
   };
@@ -85,6 +103,11 @@ const InstructorCourseDetailPage: React.FC = () => {
     setIsCreateTestModalVisible(true);
   };
 
+  const showCreateWritingTestModal = (lessonId: string) => {
+    setCurrentLessonForTest(lessonId);
+    setIsCreateWritingTestModalVisible(true);
+  };
+
   const handleTestCreated = () => {
     toast.success("Test created successfully!");
     // Refresh the test data for the current lesson
@@ -92,6 +115,15 @@ const InstructorCourseDetailPage: React.FC = () => {
       loadLessonTest(currentLessonForTest);
     }
     setIsCreateTestModalVisible(false);
+  };
+
+  const handleWritingTestCreated = () => {
+    toast.success("Writing test created successfully!");
+    // Refresh test data (will categorize as writing test based on testType)
+    if (currentLessonForTest) {
+      loadLessonTest(currentLessonForTest);
+    }
+    setIsCreateWritingTestModalVisible(false);
   };
 
   const showEditTestModal = (test: TestDto) => {
@@ -120,6 +152,21 @@ const InstructorCourseDetailPage: React.FC = () => {
     } catch (error) {
       console.error(`Failed to update test status for lesson ${lessonId}:`, error);
       toast.error("Failed to update test status. Please try again.");
+    }
+  };
+
+  const handleWritingTestStatusToggle = async (lessonId: string) => {
+    const test = lessonWritingTests[lessonId];
+    if (!test) return;
+
+    try {
+      const newStatus = test.status === TestStatus.Open ? TestStatus.Close : TestStatus.Open;
+      const updatedTest = await updateTestStatus(test.testId, newStatus);
+      setLessonWritingTests(prev => ({ ...prev, [lessonId]: updatedTest }));
+      toast.success(`Writing test ${newStatus === TestStatus.Open ? 'opened' : 'closed'} successfully!`);
+    } catch (error) {
+      console.error(`Failed to update writing test status for lesson ${lessonId}:`, error);
+      toast.error("Failed to update writing test status. Please try again.");
     }
   };
 
@@ -281,6 +328,21 @@ const InstructorCourseDetailPage: React.FC = () => {
                             >
                               <FaQuestionCircle size={18} />
                             </button>
+                            <button
+                              onClick={(e) => { 
+                                e.stopPropagation(); 
+                                showCreateWritingTestModal(lesson.lessonId); 
+                              }}
+                              disabled={!!lessonWritingTests[lesson.lessonId]}
+                              className={`transition-colors p-2 rounded-full ${
+                                lessonWritingTests[lesson.lessonId] 
+                                  ? 'text-gray-400 cursor-not-allowed' 
+                                  : 'text-gray-600 hover:text-purple-600 hover:bg-purple-100'
+                              }`}
+                              title={lessonWritingTests[lesson.lessonId] ? "Bài học đã có writing test" : "Tạo writing test cho bài học"}
+                            >
+                              <FaPen size={18} />
+                            </button>
                             <FaChevronRight 
                               className={`text-gray-500 transition-transform duration-200 ${
                                 activeLessonPanel === lesson.lessonId ? 'rotate-90' : ''
@@ -362,6 +424,61 @@ const InstructorCourseDetailPage: React.FC = () => {
                                     </button>
                                   </div>
                                 )}
+
+                                {/* Writing Tests Section for this lesson */}
+                                {loadingTests[lesson.lessonId] && !lessonTests[lesson.lessonId] && !lessonWritingTests[lesson.lessonId] ? (
+                                  <div className="text-center text-gray-500 py-2">Đang tải bài kiểm tra...</div>
+                                ) : lessonWritingTests[lesson.lessonId] ? (
+                                  <div className="flex items-center justify-between bg-purple-50 p-3 rounded-lg border border-purple-200 mb-4">
+                                    <div className="flex items-center gap-3">
+                                      <FaPen className="text-purple-600" size={20} />
+                                      <div className="flex-1">
+                                        <div className="flex items-center gap-2">
+                                          <span className="text-sm font-medium text-gray-800">
+                                            {lessonWritingTests[lesson.lessonId]?.title}
+                                          </span>
+                                          <span className="px-2 py-0.5 bg-purple-200 text-purple-800 text-xs rounded-full font-medium">
+                                            Viết
+                                          </span>
+                                        </div>
+                                        <span className="text-xs text-gray-500 block mt-1">
+                                          {lessonWritingTests[lesson.lessonId]?.description}
+                                        </span>
+                                      </div>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <button
+                                        onClick={() => showEditTestModal(lessonWritingTests[lesson.lessonId]!)}
+                                        className="flex items-center gap-1 px-3 py-1 text-xs bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors"
+                                        title="Chỉnh sửa bài kiểm tra viết"
+                                      >
+                                        <FaEdit className="text-xs" />
+                                        Sửa
+                                      </button>
+                                      <button
+                                        onClick={() => handleWritingTestStatusToggle(lesson.lessonId)}
+                                        className={`flex items-center gap-1 px-3 py-1 text-xs rounded transition-colors ${
+                                          lessonWritingTests[lesson.lessonId]?.status === TestStatus.Open
+                                            ? 'bg-green-600 text-white hover:bg-green-700'
+                                            : 'bg-gray-600 text-white hover:bg-gray-700'
+                                        }`}
+                                        title={lessonWritingTests[lesson.lessonId]?.status === TestStatus.Open ? 'Đóng test' : 'Mở test'}
+                                      >
+                                        {lessonWritingTests[lesson.lessonId]?.status === TestStatus.Open ? (
+                                          <>
+                                            <FaEyeSlash className="text-xs" />
+                                            Đóng
+                                          </>
+                                        ) : (
+                                          <>
+                                            <FaEye className="text-xs" />
+                                            Mở
+                                          </>
+                                        )}
+                                      </button>
+                                    </div>
+                                  </div>
+                                ) : null}
                               </div>
                             </div>
                           </div>
@@ -398,6 +515,17 @@ const InstructorCourseDetailPage: React.FC = () => {
         courseStartDate={course?.startDate}
         courseEndDate={course?.endDate}
         onTestUpdated={handleTestUpdated}
+      />
+
+      {/* Modal for creating writing test */}
+      <CreateWritingTestModal
+        isVisible={isCreateWritingTestModalVisible}
+        onCancel={() => setIsCreateWritingTestModalVisible(false)}
+        lessonId={currentLessonForTest}
+        courseLevel={course?.level || CourseLevel.N5}
+        courseStartDate={course?.startDate}
+        courseEndDate={course?.endDate}
+        onSuccess={handleWritingTestCreated}
       />
     </div>
   );

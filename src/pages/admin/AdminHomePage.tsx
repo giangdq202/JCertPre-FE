@@ -223,11 +223,7 @@ const AdminHomePage: React.FC = () => {
                 )}
               </div>
             </div>
-            <div className="flex items-center text-sm">
-              <span className="text-green-600 font-medium">
-                {totalRevenue ? `${formatNumber(totalRevenue.totalTransactions)} giao dịch` : "0 giao dịch"}
-              </span>
-            </div>
+
           </div>
 
           {/* Total Enrollments Card */}
@@ -459,12 +455,7 @@ const AdminHomePage: React.FC = () => {
             Thông tin chi tiết
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="text-center p-4">
-              <div className="text-2xl font-bold text-orange-600 mb-2">
-                {totalRevenue ? formatNumber(totalRevenue.totalTransactions) : "0"}
-              </div>
-              <p className="text-gray-600">Tổng số giao dịch</p>
-            </div>
+           
             <div className="text-center p-4">
               <div className="text-2xl font-bold text-orange-600 mb-2">
                 {totalEnrollments ? formatNumber(totalEnrollments.totalCount) : "0"}

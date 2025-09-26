@@ -2,7 +2,9 @@ import axiosInstance from "../consts/axios/axiosInstance";
 import {
   GET_TESTS_BY_USER_URL,
   GET_TEST_BY_LESSON_URL,
+  GET_WRITING_BY_LESSON_URL,
   CREATE_TEST_BY_LESSON_URL,
+  CREATE_WRITING_BY_LESSON_URL,
   AUTO_CREATE_TEST_URL,
   UPDATE_TEST_URL,
   DELETE_TEST_URL,
@@ -19,6 +21,7 @@ export enum TestType {
   JLPTAuto = 0,
   EntryAuto = 1,
   CustomManual = 2,
+  WrittenManual = 3,
 }
 
 export enum TestStatus {
@@ -148,6 +151,24 @@ export const getByLessonId = async (lessonId: string): Promise<TestDto | null> =
       return null; // No test found for this lesson
     }
     console.error("Failed to get test by lesson ID:", error);
+    throw error;
+  }
+};
+
+/**
+ * Get a writing test by lesson ID.
+ * @param lessonId - The lesson ID
+ * @returns Promise<TestDto | null>
+ */
+export const getWritingByLessonId = async (lessonId: string): Promise<TestDto | null> => {
+  try {
+    const response = await axiosInstance.get(GET_WRITING_BY_LESSON_URL(lessonId));
+    return response.data;
+  } catch (error: any) {
+    if (error.response?.status === 404) {
+      return null; // No writing test found for this lesson
+    }
+    console.error("Failed to get writing test by lesson ID:", error);
     throw error;
   }
 };
@@ -342,6 +363,46 @@ export const getByTestId = async (testId: string): Promise<TestDto | null> => {
       return null;
     }
     console.error("Failed to get test by test ID:", error);
+    throw error;
+  }
+};
+
+/**
+ * Create a writing test by lesson ID.
+ * @param userId - The user ID (query parameter)
+ * @param lessonId - The lesson ID (path parameter)
+ * @param createTestDto - Test details
+ * @returns Promise<TestDto>
+ */
+export const createWritingByLessonId = async (
+  userId: string,
+  lessonId: string,
+  createTestDto: CreateTestDto
+): Promise<TestDto> => {
+  try {
+    // Ensure all required fields are present with fallback values
+    const requestBody = {
+      title: createTestDto.title,
+      description: createTestDto.description || '',
+      testType: createTestDto.testType,
+      courseLevel: createTestDto.courseLevel,
+      durationMinutes: createTestDto.durationMinutes,
+      availableFrom: createTestDto.availableFrom || new Date().toISOString(),
+      availableTo: createTestDto.availableTo || new Date().toISOString(),
+      maxAttempts: createTestDto.maxAttempts,
+      passingPercentage: createTestDto.passingPercentage,
+    };
+    
+    console.log('Request body being sent:', requestBody);
+    
+    // userId as query parameter, lessonId in path, test details in body
+    const response = await axiosInstance.post(
+      `${CREATE_WRITING_BY_LESSON_URL(lessonId)}?userId=${userId}`, 
+      requestBody
+    );
+    return response.data;
+  } catch (error) {
+    console.error("Failed to create writing test by lesson ID:", error);
     throw error;
   }
 }; 

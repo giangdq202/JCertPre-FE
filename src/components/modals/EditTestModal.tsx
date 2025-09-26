@@ -70,6 +70,7 @@ interface ExistingQuestionItemProps {
   onSave: (updates: UpdateQuestionDto) => void;
   onDelete: () => void;
   showNotification: (title: string, message: string, type: 'success' | 'error' | 'warning') => void;
+  isWritingTest?: boolean;
 }
 
 const ExistingQuestionItem: React.FC<ExistingQuestionItemProps> = ({
@@ -79,7 +80,8 @@ const ExistingQuestionItem: React.FC<ExistingQuestionItemProps> = ({
   onCancelEdit,
   onSave,
   onDelete,
-  showNotification
+  showNotification,
+  isWritingTest = false
 }) => {
   const [editForm, setEditForm] = useState<EditQuestionFormState>({
     content: question.content,
@@ -464,6 +466,7 @@ const ExistingQuestionItem: React.FC<ExistingQuestionItemProps> = ({
             {question.points} điểm
           </span>
         </div>
+        {!isWritingTest && (
         <div className="flex gap-2">
           <button
             onClick={onEdit}
@@ -480,6 +483,7 @@ const ExistingQuestionItem: React.FC<ExistingQuestionItemProps> = ({
             <FaTrash size={16} />
           </button>
         </div>
+        )}
       </div>
 
       <div className="space-y-2">
@@ -1137,6 +1141,7 @@ const EditTestModal: React.FC<EditTestModalProps> = ({
                         onSave={(updates) => handleUpdateExistingQuestion(question.id, updates)}
                         onDelete={() => handleDeleteExistingQuestion(question.testQuestionId)}
                         showNotification={showNotification}
+                        isWritingTest={test.testType === TestType.WrittenManual}
                       />
                     </div>
                   </div>
@@ -1145,7 +1150,8 @@ const EditTestModal: React.FC<EditTestModalProps> = ({
             )}
           </div>
 
-          {/* Add Questions Section */}
+          {/* Add Questions Section - Only show for non-writing tests */}
+          {test.testType !== TestType.WrittenManual && (
           <div className="border-t border-gray-200 pt-6">
             <div className="mb-6">
               <h4 className="text-lg font-semibold text-gray-800 mb-4">Thêm Câu hỏi</h4>
@@ -1307,9 +1313,7 @@ const EditTestModal: React.FC<EditTestModalProps> = ({
               </div>
             </div>
           </div>
-          
-
-           
+          )}
 
            {/* Action Buttons */}
            <div className="flex gap-3 pt-6 border-t border-gray-200">
