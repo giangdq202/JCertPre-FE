@@ -380,13 +380,13 @@ const CreateWritingTestModal: React.FC<CreateWritingTestModalProps> = ({
               ))}
             </div>
             
-            <button
+            {/* <button
               onClick={addNewQuestion}
               className="mt-3 w-full py-2 border border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-blue-500 hover:text-blue-500 flex items-center justify-center gap-2"
             >
               <FaPlus size={12} />
               Thêm câu hỏi
-            </button>
+            </button> */}
           </div>
 
           {/* Right Panel - Question Editor */}
