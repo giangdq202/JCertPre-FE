@@ -43,6 +43,7 @@ import InstructorHomePage from "../pages/instructor/InstructorHomePage";
 import InstructorSchedulePage from "../pages/instructor/InstructorSchedulePage";
 import InstructorCoursesPage from "../pages/instructor/InstructorCoursesPage";
 import InstructorCourseDetailPage from "../pages/instructor/InstructorCourseDetailPage";
+import WritingSubmissionsPage from "../pages/instructor/WritingSubmissionsPage";
 import InstructorLiveStreamPage from "../pages/instructor/InstructorLiveStreamPage";
 // Admin imports
 import AdminHomePage from "../pages/admin/AdminHomePage";
@@ -389,6 +390,14 @@ const AppRoutes: React.FC = () => {
           element={
             <ProtectedRoute allowedRoles={["INSTRUCTOR"]}>
               <InstructorCourseDetailPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/instructor/writing-submissions/:testId"
+          element={
+            <ProtectedRoute allowedRoles={["INSTRUCTOR"]}>
+              <WritingSubmissionsPage />
             </ProtectedRoute>
           }
         />

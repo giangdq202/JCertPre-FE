@@ -1,4 +1,4 @@
-import { getAllTestAttemptsByUserId, TestAttemptDto } from './testAttemptService';
+import { getAllTestAttemptsByUserId, TestAttemptDto, TestAttemptStatus } from './testAttemptService';
 
 /**
  * Check if user has passed a specific test
@@ -30,15 +30,27 @@ export const hasUserPassedTest = async (userId: string, testId: string): Promise
  */
 export const getUserPassedTestIds = async (userId: string): Promise<Set<string>> => {
   try {
+    console.log('=== getUserPassedTestIds DEBUG ===');
+    console.log('UserID:', userId);
+    
     const attempts = await getAllTestAttemptsByUserId(userId);
+    console.log('Total attempts from API:', attempts.length);
     
     const passedTestIds = new Set<string>();
-    attempts.forEach(attempt => {
-      if (attempt.isPass === true) {
+    attempts.forEach((attempt, index) => {
+      console.log(`Attempt ${index}: id=${attempt.attemptId}, status=${attempt.status}, isPass=${attempt.isPass}, testId=${attempt.testId}`);
+      console.log(`TestAttemptStatus.Completed value:`, TestAttemptStatus.Completed);
+      
+      // Must be completed AND passed
+      if (attempt.status === TestAttemptStatus.Completed && attempt.isPass === true) {
+        console.log(`✅ PASSED: Adding testId ${attempt.testId} to passed set`);
         passedTestIds.add(attempt.testId);
+      } else {
+        console.log(`❌ NOT PASSED: status=${attempt.status} (expected ${TestAttemptStatus.Completed}), isPass=${attempt.isPass}`);
       }
     });
     
+    console.log('Final passed test IDs:', Array.from(passedTestIds));
     return passedTestIds;
   } catch (error) {
     console.error('Error getting passed test IDs:', error);

@@ -240,10 +240,10 @@ const CreateWritingTestModal: React.FC<CreateWritingTestModalProps> = ({
   if (!isVisible) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-6xl max-h-[95vh] flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
+        <div className="flex items-center justify-between p-6 border-b border-gray-200 flex-shrink-0">
           <h2 className="text-xl font-semibold text-gray-800">
             Tạo bài kiểm tra viết mới
           </h2>
@@ -255,7 +255,8 @@ const CreateWritingTestModal: React.FC<CreateWritingTestModalProps> = ({
           </button>
         </div>
 
-        <div className="flex h-[calc(90vh-120px)]">
+        {/* Content - flex-1 để chiếm không gian còn lại */}
+        <div className="flex flex-1 min-h-0">
           {/* Left Panel - Test Information */}
           <div className="w-1/2 p-6 border-r border-gray-200 overflow-y-auto">
             <h3 className="text-lg font-medium text-gray-800 mb-4">Thông tin bài kiểm tra</h3>
@@ -475,8 +476,8 @@ const CreateWritingTestModal: React.FC<CreateWritingTestModalProps> = ({
           </div>
         </div>
 
-        {/* Footer */}
-        <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-200 bg-gray-50">
+        {/* Footer - flex-shrink-0 để luôn hiển thị */}
+        <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-200 bg-gray-50 flex-shrink-0">
           <button
             onClick={onCancel}
             className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"

@@ -12,8 +12,8 @@ import { Pagination } from "../types/pagination";
 
 export enum TestAttemptStatus {
   InProgress = 0,
-  Completed = 1,
-  Suspended = 2,
+  Suspended = 1,
+  Completed = 2,
 }
 
 export interface StartTestAttemptDto {

@@ -533,11 +533,6 @@ const StudentStudyPlans: React.FC<StudentStudyPlansProps> = ({
                     <span>{formatDate(plan.startDate)} - {formatDate(plan.endDate)}</span>
                   </div>
                   
-                  <div className="flex items-center gap-1">
-                    <HiOutlineClipboardList className="w-4 h-4" />
-                    <span>{plan.completedItems}/{plan.totalItems} mục hoàn thành</span>
-                  </div>
-                  
                   {plan.isOverdue && (
                     <div className="flex items-center gap-1 text-red-500">
                       <HiOutlineExclamationCircle className="w-4 h-4" />
@@ -548,9 +543,6 @@ const StudentStudyPlans: React.FC<StudentStudyPlansProps> = ({
               </div>
               
               <div className="flex items-center gap-3">
-                <div className={`text-2xl font-bold ${getThemeClasses().percentage}`}>
-                  {plan.completionPercentage}%
-                </div>
                 {!isStudentView && (
                   <button
                     onClick={(e) => {
@@ -569,16 +561,6 @@ const StudentStudyPlans: React.FC<StudentStudyPlansProps> = ({
                 {plan.daysRemaining > 0 ? `${plan.daysRemaining} ngày còn lại` : 
                  plan.daysRemaining === 0 ? 'Hết hạn hôm nay' : 
                  `Quá hạn ${Math.abs(plan.daysRemaining)} ngày`}
-              </div>
-            </div>
-
-            {/* Progress Bar */}
-            <div className="mt-3">
-              <div className="w-full bg-gray-200 rounded-full h-2">
-                <div 
-                  className={`${getThemeClasses().progressBar} h-2 rounded-full transition-all duration-300`}
-                  style={{ width: `${plan.completionPercentage}%` }}
-                ></div>
               </div>
             </div>
           </div>

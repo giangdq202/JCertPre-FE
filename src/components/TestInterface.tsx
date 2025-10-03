@@ -55,7 +55,7 @@ interface UserAnswer {
 
 export const TestInterface: React.FC<TestInterfaceProps> = ({ test, lessonId, courseId, onBack, onTestCompleted }) => {
   const { userInfo } = useAuth();
-  const { success, error } = useNotification();
+  const { error } = useNotification();
   const { markLessonCompleted } = useLessonProgress();
   const [currentAttempt, setCurrentAttempt] = useState<TestAttemptDto | null>(null);
   const [questions, setQuestions] = useState<QuestionWithDetails[]>([]);
@@ -322,6 +322,8 @@ export const TestInterface: React.FC<TestInterfaceProps> = ({ test, lessonId, co
       
       // Get test result with score summary
       const result = await getTestAttemptWithScoreSummary(currentAttempt.attemptId);
+      
+      // API already returns correct structure { attempt, scoreSummary }
       setTestResult(result);
       setTestStatus('completed');
       
@@ -329,15 +331,14 @@ export const TestInterface: React.FC<TestInterfaceProps> = ({ test, lessonId, co
       if (result.attempt.isPass && lessonId && courseId) {
         try {
           await markLessonCompleted(lessonId, courseId);
-          success('Chúc mừng!', 'Bạn đã pass bài test và hoàn thành bài học!');
+          // Don't show notification here - let the result screen show
         } catch (progressError) {
           console.error('Failed to create lesson progress:', progressError);
-          success('Nộp bài thành công!', 'Kết quả test đã được lưu và chấm điểm');
+          // Still don't show notification - result screen is more important
         }
-      } else {
-        success('Nộp bài thành công!', 'Kết quả test đã được lưu và chấm điểm');
       }
-
+      
+      // Don't show success notification for multiple choice - result screen is enough
       // Call onTestCompleted callback if provided
       if (onTestCompleted) {
         onTestCompleted();

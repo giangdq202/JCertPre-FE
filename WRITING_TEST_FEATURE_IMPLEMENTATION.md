@@ -41,26 +41,6 @@ availableFrom: courseStartDate,
 availableTo: courseEndDate,
 ```
 
-### 4. **Wrong QuestionType for Writing Questions** (Fixed ✅)
-
-- **Problem**: Writing questions tạo với `QuestionType.MultipleChoice = 0` thay vì `QuestionType.Writing = 1`
-- **Solution**: Thêm `questionType` field vào `CreateQuestionDto` và sử dụng đúng enum
-- **Implementation**:
-
-```typescript
-// Updated CreateQuestionDto interface
-export interface CreateQuestionDto {
-  // ... other fields
-  questionType: QuestionType;  // ✅ Added
-}
-
-// Used in question creation
-const questionData: CreateQuestionDto = {
-  // ... other fields
-  questionType: QuestionType.Writing,  // ✅ Correct type
-};
-```
-
 ## Components đã thêm/cập nhật
 
 ### 1. API Services

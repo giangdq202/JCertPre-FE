@@ -43,7 +43,6 @@ export interface CreateQuestionDto {
   contentName: ContentName;
   level: CourseLevel;
   subContentName: SubContentName;
-  questionType: QuestionType;
   audioFile?: File;
 }
 

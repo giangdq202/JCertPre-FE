@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import InstructorSidebar from "../../components/sidebar/InstructorSidebar";
 import InstructorHeader from "../../components/header/InstructorHeader";
-import { FaChevronRight, FaQuestionCircle, FaPen, FaEye, FaEyeSlash, FaEdit } from "react-icons/fa";
+import { FaChevronRight, FaQuestionCircle, FaPen, FaEye, FaEyeSlash, FaEdit, FaList } from "react-icons/fa";
 import { getCourseById, CourseDto, CourseLevel } from "../../services/courseService";
 import { LessonDto } from "../../types/lesson.types";
 import { getLessonsByCourseId } from "../../services/lessonService";
@@ -168,6 +168,10 @@ const InstructorCourseDetailPage: React.FC = () => {
       console.error(`Failed to update writing test status for lesson ${lessonId}:`, error);
       toast.error("Failed to update writing test status. Please try again.");
     }
+  };
+
+  const handleViewWritingSubmissions = (testId: string) => {
+    navigate(`/instructor/writing-submissions/${testId}`);
   };
 
   if (loading) {
@@ -475,6 +479,14 @@ const InstructorCourseDetailPage: React.FC = () => {
                                             Mở
                                           </>
                                         )}
+                                      </button>
+                                      <button
+                                        onClick={() => handleViewWritingSubmissions(lessonWritingTests[lesson.lessonId]?.testId || '')}
+                                        className="flex items-center gap-1 px-3 py-1 text-xs bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors"
+                                        title="Xem các bài đã nộp"
+                                      >
+                                        <FaList className="text-xs" />
+                                        Xem các bài đã nộp
                                       </button>
                                     </div>
                                   </div>

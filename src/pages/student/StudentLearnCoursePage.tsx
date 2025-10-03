@@ -5,14 +5,16 @@ import { LessonDto } from "../../types/lesson.types";
 import { getDocumentsByLessonId, DocumentDto } from "../../services/documentService";
 import { getCourseById, CourseDto } from "../../services/courseService";
 import { getByLessonId, TestDto, TestType } from "../../services/testService";
-import { getAllTestAttemptsByUserId, TestAttemptDto, TestAttemptStatus } from "../../services/testAttemptService";
+import { TestAttemptDto, getPagedAttemptsByTestIdAndIsPass } from "../../services/testAttemptService";
+import { getAllWrittenByAttemptId } from "../../services/attemptAnswerService";
+import { WrittenAnswerDto } from "../../types/attemptAnswer.types";
 import { 
   getLessonProgressByUserAndLesson
 } from "../../services/lessonProgressService";
 import { livestreamApi, LivestreamDto, LivestreamStatus } from "../../services/livestreamService";
 import StudentHeader from "../../components/header/StudentHeader";
 import StudentSideBar from "../../components/sidebar/StudentSideBar";
-import { FaChevronRight, FaFilePdf, FaDownload, FaVideo, FaEdit, FaPen, FaPlay, FaClock, FaCalendarAlt, FaUser, FaExclamationTriangle } from "react-icons/fa";
+import { FaChevronRight, FaFilePdf, FaDownload, FaVideo, FaEdit, FaPen, FaPlay, FaClock, FaCalendarAlt, FaUser, FaExclamationTriangle, FaEye } from "react-icons/fa";
 import { FiCheckCircle, FiCircle } from "react-icons/fi";
 import { HiOutlineClock } from "react-icons/hi2";
 import { useLessonProgress } from "../../hooks/useLessonProgress";
@@ -62,6 +64,9 @@ const StudentLearnCoursePage: React.FC = () => {
   const [showTestInterface, setShowTestInterface] = useState(false);
   const [, setTestAttempts] = useState<TestAttemptDto[]>([]);
   const [passedTestIds, setPassedTestIds] = useState<Set<string>>(new Set());
+  const [writingTestResults, setWritingTestResults] = useState<{ [testId: string]: { attempt: TestAttemptDto, answers: WrittenAnswerDto[] } }>({});
+  const [showWritingResultModal, setShowWritingResultModal] = useState(false);
+  const [selectedWritingResult, setSelectedWritingResult] = useState<{ attempt: TestAttemptDto, answers: WrittenAnswerDto[] } | null>(null);
   const navigate = useNavigate();
   
   // Livestream states
@@ -73,7 +78,8 @@ const StudentLearnCoursePage: React.FC = () => {
   const { 
     getLessonCompletionRate, 
     getPassedTestIds,
-    updateProgress
+    updateProgress,
+    createProgress
   } = useLessonProgress();
   const { error: showError, warning } = useNotification();
 
@@ -174,30 +180,115 @@ const StudentLearnCoursePage: React.FC = () => {
     const loadAllTestAttempts = async () => {
       if (!userInfo?.id) return;
       
+      console.log('=== LOADING PASSED TEST IDS ===');
+      console.log('UserID:', userInfo.id);
+      
       try {
-        const allAttempts = await getAllTestAttemptsByUserId(userInfo.id);
-        
-        // Store all attempts
-        setTestAttempts(allAttempts);
-        
-        // Find test IDs that have at least one passed attempt
-        const passedTestIdsSet = new Set<string>();
-        allAttempts.forEach(attempt => {
-          if (attempt.status === TestAttemptStatus.Completed && attempt.isPass === true) {
-            passedTestIdsSet.add(attempt.testId);
-          }
-        });
-        
+        // Use the service to get passed test IDs directly
+        const passedTestIdsSet = await getPassedTestIds();
+        console.log('Service returned passed test IDs:', Array.from(passedTestIdsSet));
         setPassedTestIds(passedTestIdsSet);
       } catch (error) {
         console.error('Failed to load test attempts:', error);
+        setPassedTestIds(new Set());
       }
     };
 
     if (!authLoading && userInfo?.id) {
+      console.log('Calling loadAllTestAttempts with service...');
       loadAllTestAttempts();
     }
-  }, [userInfo?.id, authLoading]);
+  }, [userInfo?.id, authLoading, getPassedTestIds]);
+
+  // Update lesson progress when lessons and passed tests are loaded
+  useEffect(() => {
+    console.log('=== LESSON PROGRESS UPDATE EFFECT ===');
+    console.log('Lessons length:', lessons.length);
+    console.log('LessonTests keys:', Object.keys(lessonTests).length);
+    console.log('PassedTestIds size:', passedTestIds.size);
+    console.log('PassedTestIds array:', Array.from(passedTestIds));
+    
+    if (lessons.length > 0 && Object.keys(lessonTests).length > 0 && passedTestIds.size > 0) {
+      console.log('Calling checkAndUpdateLessonProgress...');
+      checkAndUpdateLessonProgress(passedTestIds);
+    } else {
+      console.log('Not calling checkAndUpdateLessonProgress - conditions not met');
+    }
+  }, [lessons, lessonTests, passedTestIds]);
+
+  const loadWritingTestResults = async () => {
+    if (!userInfo?.id) return;
+    
+    try {
+      const writingResults: { [testId: string]: { attempt: TestAttemptDto, answers: WrittenAnswerDto[] } } = {};
+      
+      // Loop through all tests in current course to find writing tests
+      for (const lesson of lessons) {
+        const test = lessonTests[lesson.lessonId];
+        if (test && test.testType === TestType.WrittenManual) {
+          try {
+            // Get scored attempts for this specific test (both pass and fail)
+            const passedAttempts = await getPagedAttemptsByTestIdAndIsPass(test.testId, true, 1, 100);
+            const failedAttempts = await getPagedAttemptsByTestIdAndIsPass(test.testId, false, 1, 100);
+            
+            const allScoredAttempts = [
+              ...(passedAttempts.items || []),
+              ...(failedAttempts.items || [])
+            ];
+            
+            // Find attempt by current user
+            const userAttempt = allScoredAttempts.find(attempt => attempt.userId === userInfo.id);
+            
+            if (userAttempt) {
+              // Load writing answers for this attempt
+              const answers = await getAllWrittenByAttemptId(userAttempt.attemptId);
+              
+              // Check if any answer has been scored
+              const scoredAnswers = answers.filter(answer => answer.score !== null);
+              
+              if (scoredAnswers.length > 0) {
+                writingResults[test.testId] = { attempt: userAttempt, answers };
+              }
+            }
+          } catch (error) {
+            console.error(`Error loading data for test ${test.testId}:`, error);
+          }
+        }
+      }
+      
+      setWritingTestResults(writingResults);
+    } catch (error) {
+      console.error('Failed to load writing test results:', error);
+    }
+  };
+
+  // Load writing test results after lessons and tests are loaded
+  useEffect(() => {
+    if (!authLoading && userInfo?.id && lessons.length > 0 && Object.keys(lessonTests).length > 0) {
+      loadWritingTestResults();
+    }
+  }, [userInfo?.id, authLoading, lessons, lessonTests]);
+
+  // Update passed test IDs and lesson progress when writing test results change
+  useEffect(() => {
+    if (Object.keys(writingTestResults).length > 0) {
+      const newPassedTestIds = new Set(passedTestIds);
+      
+      // Add writing tests that have passed attempts
+      Object.entries(writingTestResults).forEach(([testId, result]) => {
+        if (result.attempt.isPass === true) {
+          newPassedTestIds.add(testId);
+        }
+      });
+      
+      // Update passedTestIds if there are new ones
+      if (newPassedTestIds.size > passedTestIds.size) {
+        setPassedTestIds(newPassedTestIds);
+        // Update lesson progress for newly passed tests
+        checkAndUpdateLessonProgress(newPassedTestIds);
+      }
+    }
+  }, [writingTestResults, passedTestIds]);
 
   const handleLessonClick = (lessonId: string) => {
     setSelectedLessonId(lessonId);
@@ -317,6 +408,19 @@ const StudentLearnCoursePage: React.FC = () => {
     return passedTestIds.has(testId);
   };
 
+  const handleViewWritingResult = (testId: string) => {
+    const result = writingTestResults[testId];
+    if (result) {
+      setSelectedWritingResult(result);
+      setShowWritingResultModal(true);
+    }
+  };
+
+  const isWritingTestScored = (testId: string) => {
+    const result = writingTestResults[testId] !== undefined;
+    return result;
+  };
+
   // const getTestScore = (testId: string) => {
   //   // Find the best (highest scoring) passed attempt for this test
   //   const passedAttempts = testAttempts.filter(attempt => 
@@ -345,6 +449,9 @@ const StudentLearnCoursePage: React.FC = () => {
       
       // Refresh lesson progress for all lessons to update UI
       await refreshAllLessonProgress();
+      
+      // Reload writing test results
+      await loadWritingTestResults();
     } catch (error) {
       console.error('Failed to refresh test results:', error);
       // Fallback to empty set on error
@@ -385,18 +492,62 @@ const StudentLearnCoursePage: React.FC = () => {
         
         // If test is passed, check and update lesson progress
         if (passedTestIds.has(test.testId)) {
-          const existingProgress = await getLessonProgressByUserAndLesson(userInfo.id, lesson.lessonId);
+          console.log(`Test passed for lesson ${lesson.lessonId}, checking lesson progress...`);
           
-          if (existingProgress && existingProgress.completionRate < 100) {
-            // Update lesson progress to 100% if test is passed but progress is not 100%
-            await updateProgress(existingProgress.progressId, 100);
-            console.log(`Updated lesson progress for lesson ${lesson.lessonId} to 100%`);
+          try {
+            const existingProgress = await getLessonProgressByUserAndLesson(userInfo.id, lesson.lessonId);
             
-            // Update local state immediately
-            setLessonProgress(prev => ({
-              ...prev,
-              [lesson.lessonId]: 100
-            }));
+            if (existingProgress) {
+              // Progress exists, update if not already 100%
+              if (existingProgress.completionRate < 100) {
+                console.log(`Updating existing progress ${existingProgress.progressId} to 100%`);
+                await updateProgress(existingProgress.progressId, 100);
+                console.log(`Successfully updated lesson progress for lesson ${lesson.lessonId} to 100%`);
+                
+                // Update local state immediately
+                setLessonProgress(prev => ({
+                  ...prev,
+                  [lesson.lessonId]: 100
+                }));
+              } else {
+                console.log(`Lesson ${lesson.lessonId} already at 100% completion`);
+              }
+            } else {
+              // Progress doesn't exist (404), create new progress with 100%
+              console.log(`No existing progress found for lesson ${lesson.lessonId}, creating new progress...`);
+              const newProgress = await createProgress(lesson.lessonId, courseId);
+              console.log(`Created new progress ${newProgress.progressId}, now updating to 100%...`);
+              
+              // Update the newly created progress to 100%
+              await updateProgress(newProgress.progressId, 100);
+              console.log(`Successfully created and updated lesson progress for lesson ${lesson.lessonId} to 100%`);
+              
+              // Update local state immediately
+              setLessonProgress(prev => ({
+                ...prev,
+                [lesson.lessonId]: 100
+              }));
+            }
+          } catch (progressError: any) {
+            console.error(`Error handling lesson progress for lesson ${lesson.lessonId}:`, progressError);
+            
+            // If getting progress failed for any other reason, try to create new one
+            if (progressError.response?.status !== 404) {
+              try {
+                console.log(`Attempting to create new progress for lesson ${lesson.lessonId} due to error...`);
+                const newProgress = await createProgress(lesson.lessonId, courseId);
+                await updateProgress(newProgress.progressId, 100);
+                console.log(`Successfully created and updated lesson progress for lesson ${lesson.lessonId} to 100% (fallback)`);
+                
+                // Update local state immediately
+                setLessonProgress(prev => ({
+                  ...prev,
+                  [lesson.lessonId]: 100
+                }));
+              } catch (createError) {
+                console.error(`Failed to create lesson progress for lesson ${lesson.lessonId}:`, createError);
+              }
+            }
           }
         }
       }
@@ -777,6 +928,22 @@ const StudentLearnCoursePage: React.FC = () => {
                                       </button>
                                     )}
                                     
+                                    {/* Nút xem chi tiết cho writing test đã được chấm điểm */}
+                                    {(() => {
+                                      const testId = lessonTests[lesson.lessonId]?.testId;
+                                      const isWriting = lessonTests[lesson.lessonId]?.testType === TestType.WrittenManual;
+                                      const isScored = testId ? isWritingTestScored(testId) : false;
+                                      return isWriting && isScored;
+                                    })() && (
+                                      <button
+                                        onClick={() => handleViewWritingResult(lessonTests[lesson.lessonId]!.testId)}
+                                        className="w-full flex items-center justify-center gap-2 p-2 text-sm bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors mt-2"
+                                      >
+                                        <FaEye />
+                                        Xem chi tiết điểm
+                                      </button>
+                                    )}
+                                    
                                     {courseExpired && (
                                       <div className="text-center py-1 bg-yellow-50 border border-yellow-200 rounded-lg mt-2">
                                         <div className="text-yellow-800 text-xs">
@@ -854,6 +1021,112 @@ const StudentLearnCoursePage: React.FC = () => {
           </div>
         </main>
       </div>
+      
+      {/* Writing Test Result Modal */}
+      {showWritingResultModal && selectedWritingResult && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xl font-bold text-gray-800">Kết quả bài viết</h3>
+                <button
+                  onClick={() => {
+                    setShowWritingResultModal(false);
+                    setSelectedWritingResult(null);
+                  }}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6">
+              {/* Test Info */}
+              <div className="bg-purple-50 rounded-lg p-4 mb-6">
+                <h4 className="font-semibold text-purple-800 mb-2">Thông tin bài test</h4>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="text-purple-600">Thời gian nộp:</span>
+                    <span className="ml-2 font-medium">
+                      {new Date(selectedWritingResult.attempt.endTime || selectedWritingResult.attempt.startTime).toLocaleString('vi-VN')}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-purple-600">Trạng thái:</span>
+                    <span className={`ml-2 font-medium ${
+                      selectedWritingResult.attempt.isPass ? 'text-green-600' : 'text-red-600'
+                    }`}>
+                      {selectedWritingResult.attempt.isPass ? 'Đã đạt' : 'Chưa đạt'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Writing Answers and Scores */}
+              <div className="space-y-6">
+                <h4 className="font-semibold text-gray-800">Câu trả lời và điểm số:</h4>
+                {selectedWritingResult.answers.map((answer, index) => (
+                  <div key={answer.answerId} className="border border-gray-200 rounded-lg p-4">
+                    <h5 className="font-medium text-gray-800 mb-3">Câu {index + 1}</h5>
+                    
+                    {/* Student Answer */}
+                    <div className="bg-gray-50 rounded-lg p-4 mb-4">
+                      <h6 className="text-sm font-medium text-gray-700 mb-2">Câu trả lời của bạn:</h6>
+                      <p className="text-gray-700 whitespace-pre-wrap">{answer.writtenAnswer}</p>
+                    </div>
+                    
+                    {/* Score and Feedback */}
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-blue-600 font-medium">Điểm số:</span>
+                        <span className="font-bold text-lg text-blue-800">
+                          {answer.score !== null ? `${answer.score}/100` : 'Chưa chấm'}
+                        </span>
+                      </div>
+                      {answer.graderComment && (
+                        <div>
+                          <span className="text-blue-600 font-medium">Nhận xét từ giảng viên:</span>
+                          <p className="text-blue-700 mt-1">{answer.graderComment}</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Overall Score */}
+              <div className="mt-6 p-4 bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-lg">
+                <div className="text-center">
+                  <h4 className="font-semibold text-gray-800 mb-2">Điểm tổng kết</h4>
+                  <div className="text-3xl font-bold text-purple-600">
+                    {selectedWritingResult.answers.length > 0 && selectedWritingResult.answers.some(a => a.score !== null)
+                      ? `${Math.round(selectedWritingResult.answers.reduce((sum, a) => sum + (a.score || 0), 0) / selectedWritingResult.answers.length)}/100`
+                      : 'Chưa có điểm'
+                    }
+                  </div>
+                  <p className="text-sm text-gray-600 mt-1">
+                    Điểm trung bình của {selectedWritingResult.answers.length} câu
+                  </p>
+                </div>
+              </div>
+
+              {/* Close Button */}
+              <div className="flex justify-center mt-6">
+                <button
+                  onClick={() => {
+                    setShowWritingResultModal(false);
+                    setSelectedWritingResult(null);
+                  }}
+                  className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+                >
+                  Đóng
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
     </>
   );
